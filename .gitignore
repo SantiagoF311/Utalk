@@ -1,0 +1,28 @@
+# dependencies (root + any workspace: apps/*, packages/*)
+node_modules/
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+
+# logs
+*.log
+npm-debug.log*
+
+# build output
+/dist
+/build
+*.tsbuildinfo
