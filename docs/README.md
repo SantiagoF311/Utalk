@@ -11,6 +11,8 @@ alternativas se descartaron y por qué.
 ## Índice
 
 - [monorepo.md](./monorepo.md) — estructura del repositorio, npm workspaces, paquete compartido
+- [modelo-de-datos.md](./modelo-de-datos.md) — tablas de Supabase, relaciones, y los schemas Zod compartidos que las espejan
+- [arquitectura-backend.md](./arquitectura-backend.md) — organización interna de módulos NestJS: hexagonal/Clean Architecture, Entities, comunicación entre módulos
 - [backend-y-colas.md](./backend-y-colas.md) — NestJS, hosting, BullMQ + Redis, notificaciones y moderación
 - [datos-y-trending.md](./datos-y-trending.md) — Supabase/Postgres como fuente de verdad, sistema de trending con Redis
 - [chat-realtime.md](./chat-realtime.md) — chats 1 a 1 con Supabase Realtime y Presence

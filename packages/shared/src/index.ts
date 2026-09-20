@@ -1,1 +1,8 @@
-export const UTALK_SHARED_READY = true;
+export * from './university.ts';
+export * from './profile.ts';
+export * from './panel.ts';
+export * from './forum.ts';
+export * from './post.ts';
+export * from './comment.ts';
+export * from './vote.ts';
+export * from './report.ts';
