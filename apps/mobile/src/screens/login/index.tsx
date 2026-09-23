@@ -143,6 +143,7 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: 'auto',
     gap: Spacing.three,
+    paddingBottom: Spacing.three,
   },
   registerRow: {
     flexDirection: 'row',

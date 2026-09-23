@@ -56,18 +56,6 @@ export function EmailStep({ email, password, onChangeEmail, onChangePassword, on
               ) : undefined
             }
           />
-          {isEmailValid && (
-            <View style={[styles.universityBadge, { backgroundColor: theme.backgroundElement }]}>
-              <SymbolView
-                tintColor={theme.textSecondary}
-                name={{ ios: 'graduationcap.fill', android: 'school' }}
-                size={14}
-              />
-              <ThemedText type="small" themeColor="textSecondary">
-                Universidad del Valle
-              </ThemedText>
-            </View>
-          )}
         </View>
 
         <View style={styles.fieldWithHint}>
@@ -102,7 +90,6 @@ export function EmailStep({ email, password, onChangeEmail, onChangePassword, on
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'space-between',
     gap: Spacing.five,
   },
   headingGroup: {
@@ -118,17 +105,10 @@ const styles = StyleSheet.create({
   fieldWithHint: {
     gap: Spacing.two,
   },
-  universityBadge: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    alignItems: 'center',
-    gap: Spacing.one,
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Spacing.four,
-  },
   footer: {
+    marginTop: 'auto',
     gap: Spacing.three,
+    paddingBottom: Spacing.three,
   },
   loginRow: {
     flexDirection: 'row',

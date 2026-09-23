@@ -108,6 +108,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     gap: Spacing.three,
+    paddingBottom: Spacing.three,
   },
   resendRow: {
     alignItems: 'center',
