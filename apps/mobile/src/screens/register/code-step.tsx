@@ -9,11 +9,13 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-const RESEND_SECONDS = 38;
+const RESEND_SECONDS = 60;
 const CODE_LENGTH = 6;
 
-function formatCountdown(seconds: number) {
-  return `0:${seconds.toString().padStart(2, '0')}`;
+function formatCountdown(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 type CodeStepProps = {
@@ -21,10 +23,22 @@ type CodeStepProps = {
   code: string;
   onChangeCode: (value: string) => void;
   onSubmit: () => void;
+  onResend: () => void;
   onChangeEmailRequested: () => void;
+  submitting: boolean;
+  errorMessage: string | null;
 };
 
-export function CodeStep({ email, code, onChangeCode, onSubmit, onChangeEmailRequested }: CodeStepProps) {
+export function CodeStep({
+  email,
+  code,
+  onChangeCode,
+  onSubmit,
+  onResend,
+  onChangeEmailRequested,
+  submitting,
+  errorMessage,
+}: CodeStepProps) {
   const theme = useTheme();
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
 
@@ -62,6 +76,8 @@ export function CodeStep({ email, code, onChangeCode, onSubmit, onChangeEmailReq
         </View>
       </View>
 
+      {errorMessage && <Callout variant="warning">{errorMessage}</Callout>}
+
       <Callout>
         ¿No llega? Los correos de la U a veces lo mandan a spam o a «Otros». También puedes{' '}
         <ThemedText type="small" themeColor="primary" onPress={onChangeEmailRequested}>
@@ -70,10 +86,18 @@ export function CodeStep({ email, code, onChangeCode, onSubmit, onChangeEmailReq
       </Callout>
 
       <View style={styles.footer}>
-        <Button title="Verificar" disabled={code.length < CODE_LENGTH} onPress={onSubmit} />
+        <Button
+          title="Verificar"
+          disabled={code.length < CODE_LENGTH}
+          loading={submitting}
+          onPress={onSubmit}
+        />
         <Pressable
           disabled={!canResend}
-          onPress={() => setSecondsLeft(RESEND_SECONDS)}
+          onPress={() => {
+            setSecondsLeft(RESEND_SECONDS);
+            onResend();
+          }}
           style={styles.resendRow}
           hitSlop={8}>
           <ThemedText themeColor={canResend ? 'primary' : 'textSecondary'} style={!canResend && styles.disabledText}>

@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { router, Link } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Switch, View } from 'react-native';
@@ -12,13 +12,28 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { supabase } from '@/lib/supabase';
 
 export function LoginScreen() {
   const theme = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [keepSignedIn, setKeepSignedIn] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+
+  const handleLogin = async () => {
+    setSubmitting(true);
+    setLoginError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setSubmitting(false);
+
+    if (error) {
+      setLoginError(error.message);
+      return;
+    }
+    router.back();
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -90,7 +105,7 @@ export function LoginScreen() {
           </View>
 
           <View style={styles.footer}>
-            <Button title="Entrar" onPress={() => setLoginError(null)} />
+            <Button title="Entrar" onPress={handleLogin} loading={submitting} />
             <View style={styles.registerRow}>
               <ThemedText themeColor="textSecondary">¿Primera vez aquí? </ThemedText>
               <Link href="/register">

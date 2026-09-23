@@ -10,6 +10,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useUniversityDomainCheck } from '@/screens/register/use-university-domain-check';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -19,11 +20,22 @@ type EmailStepProps = {
   onChangeEmail: (value: string) => void;
   onChangePassword: (value: string) => void;
   onSubmit: () => void;
+  submitting: boolean;
+  errorMessage: string | null;
 };
 
-export function EmailStep({ email, password, onChangeEmail, onChangePassword, onSubmit }: EmailStepProps) {
+export function EmailStep({
+  email,
+  password,
+  onChangeEmail,
+  onChangePassword,
+  onSubmit,
+  submitting,
+  errorMessage,
+}: EmailStepProps) {
   const theme = useTheme();
   const isEmailValid = EMAIL_REGEX.test(email);
+  const domainCheck = useUniversityDomainCheck(email, isEmailValid);
 
   return (
     <View style={styles.container}>
@@ -47,15 +59,38 @@ export function EmailStep({ email, password, onChangeEmail, onChangePassword, on
             autoCapitalize="none"
             autoCorrect={false}
             trailingIcon={
-              isEmailValid ? (
+              domainCheck.status === 'registered' ? (
                 <SymbolView
                   tintColor={theme.success}
                   name={{ ios: 'checkmark.circle.fill', android: 'check_circle' }}
                   size={20}
                 />
+              ) : domainCheck.status === 'unregistered' ? (
+                <SymbolView
+                  tintColor={theme.warning}
+                  name={{ ios: 'xmark.circle.fill', android: 'cancel' }}
+                  size={20}
+                />
               ) : undefined
             }
           />
+          {domainCheck.status === 'registered' && (
+            <View style={[styles.universityBadge, { backgroundColor: theme.backgroundElement }]}>
+              <SymbolView
+                tintColor={theme.textSecondary}
+                name={{ ios: 'graduationcap.fill', android: 'school' }}
+                size={14}
+              />
+              <ThemedText type="small" themeColor="textSecondary">
+                {domainCheck.universityName}
+              </ThemedText>
+            </View>
+          )}
+          {domainCheck.status === 'unregistered' && (
+            <ThemedText type="small" themeColor="warning">
+              Ese dominio no está entre las universidades registradas todavía.
+            </ThemedText>
+          )}
         </View>
 
         <View style={styles.fieldWithHint}>
@@ -67,6 +102,8 @@ export function EmailStep({ email, password, onChangeEmail, onChangePassword, on
         </View>
       </View>
 
+      {errorMessage && <Callout variant="warning">{errorMessage}</Callout>}
+
       <Callout>
         ¿Tu universidad no aparece? Solo aceptamos dominios que ya tenemos registrados.{' '}
         <ThemedText type="small" themeColor="primary">
@@ -75,7 +112,7 @@ export function EmailStep({ email, password, onChangeEmail, onChangePassword, on
       </Callout>
 
       <View style={styles.footer}>
-        <Button title="Enviarme el código" onPress={onSubmit} />
+        <Button title="Enviarme el código" onPress={onSubmit} loading={submitting} />
         <View style={styles.loginRow}>
           <ThemedText themeColor="textSecondary">¿Ya tienes cuenta? </ThemedText>
           <Link href="/login">
@@ -104,6 +141,15 @@ const styles = StyleSheet.create({
   },
   fieldWithHint: {
     gap: Spacing.two,
+  },
+  universityBadge: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.four,
   },
   footer: {
     marginTop: 'auto',
