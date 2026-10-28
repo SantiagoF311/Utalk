@@ -18,3 +18,9 @@ export const createCommentSchema = commentSchema.pick({
 });
 
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+
+export const updateCommentSchema = commentSchema.pick({
+  body: true,
+});
+
+export type UpdateCommentInput = z.infer<typeof updateCommentSchema>;

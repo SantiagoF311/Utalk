@@ -26,3 +26,6 @@ npm-debug.log*
 /dist
 /build
 *.tsbuildinfo
+
+# supabase cli
+supabase/.temp/
