@@ -1,15 +1,14 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { createProfileSchema } from '@utalk/shared';
+import { Controller, Get, Param } from '@nestjs/common';
 import { ProfilesService } from './profiles.service.js';
 
 @Controller('profiles')
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
-  @Post(':userId')
-  async create(@Param('userId') userId: string, @Body() body: unknown) {
-    const input = createProfileSchema.parse(body);
-    return this.profilesService.create(userId, input);
+  @Get('check-username/:username')
+  async checkUsername(@Param('username') username: string) {
+    const available = await this.profilesService.isUsernameAvailable(username);
+    return { available };
   }
 
   @Get(':id')

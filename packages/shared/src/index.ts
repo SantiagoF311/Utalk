@@ -6,3 +6,4 @@ export * from './post.ts';
 export * from './comment.ts';
 export * from './vote.ts';
 export * from './report.ts';
+export * from './auth.ts';
