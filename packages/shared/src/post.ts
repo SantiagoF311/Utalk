@@ -18,3 +18,15 @@ export const createPostSchema = postSchema.pick({
 });
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;
+
+export const updatePostSchema = postSchema
+  .pick({
+    title: true,
+    body: true,
+  })
+  .partial()
+  .refine((post) => post.title !== undefined || post.body !== undefined, {
+    message: 'At least one of title or body must be set',
+  });
+
+export type UpdatePostInput = z.infer<typeof updatePostSchema>;

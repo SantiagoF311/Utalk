@@ -19,6 +19,38 @@ function toEntity(row: UniversityRow): UniversityEntity {
 export class SupabaseUniversityRepository implements UniversityRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
+  async findAll(): Promise<UniversityEntity[]> {
+    const { data, error } = await this.supabase.client
+      .from('universities')
+      .select()
+      .order('name');
+
+    if (error) throw new Error(error.message);
+    return (data as UniversityRow[]).map(toEntity);
+  }
+
+  async findById(id: string): Promise<UniversityEntity | null> {
+    const { data, error } = await this.supabase.client
+      .from('universities')
+      .select()
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data ? toEntity(data) : null;
+  }
+
+  async findBySlug(slug: string): Promise<UniversityEntity | null> {
+    const { data, error } = await this.supabase.client
+      .from('universities')
+      .select()
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data ? toEntity(data) : null;
+  }
+
   async findByEmailDomain(domain: string): Promise<UniversityEntity | null> {
     const { data, error } = await this.supabase.client
       .from('universities')

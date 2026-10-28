@@ -13,5 +13,6 @@ import { UniversitiesModule } from '../universities/universities.module.js';
     AuthService,
     { provide: AUTH_REPOSITORY, useClass: SupabaseAuthRepository },
   ],
+  exports: [AuthService],
 })
 export class AuthModule {}

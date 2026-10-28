@@ -18,3 +18,9 @@ export const createForumSchema = forumSchema.pick({
 });
 
 export type CreateForumInput = z.infer<typeof createForumSchema>;
+
+export const updateForumSchema = forumSchema.pick({
+  name: true,
+});
+
+export type UpdateForumInput = z.infer<typeof updateForumSchema>;
