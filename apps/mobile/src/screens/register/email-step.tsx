@@ -1,3 +1,4 @@
+import { emailSchema } from '@utalk/shared';
 import { Link } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
@@ -10,14 +11,16 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { UsernameField } from '@/screens/register/username-field';
 import { useUniversityDomainCheck } from '@/screens/register/use-university-domain-check';
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { useUsernameAvailability } from '@/screens/register/use-username-availability';
 
 type EmailStepProps = {
   email: string;
+  username: string;
   password: string;
   onChangeEmail: (value: string) => void;
+  onChangeUsername: (value: string) => void;
   onChangePassword: (value: string) => void;
   onSubmit: () => void;
   submitting: boolean;
@@ -26,16 +29,23 @@ type EmailStepProps = {
 
 export function EmailStep({
   email,
+  username,
   password,
   onChangeEmail,
+  onChangeUsername,
   onChangePassword,
   onSubmit,
   submitting,
   errorMessage,
 }: EmailStepProps) {
   const theme = useTheme();
-  const isEmailValid = EMAIL_REGEX.test(email);
+  const isEmailValid = emailSchema.safeParse(email).success;
   const domainCheck = useUniversityDomainCheck(email, isEmailValid);
+  const usernameAvailability = useUsernameAvailability(username);
+  // Sin un usuario disponible no se manda el código: si el usuario falla
+  // después de verificar, la cuenta queda creada sin perfil.
+  const canSubmit =
+    domainCheck.status === 'registered' && usernameAvailability.status === 'available' && password.length > 0;
 
   return (
     <View style={styles.container}>
@@ -93,6 +103,8 @@ export function EmailStep({
           )}
         </View>
 
+        <UsernameField value={username} onChangeText={onChangeUsername} availability={usernameAvailability} />
+
         <View style={styles.fieldWithHint}>
           <PasswordField value={password} onChangeText={onChangePassword} placeholder="••••••••" />
           <PasswordStrengthMeter password={password} />
@@ -112,7 +124,7 @@ export function EmailStep({
       </Callout>
 
       <View style={styles.footer}>
-        <Button title="Enviarme el código" onPress={onSubmit} loading={submitting} />
+        <Button title="Enviarme el código" disabled={!canSubmit} onPress={onSubmit} loading={submitting} />
         <View style={styles.loginRow}>
           <ThemedText themeColor="textSecondary">¿Ya tienes cuenta? </ThemedText>
           <Link href="/login">

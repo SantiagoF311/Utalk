@@ -5,16 +5,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { CodeStep } from '@/screens/register/code-step';
 import { EmailStep } from '@/screens/register/email-step';
 import { StepHeader } from '@/screens/register/step-header';
+import { getCompleteRegistrationErrorMessage, UsernameStep } from '@/screens/register/username-step';
 
-type RegisterStep = 'email' | 'code';
+type RegisterStep = 'email' | 'code' | 'username';
+
+const STEP_NUMBERS: Record<RegisterStep, number> = { email: 1, code: 2, username: 3 };
 
 export function RegisterScreen() {
   const [step, setStep] = useState<RegisterStep>('email');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -37,13 +42,32 @@ export function RegisterScreen() {
     setSubmitting(true);
     setErrorMessage(null);
     const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' });
-    setSubmitting(false);
 
     if (error) {
+      setSubmitting(false);
       setErrorMessage(error.message);
       return;
     }
-    router.back();
+
+    await completeRegistration();
+  };
+
+  // Usa la sesión que dejó verifyOtp. Si falla, el código ya no sirve para
+  // reintentar, así que se pasa al paso de usuario en vez de quedarse en el
+  // de código.
+  const completeRegistration = async () => {
+    setSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      await api.completeRegistration(username.trim());
+      router.back();
+    } catch (error) {
+      setStep('username');
+      setErrorMessage(getCompleteRegistrationErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleResendCode = async () => {
@@ -54,24 +78,34 @@ export function RegisterScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <StepHeader
-          step={step === 'email' ? 1 : 2}
+          step={STEP_NUMBERS[step]}
           onBack={() => {
             setErrorMessage(null);
-            if (step === 'email') {
-              router.back();
-            } else {
+            if (step === 'code') {
               setStep('email');
+            } else {
+              router.back();
             }
           }}
         />
         <KeyboardAvoidingView
           style={styles.content}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          {step === 'email' ? (
+          {step === 'username' ? (
+            <UsernameStep
+              username={username}
+              onChangeUsername={setUsername}
+              onSubmit={completeRegistration}
+              submitting={submitting}
+              errorMessage={errorMessage}
+            />
+          ) : step === 'email' ? (
             <EmailStep
               email={email}
+              username={username}
               password={password}
               onChangeEmail={setEmail}
+              onChangeUsername={setUsername}
               onChangePassword={setPassword}
               onSubmit={handleEmailSubmit}
               submitting={submitting}

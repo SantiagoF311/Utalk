@@ -29,7 +29,8 @@
     "@supabase/supabase-js": "^2.116.0",
     "@utalk/shared": "*",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",

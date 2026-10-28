@@ -30,4 +30,13 @@ export class ProfilesService {
     }
     return profile;
   }
+
+  async findByUsername(username: string): Promise<ProfileEntity | null> {
+    return this.profileRepository.findByUsername(username);
+  }
+
+  async isUsernameAvailable(username: string): Promise<boolean> {
+    const profile = await this.profileRepository.findByUsername(username);
+    return profile === null;
+  }
 }

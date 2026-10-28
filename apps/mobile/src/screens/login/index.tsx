@@ -12,11 +12,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { api, ApiError } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 
 export function LoginScreen() {
   const theme = useTheme();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -25,14 +26,24 @@ export function LoginScreen() {
   const handleLogin = async () => {
     setSubmitting(true);
     setLoginError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setSubmitting(false);
 
-    if (error) {
-      setLoginError(error.message);
-      return;
+    try {
+      const session = await api.login(identifier.trim(), password);
+      const { error } = await supabase.auth.setSession({
+        access_token: session.accessToken,
+        refresh_token: session.refreshToken,
+      });
+      if (error) throw error;
+      router.back();
+    } catch (error) {
+      setLoginError(
+        error instanceof ApiError && error.status === 401
+          ? 'Usuario o contraseña incorrectos.'
+          : 'No pudimos iniciar sesión. Intenta de nuevo.',
+      );
+    } finally {
+      setSubmitting(false);
     }
-    router.back();
   };
 
   return (
@@ -52,19 +63,19 @@ export function LoginScreen() {
               Qué bueno verte
             </ThemedText>
             <ThemedText themeColor="textSecondary">
-              Entra con el correo de la U con el que te registraste.
+              Entra con tu correo de la U o tu usuario.
             </ThemedText>
           </View>
 
           <View style={styles.fieldsGroup}>
             <TextField
-              label="Correo institucional"
-              value={email}
+              label="Correo o usuario"
+              value={identifier}
               onChangeText={(value) => {
-                setEmail(value);
+                setIdentifier(value);
                 setLoginError(null);
               }}
-              placeholder="juan.perez@correounivalle.edu.co"
+              placeholder="juan.perez@correounivalle.edu.co o juan_perez"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
