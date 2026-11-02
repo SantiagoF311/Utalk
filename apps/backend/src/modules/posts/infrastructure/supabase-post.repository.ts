@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { Author, PostSort, VoteValue } from '@utalk/shared';
 import { z } from 'zod';
+import { AppException } from '../../../common/appException.js';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import { PostEntity } from '../domain/post.entity.js';
 import type {
@@ -88,7 +89,7 @@ function decodeCursor(raw: string, sort: PostSort): Cursor {
   try {
     return cursorSchemas[sort].parse(JSON.parse(Buffer.from(raw, 'base64url').toString()));
   } catch {
-    throw new BadRequestException('Invalid cursor');
+    throw new AppException('INVALID_CURSOR', 'Invalid cursor');
   }
 }
 

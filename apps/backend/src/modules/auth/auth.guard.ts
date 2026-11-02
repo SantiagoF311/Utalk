@@ -4,9 +4,9 @@ import {
   ExecutionContext,
   Injectable,
   SetMetadata,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { AppException } from '../../common/appException.js';
 import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 
@@ -41,12 +41,12 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const [scheme, token] = request.headers.authorization?.split(' ') ?? [];
     if (scheme !== 'Bearer' || !token) {
-      throw new UnauthorizedException();
+      throw new AppException('UNAUTHENTICATED', 'Missing or malformed access token');
     }
 
     const userId = await this.authService.getUserIdByAccessToken(token);
     if (!userId) {
-      throw new UnauthorizedException();
+      throw new AppException('UNAUTHENTICATED', 'Invalid or expired access token');
     }
 
     request.userId = userId;

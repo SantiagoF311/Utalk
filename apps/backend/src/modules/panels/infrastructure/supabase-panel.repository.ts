@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { AppException } from '../../../common/appException.js';
+import { isUniqueViolation } from '../../../common/databaseError.js';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import { PanelEntity } from '../domain/panel.entity.js';
 import type { NewPanel, PanelChanges, PanelRepository } from '../domain/panel.repository.js';
@@ -30,6 +32,14 @@ export class SupabasePanelRepository implements PanelRepository {
       .select()
       .single();
 
+    // Mismo caso que en el service, pero frenado por la base (requests
+    // simultáneos). Hay dos constraints unique: se distingue por nombre.
+    if (error && isUniqueViolation(error, 'panels_university_id_key')) {
+      throw new AppException('UNIVERSITY_ALREADY_HAS_PANEL', `University ${panel.universityId} already has a panel`);
+    }
+    if (error && isUniqueViolation(error, 'panels_slug_key')) {
+      throw new AppException('PANEL_SLUG_TAKEN', `Panel slug "${panel.slug}" is already taken`);
+    }
     if (error) throw new Error(error.message);
     return toEntity(data);
   }

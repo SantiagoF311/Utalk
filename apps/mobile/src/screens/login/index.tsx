@@ -37,7 +37,7 @@ export function LoginScreen() {
       router.back();
     } catch (error) {
       setLoginError(
-        error instanceof ApiError && error.status === 401
+        error instanceof ApiError && error.code === 'INVALID_CREDENTIALS'
           ? 'Usuario o contraseña incorrectos.'
           : 'No pudimos iniciar sesión. Intenta de nuevo.',
       );

@@ -1,5 +1,6 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CreateReportInput } from '@utalk/shared';
+import { AppException } from '../../common/appException.js';
 import { CommentsService } from '../comments/comments.service.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
@@ -34,7 +35,7 @@ export class ReportsService {
   async findById(id: string): Promise<ReportEntity> {
     const report = await this.reportRepository.findById(id);
     if (!report) {
-      throw new NotFoundException(`Report ${id} not found`);
+      throw new AppException('REPORT_NOT_FOUND', `Report ${id} not found`);
     }
     return report;
   }
@@ -55,6 +56,6 @@ export class ReportsService {
       await this.commentsService.findById(input.commentId);
       return { postId: null, commentId: input.commentId };
     }
-    throw new BadRequestException('Exactly one of postId or commentId must be set');
+    throw new AppException('VALIDATION_FAILED', 'Exactly one of postId or commentId must be set');
   }
 }
