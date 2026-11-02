@@ -1,5 +1,6 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CastCommentVoteInput, CastPostVoteInput } from '@utalk/shared';
+import { AppException } from '../../common/appException.js';
 import { CommentsService } from '../comments/comments.service.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
@@ -39,7 +40,7 @@ export class VotesService {
     await this.profilesService.findById(userId);
     const comment = await this.commentsService.findById(input.commentId);
     if (comment.isDeleted()) {
-      throw new BadRequestException(`Comment ${comment.id} was deleted`);
+      throw new AppException('COMMENT_DELETED', `Comment ${comment.id} was deleted`);
     }
 
     return this.commentVoteRepository.upsert({

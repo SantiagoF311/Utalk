@@ -1,11 +1,6 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CreateForumInput, UpdateForumInput } from '@utalk/shared';
+import { AppException } from '../../common/appException.js';
 import { PanelsService } from '../panels/panels.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { ForumEntity } from './domain/forum.entity.js';
@@ -28,12 +23,12 @@ export class ForumsService {
     const profile = await this.profilesService.findById(userId);
     const panel = await this.panelsService.findById(input.panelId);
     if (!panel.acceptsPostsFrom(profile.universityId)) {
-      throw new ForbiddenException(`You cannot create forums in panel ${panel.id}`);
+      throw new AppException('CANNOT_PUBLISH_IN_PANEL', `You cannot create forums in panel ${panel.id}`);
     }
 
     const existing = await this.forumRepository.findByPanelAndSlug(input.panelId, input.slug);
     if (existing) {
-      throw new ConflictException(`Forum slug "${input.slug}" is already taken in this panel`);
+      throw new AppException('FORUM_SLUG_TAKEN', `Forum slug "${input.slug}" is already taken in this panel`);
     }
 
     // El trigger forums_add_creator_as_moderator deja al creador como primer mod.
@@ -52,7 +47,7 @@ export class ForumsService {
   async findById(id: string): Promise<ForumEntity> {
     const forum = await this.forumRepository.findById(id);
     if (!forum) {
-      throw new NotFoundException(`Forum ${id} not found`);
+      throw new AppException('FORUM_NOT_FOUND', `Forum ${id} not found`);
     }
     return forum;
   }
@@ -80,7 +75,7 @@ export class ForumsService {
   private async findModerable(id: string, userId: string): Promise<ForumEntity> {
     const forum = await this.findById(id);
     if (!(await this.canModerate(forum.id, userId))) {
-      throw new ForbiddenException(`You cannot modify forum ${id}`);
+      throw new AppException('NOT_FORUM_MODERATOR', `You cannot modify forum ${id}`);
     }
     return forum;
   }

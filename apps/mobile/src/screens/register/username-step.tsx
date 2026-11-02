@@ -9,7 +9,7 @@ import { UsernameField } from '@/screens/register/username-field';
 import { useUsernameAvailability } from '@/screens/register/use-username-availability';
 
 export function getCompleteRegistrationErrorMessage(error: unknown): string {
-  return error instanceof ApiError && error.status === 409
+  return error instanceof ApiError && error.code === 'USERNAME_TAKEN'
     ? 'Alguien tomó ese usuario mientras te registrabas. Elige otro.'
     : 'No pudimos crear tu perfil. Intenta de nuevo.';
 }

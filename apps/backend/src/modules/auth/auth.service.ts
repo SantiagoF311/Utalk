@@ -1,6 +1,7 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { emailSchema } from '@utalk/shared';
 import type { AuthSession } from '@utalk/shared';
+import { AppException } from '../../common/appException.js';
 import { AUTH_REPOSITORY } from './domain/auth.repository.js';
 import type { AuthRepository } from './domain/auth.repository.js';
 import { ProfileEntity } from '../profiles/domain/profile.entity.js';
@@ -18,7 +19,7 @@ export class AuthService {
   async completeRegistration(userId: string, username: string): Promise<ProfileEntity> {
     const email = await this.authRepository.getEmailByUserId(userId);
     if (!email) {
-      throw new UnauthorizedException();
+      throw new AppException('UNAUTHENTICATED', 'No user for this session');
     }
 
     const university = await this.universitiesService.findByEmail(email);
@@ -43,7 +44,7 @@ export class AuthService {
     // Mismo error si el usuario no existe o si la contraseña está mal, para
     // no revelar qué usuarios existen.
     if (!session) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new AppException('INVALID_CREDENTIALS', 'Invalid credentials');
     }
 
     return session;

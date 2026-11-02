@@ -1,11 +1,6 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-  SetMetadata,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { AppException } from '../../common/appException.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import type { AuthenticatedRequest } from './auth.guard.js';
 
@@ -38,7 +33,7 @@ export class AdminGuard implements CanActivate {
     const { userId } = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const profile = userId ? await this.profilesService.findById(userId) : null;
     if (!profile?.isAdmin()) {
-      throw new ForbiddenException();
+      throw new AppException('ADMIN_ONLY', 'This endpoint is only available to admins');
     }
 
     return true;

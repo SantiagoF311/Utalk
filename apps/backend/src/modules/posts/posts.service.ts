@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   CreatePostInput,
   PostFeedQuery,
@@ -7,6 +7,7 @@ import type {
   UpdatePostInput,
   VoteValue,
 } from '@utalk/shared';
+import { AppException } from '../../common/appException.js';
 import { ForumsService } from '../forums/forums.service.js';
 import { PanelsService } from '../panels/panels.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
@@ -42,7 +43,7 @@ export class PostsService {
     const forum = await this.forumsService.findById(input.forumId);
     const panel = await this.panelsService.findById(forum.panelId);
     if (!panel.acceptsPostsFrom(author.universityId)) {
-      throw new ForbiddenException(`You cannot post in forum ${forum.id}`);
+      throw new AppException('CANNOT_PUBLISH_IN_PANEL', `You cannot post in forum ${forum.id}`);
     }
 
     const post = await this.postRepository.create({
@@ -77,7 +78,7 @@ export class PostsService {
   async findViewById(id: string, viewerId: string): Promise<PostView> {
     const item = await this.postRepository.findWithAuthorById(id);
     if (!item) {
-      throw new NotFoundException(`Post ${id} not found`);
+      throw new AppException('POST_NOT_FOUND', `Post ${id} not found`);
     }
     const myVotes = await this.postRepository.findVotesByUser([id], viewerId);
     return toPostView(item, myVotes.get(id) ?? null);
@@ -88,7 +89,7 @@ export class PostsService {
   async findById(id: string): Promise<PostEntity> {
     const post = await this.postRepository.findById(id);
     if (!post) {
-      throw new NotFoundException(`Post ${id} not found`);
+      throw new AppException('POST_NOT_FOUND', `Post ${id} not found`);
     }
     return post;
   }
@@ -107,7 +108,7 @@ export class PostsService {
   private async findEditable(id: string, userId: string): Promise<PostEntity> {
     const post = await this.findById(id);
     if (!post.isEditableBy(userId)) {
-      throw new ForbiddenException(`You cannot modify post ${id}`);
+      throw new AppException('NOT_POST_AUTHOR', `You cannot modify post ${id}`);
     }
     return post;
   }

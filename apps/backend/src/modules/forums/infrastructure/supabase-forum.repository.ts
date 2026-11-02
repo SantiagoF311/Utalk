@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { AppException } from '../../../common/appException.js';
+import { isUniqueViolation } from '../../../common/databaseError.js';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import { ForumEntity } from '../domain/forum.entity.js';
 import type { ForumChanges, ForumRepository, NewForum } from '../domain/forum.repository.js';
@@ -39,6 +41,11 @@ export class SupabaseForumRepository implements ForumRepository {
       .select()
       .single();
 
+    // Dos creaciones simultáneas pueden pasar el chequeo del service; la
+    // constraint unique(panel_id, slug) frena a la segunda.
+    if (error && isUniqueViolation(error, 'forums_panel_id_slug_key')) {
+      throw new AppException('FORUM_SLUG_TAKEN', `Forum slug "${forum.slug}" is already taken in this panel`);
+    }
     if (error) throw new Error(error.message);
     return toEntity(data);
   }

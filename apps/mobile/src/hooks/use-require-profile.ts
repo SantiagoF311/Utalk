@@ -12,7 +12,7 @@ async function redirectIfProfileMissing() {
   try {
     await api.getMyProfile();
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
+    if (error instanceof ApiError && error.code === 'PROFILE_NOT_FOUND') {
       router.replace('/complete-profile');
       return;
     }

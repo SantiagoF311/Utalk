@@ -1,5 +1,6 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CreatePanelInput, UpdatePanelInput } from '@utalk/shared';
+import { AppException } from '../../common/appException.js';
 import { UniversitiesService } from '../universities/universities.service.js';
 import { PanelEntity } from './domain/panel.entity.js';
 import { PANEL_REPOSITORY } from './domain/panel.repository.js';
@@ -18,13 +19,13 @@ export class PanelsService {
 
       const existingForUniversity = await this.panelRepository.findByUniversityId(input.universityId);
       if (existingForUniversity) {
-        throw new ConflictException(`University ${input.universityId} already has a panel`);
+        throw new AppException('UNIVERSITY_ALREADY_HAS_PANEL', `University ${input.universityId} already has a panel`);
       }
     }
 
     const existingSlug = await this.panelRepository.findBySlug(input.slug);
     if (existingSlug) {
-      throw new ConflictException(`Panel slug "${input.slug}" is already taken`);
+      throw new AppException('PANEL_SLUG_TAKEN', `Panel slug "${input.slug}" is already taken`);
     }
 
     return this.panelRepository.create({
@@ -41,7 +42,7 @@ export class PanelsService {
   async findById(id: string): Promise<PanelEntity> {
     const panel = await this.panelRepository.findById(id);
     if (!panel) {
-      throw new NotFoundException(`Panel ${id} not found`);
+      throw new AppException('PANEL_NOT_FOUND', `Panel ${id} not found`);
     }
     return panel;
   }

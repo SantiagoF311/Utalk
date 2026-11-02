@@ -1,16 +1,11 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   CommentView,
   CreateCommentInput,
   UpdateCommentInput,
   VoteValue,
 } from '@utalk/shared';
+import { AppException } from '../../common/appException.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { CommentEntity } from './domain/comment.entity.js';
@@ -60,10 +55,10 @@ export class CommentsService {
       const parent = await this.findById(input.parentId);
       // La FK de parent_id no garantiza que el padre sea del mismo post.
       if (!parent.belongsToPost(input.postId)) {
-        throw new BadRequestException(`Comment ${input.parentId} does not belong to post ${input.postId}`);
+        throw new AppException('PARENT_COMMENT_MISMATCH', `Comment ${input.parentId} does not belong to post ${input.postId}`);
       }
       if (parent.isDeleted()) {
-        throw new BadRequestException(`Comment ${input.parentId} was deleted`);
+        throw new AppException('COMMENT_DELETED', `Comment ${input.parentId} was deleted`);
       }
     }
 
@@ -112,7 +107,7 @@ export class CommentsService {
   async findViewById(id: string, viewerId: string): Promise<CommentView> {
     const item = await this.commentRepository.findWithAuthorById(id);
     if (!item) {
-      throw new NotFoundException(`Comment ${id} not found`);
+      throw new AppException('COMMENT_NOT_FOUND', `Comment ${id} not found`);
     }
     const myVotes = await this.commentRepository.findVotesByUser([id], viewerId);
     return toCommentView(item, myVotes.get(id) ?? null);
@@ -122,7 +117,7 @@ export class CommentsService {
   async findById(id: string): Promise<CommentEntity> {
     const comment = await this.commentRepository.findById(id);
     if (!comment) {
-      throw new NotFoundException(`Comment ${id} not found`);
+      throw new AppException('COMMENT_NOT_FOUND', `Comment ${id} not found`);
     }
     return comment;
   }
@@ -141,8 +136,13 @@ export class CommentsService {
 
   private async findEditable(id: string, userId: string): Promise<CommentEntity> {
     const comment = await this.findById(id);
+    // Se chequea antes que la autoría para dar el motivo real: un borrado no
+    // se puede tocar ni siquiera por su autor.
+    if (comment.isDeleted()) {
+      throw new AppException('COMMENT_DELETED', `Comment ${id} was deleted`);
+    }
     if (!comment.isEditableBy(userId)) {
-      throw new ForbiddenException(`You cannot modify comment ${id}`);
+      throw new AppException('NOT_COMMENT_AUTHOR', `You cannot modify comment ${id}`);
     }
     return comment;
   }
