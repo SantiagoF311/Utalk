@@ -24,7 +24,9 @@ interface CommentWithAuthorRow extends CommentRow {
   author: Author;
 }
 
-const WITH_AUTHOR = '*, author:profiles(id, username)';
+// Se nombra la FK porque comments y profiles también se relacionan vía
+// comment_votes y reports, y PostgREST no sabría cuál usar.
+const WITH_AUTHOR = '*, author:profiles!comments_author_id_fkey(id, username)';
 
 function toEntity(row: CommentRow): CommentEntity {
   return new CommentEntity(
