@@ -14,7 +14,7 @@ alternativas se descartaron y por qué.
 - [modelo-de-datos.md](./modelo-de-datos.md) — tablas de Supabase, relaciones, y los schemas Zod compartidos que las espejan
 - [arquitectura-backend.md](./arquitectura-backend.md) — organización interna de módulos NestJS: hexagonal/Clean Architecture, Entities, comunicación entre módulos
 - [backend-y-colas.md](./backend-y-colas.md) — NestJS, hosting, BullMQ + Redis, notificaciones y moderación
-- [datos-y-trending.md](./datos-y-trending.md) — Supabase/Postgres como fuente de verdad, sistema de trending con Redis
+- [datos-y-trending.md](./datos-y-trending.md) — Supabase/Postgres como fuente de verdad, trending (`hot`) como columna generada, contadores por trigger
 - [chat-realtime.md](./chat-realtime.md) — chats 1 a 1 con Supabase Realtime y Presence
 - [auth.md](./auth.md) — autenticación anónima, verificación de universidad por dominio de correo
 - [busqueda.md](./busqueda.md) — full-text search y por qué no se usa un motor dedicado
@@ -33,8 +33,8 @@ alternativas se descartaron y por qué.
 | Auth | Supabase Auth | Login sin contraseña vía código al correo institucional |
 | Tiempo real | Supabase Realtime + Presence | Chats, indicadores de lectura y "escribiendo..." |
 | Almacenamiento de archivos | Supabase Storage | Imágenes de posts |
-| Colas de trabajo | BullMQ | Notificaciones, moderación, recálculo de trending |
-| Backing store de colas / cache | Redis (Upstash, serverless) | Almacenamiento de BullMQ y Sorted Sets de trending |
+| Colas de trabajo | BullMQ | Notificaciones, moderación |
+| Backing store de colas / cache | Redis (Upstash, serverless) | Almacenamiento de BullMQ y conteo del rate limiting |
 | Búsqueda | Postgres full-text search + `pg_trgm` | Buscar posts/comentarios |
 | Rate limiting | `@nestjs/throttler` (sobre Redis) | Anti-spam a nivel de API |
 | Observabilidad | Sentry + logs de Fly.io | Detección de errores en producción |
@@ -51,7 +51,7 @@ alternativas se descartaron y por qué.
    internamente desacopla trabajo pesado con colas — no un ecosistema de
    servicios independientes.
 3. **Postgres es siempre la fuente de verdad.** Cualquier dato en Redis
-   (colas, Sorted Sets de trending) es una copia derivada, reconstruible
+   (colas, contadores de rate limiting) es una copia derivada, reconstruible
    desde Postgres en cualquier momento.
 4. **Lo síncrono nunca espera a lo asíncrono.** Una acción del usuario
    (postear, votar, mandar un mensaje) responde en cuanto su parte esencial

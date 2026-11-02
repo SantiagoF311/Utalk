@@ -1,3 +1,4 @@
+import type { Author, PostSort, VoteValue } from '@utalk/shared';
 import { PostEntity } from './post.entity.js';
 
 export interface NewPost {
@@ -12,10 +13,32 @@ export interface PostChanges {
   body?: string;
 }
 
+export interface PostWithAuthor {
+  post: PostEntity;
+  author: Author;
+}
+
+// Exactamente uno de forumId/panelId (lo garantiza postFeedQuerySchema).
+export interface PostPageQuery {
+  forumId?: string;
+  panelId?: string;
+  sort: PostSort;
+  cursor?: string;
+  limit: number;
+}
+
+export interface PostPage {
+  items: PostWithAuthor[];
+  nextCursor: string | null;
+}
+
 export interface PostRepository {
   create(post: NewPost): Promise<PostEntity>;
   findById(id: string): Promise<PostEntity | null>;
-  findByForumId(forumId: string): Promise<PostEntity[]>;
+  findWithAuthorById(id: string): Promise<PostWithAuthor | null>;
+  findPage(query: PostPageQuery): Promise<PostPage>;
+  // Voto del usuario en cada uno de esos posts; los que no votó no aparecen.
+  findVotesByUser(postIds: string[], userId: string): Promise<Map<string, VoteValue>>;
   update(id: string, changes: PostChanges): Promise<PostEntity>;
   delete(id: string): Promise<void>;
 }

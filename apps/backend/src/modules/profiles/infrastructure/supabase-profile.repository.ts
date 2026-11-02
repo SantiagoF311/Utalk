@@ -1,17 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import { ProfileEntity } from '../domain/profile.entity.js';
+import type { ProfileRole } from '../domain/profile.entity.js';
 import type { NewProfile, ProfileRepository } from '../domain/profile.repository.js';
 
 interface ProfileRow {
   id: string;
   username: string;
   university_id: string;
+  role: ProfileRole;
   created_at: string;
 }
 
 function toEntity(row: ProfileRow): ProfileEntity {
-  return new ProfileEntity(row.id, row.username, row.university_id, new Date(row.created_at));
+  return new ProfileEntity(
+    row.id,
+    row.username,
+    row.university_id,
+    row.role,
+    new Date(row.created_at),
+  );
 }
 
 @Injectable()

@@ -14,7 +14,8 @@ notificaciones) se documentan aparte en
 
 ```
 universities ──< panels ──< forums ──< posts ──< comments (anidado, parent_id)
-                                          │           │
+                              │           │           │
+                  forum_moderators (forum_id, user_id) │
      profiles ──< (autor de forums/posts/comments)   │
                                           │           │
                               post_votes ─┘  comment_votes ─┘
@@ -52,7 +53,17 @@ gestiona internamente — ahí vive el email/credenciales, no acá).
 | `id` | uuid, PK | mismo valor que `auth.users.id` |
 | `username` | text, unique | único **globalmente**, no por universidad — apodo fijo tipo Reddit |
 | `university_id` | uuid, FK → `universities.id` | |
+| `role` | text, default `'user'` | `check (role in ('user', 'admin'))` — rol **global** de plataforma |
 | `created_at` | timestamptz | |
+
+**Sobre `role`**: solo distingue usuarios de admins (pueden todo: crear
+paneles, ver/resolver todos los reportes, moderar cualquier foro). Se
+asigna a mano desde Supabase y nunca se acepta desde la API (no está en
+`createProfileSchema`). La moderación con alcance **no** es un rol: ser
+moderador de un foro es tener una fila en `forum_moderators` (ver abajo).
+No se agregó un valor `'moderator'` porque duplicaría ese dato y se
+desincronizaría (alguien con `role = 'moderator'` sin filas, o al revés).
+Solo tendría sentido si apareciera un "moderador global" que no sea admin.
 
 ## `panels`
 
@@ -96,11 +107,44 @@ en el de otra, o en el general — son entidades distintas aunque compartan
 nombre.
 
 **Regla de negocio (no expresable en SQL, vive en el backend)**: un
-usuario solo puede crear un foro en el panel de su propia universidad
-(`profile.university_id === panel.university_id`) o en el panel general
-(`panel.university_id === null`) — no puede crear foros en el panel de
-una universidad ajena. Se valida en el service de Nest que crea foros, no
-en una constraint de base de datos.
+usuario solo puede **crear foros y postear** en el panel de su propia
+universidad (`profile.university_id === panel.university_id`) o en un
+panel sin universidad (`panel.university_id === null`: el general, o uno
+especial a futuro). **Leer, comentar y votar** es libre en cualquier
+panel — ver lo que pasa en otras universidades es parte del producto,
+pero lo que se publica en el panel de una universidad lo publican sus
+estudiantes verificados. Vive en `PanelEntity.acceptsPostsFrom()`, usado
+por los services que crean foros y posts.
+
+**Permisos sobre el foro**: editarlo/borrarlo (y, con el flujo de
+moderación, borrar posts/comentarios ajenos y ver sus reportes) lo puede
+hacer un moderador de ese foro o un admin — no depende de `created_by`,
+que queda como dato histórico.
+
+## `forum_moderators`
+
+Moderadores por foro, tipo mods de un subreddit.
+
+| columna | tipo | notas |
+|---|---|---|
+| `forum_id` | uuid, FK → `forums.id`, on delete cascade | |
+| `user_id` | uuid, FK → `profiles.id`, on delete cascade | |
+| `created_at` | timestamptz | |
+
+Clave primaria compuesta `(forum_id, user_id)`.
+
+**El creador es el primer moderador**: el trigger
+`forums_add_creator_as_moderator` inserta la fila al crear el foro. Se
+hace con trigger y no con dos inserts desde el backend para que sea
+atómico (el cliente de Supabase no maneja transacciones). Que sea una
+fila y no un permiso implícito de `created_by` permite que el creador
+renuncie o pase el foro a otro.
+
+**Por qué por foro y no por panel**: los paneles son fijos (uno por
+universidad + general) y funcionan como "la plataforma"; los foros son
+las comunidades que crean los usuarios, y todo el contenido moderable
+(posts, comentarios) vive dentro de uno. Un foro que se queda sin mods lo
+siguen cubriendo los admins.
 
 ## `posts`
 
@@ -111,11 +155,28 @@ en una constraint de base de datos.
 | `author_id` | uuid, FK → `profiles.id` | |
 | `title` | text | |
 | `body` | text | |
+| `score` | integer, default 0 | suma de `post_votes.value` — mantenido por trigger |
+| `comment_count` | integer, default 0 | cantidad de comentarios (incluye borrados lógicos) — mantenido por trigger |
+| `hot` | double precision, generada | `hot_score(score, created_at)`: fórmula hot de Reddit, la recalcula Postgres al cambiar `score` |
 | `created_at` | timestamptz | |
 
-Ver [datos-y-trending.md](./datos-y-trending.md) para el campo
-`trending_score` (Opción 2) que se agregará a esta tabla cuando se
-implemente el sistema de trending — no incluido en la migración inicial.
+**Contadores desnormalizados (`score`, `comment_count`)**: los mantienen
+triggers sobre `post_votes` y `comments`, en la misma transacción que el
+voto o comentario — no se desincronizan y no hace falta contar en cada
+lectura del feed. La fuente de verdad sigue siendo `post_votes`/`comments`:
+el backfill de la migración `feed_counters_hot_and_soft_delete` sirve para
+recalcularlos desde cero. `score` es también el insumo del trending.
+
+Ver [datos-y-trending.md](./datos-y-trending.md) para la fórmula de
+`hot` y por qué es una columna generada en vez de un job de BullMQ.
+
+**Feed paginado por cursor**: `GET /posts?forumId|panelId&sort=hot|new|top` (default `hot`)
+pagina por cursor (no por número de página), ordenando por
+`(hot, id)`, `(created_at, id)` o `(score, id)` — con un índice compuesto para cada uno.
+Con páginas numeradas, los posts nuevos que entran mientras el usuario
+hace scroll correrían todo y se verían repetidos. En "hot" y "top" el valor puede
+cambiar entre páginas, así que un post puede repetirse o saltarse
+ocasionalmente; se acepta.
 
 ## `comments`
 
@@ -128,7 +189,22 @@ Comentarios anidados vía auto-referencia (`parent_id`).
 | `parent_id` | uuid, FK → `comments.id`, nullable, on delete cascade | `null` = comentario raíz del post |
 | `author_id` | uuid, FK → `profiles.id` | |
 | `body` | text | |
+| `score` | integer, default 0 | suma de `comment_votes.value` — mantenido por trigger |
+| `deleted_at` | timestamptz, nullable | borrado lógico |
 | `created_at` | timestamptz | |
+
+**Borrado lógico**: borrar un comentario solo setea `deleted_at`. Con un
+`delete` real, el `on delete cascade` de `parent_id` se llevaba todas las
+respuestas del hilo. Un comentario borrado conserva su lugar en el árbol,
+la API lo devuelve sin autor ni texto (la app lo muestra como
+"[eliminado]"), y no se puede editar, votar ni responder. El texto queda
+en la base para poder revisar reportes.
+
+**Árbol**: el backend trae todos los comentarios del post en una sola
+consulta (`parent_id` simple, sin closure table ni `WITH RECURSIVE`) y
+arma el árbol en memoria — un post universitario no tiene miles de
+comentarios. Si eso cambiara, el paso siguiente sería paginar los
+comentarios raíz y cargar respuestas profundas a demanda.
 
 ## `post_votes` / `comment_votes`
 
@@ -189,11 +265,11 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | Archivo | Exporta |
 |---|---|
 | `university.ts` | `universitySchema` |
-| `profile.ts` | `profileSchema`, `createProfileSchema` |
+| `profile.ts` | `profileSchema`, `createProfileSchema`, `authorSchema` (solo `id` + `username`, lo que se muestra del autor) |
 | `panel.ts` | `panelSchema` |
 | `forum.ts` | `forumSchema`, `createForumSchema` |
-| `post.ts` | `postSchema`, `createPostSchema` |
-| `comment.ts` | `commentSchema`, `createCommentSchema` |
+| `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author` y `myVote`), `postFeedQuerySchema`, `postPageSchema` |
+| `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`) |
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |
 | `report.ts` | `reportSchema`, `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL) |
 

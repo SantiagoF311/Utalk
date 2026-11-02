@@ -1,7 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import type { Author, PostSort, VoteValue } from '@utalk/shared';
+import { z } from 'zod';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import { PostEntity } from '../domain/post.entity.js';
-import type { NewPost, PostChanges, PostRepository } from '../domain/post.repository.js';
+import type {
+  NewPost,
+  PostChanges,
+  PostPage,
+  PostPageQuery,
+  PostRepository,
+  PostWithAuthor,
+} from '../domain/post.repository.js';
 
 interface PostRow {
   id: string;
@@ -9,8 +18,26 @@ interface PostRow {
   author_id: string;
   title: string;
   body: string;
+  score: number;
+  comment_count: number;
+  hot: number;
   created_at: string;
 }
+
+interface PostWithAuthorRow extends PostRow {
+  author: Author;
+}
+
+// Posición del último post de una página: el valor de la columna de orden
+// más el id como desempate.
+interface Cursor {
+  value: string | number;
+  id: string;
+}
+
+// Se nombra la FK porque posts y profiles también se relacionan vía
+// post_votes y reports, y PostgREST no sabría cuál usar.
+const WITH_AUTHOR = '*, author:profiles!posts_author_id_fkey(id, username)';
 
 function toEntity(row: PostRow): PostEntity {
   return new PostEntity(
@@ -19,8 +46,50 @@ function toEntity(row: PostRow): PostEntity {
     row.author_id,
     row.title,
     row.body,
+    row.score,
+    row.comment_count,
     new Date(row.created_at),
   );
+}
+
+function toPostWithAuthor(row: PostWithAuthorRow): PostWithAuthor {
+  return { post: toEntity(row), author: row.author };
+}
+
+const sortColumn: Record<PostSort, string> = {
+  hot: 'hot',
+  new: 'created_at',
+  top: 'score',
+};
+
+const cursorValue: Record<PostSort, (row: PostRow) => string | number> = {
+  hot: (row) => row.hot,
+  new: (row) => row.created_at,
+  top: (row) => row.score,
+};
+
+// El cursor guarda created_at tal cual viene de Postgres (con microsegundos);
+// pasarlo por Date lo truncaría a milisegundos y la comparación fallaría.
+function encodeCursor(row: PostRow, sort: PostSort): string {
+  const cursor: Cursor = { value: cursorValue[sort](row), id: row.id };
+  return Buffer.from(JSON.stringify(cursor)).toString('base64url');
+}
+
+// El cursor viene del cliente y sus valores terminan dentro de un filtro
+// `.or(...)` de PostgREST: se valida estricto para que no se pueda inyectar
+// otra condición.
+const cursorSchemas = {
+  hot: z.object({ value: z.number(), id: z.uuid() }),
+  new: z.object({ value: z.iso.datetime({ offset: true }), id: z.uuid() }),
+  top: z.object({ value: z.number().int(), id: z.uuid() }),
+} satisfies Record<PostSort, z.ZodType<Cursor>>;
+
+function decodeCursor(raw: string, sort: PostSort): Cursor {
+  try {
+    return cursorSchemas[sort].parse(JSON.parse(Buffer.from(raw, 'base64url').toString()));
+  } catch {
+    throw new BadRequestException('Invalid cursor');
+  }
 }
 
 @Injectable()
@@ -54,15 +123,70 @@ export class SupabasePostRepository implements PostRepository {
     return data ? toEntity(data) : null;
   }
 
-  async findByForumId(forumId: string): Promise<PostEntity[]> {
+  async findWithAuthorById(id: string): Promise<PostWithAuthor | null> {
     const { data, error } = await this.supabase.client
       .from('posts')
-      .select()
-      .eq('forum_id', forumId)
-      .order('created_at', { ascending: false });
+      .select(WITH_AUTHOR)
+      .eq('id', id)
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
-    return (data as PostRow[]).map(toEntity);
+    return data ? toPostWithAuthor(data as PostWithAuthorRow) : null;
+  }
+
+  async findPage(query: PostPageQuery): Promise<PostPage> {
+    // El feed de un panel trae los posts de todos sus foros: inner join con
+    // forums para poder filtrar por forums.panel_id.
+    let request = this.supabase.client
+      .from('posts')
+      .select(query.panelId ? `${WITH_AUTHOR}, forums!inner(panel_id)` : WITH_AUTHOR);
+
+    request = query.panelId
+      ? request.eq('forums.panel_id', query.panelId)
+      : request.eq('forum_id', query.forumId!);
+
+    const column = sortColumn[query.sort];
+
+    if (query.cursor) {
+      const { value, id } = decodeCursor(query.cursor, query.sort);
+      const quoted = typeof value === 'string' ? `"${value}"` : value;
+      request = request.or(`${column}.lt.${quoted},and(${column}.eq.${quoted},id.lt.${id})`);
+    }
+
+    // Se pide uno de más solo para saber si hay página siguiente.
+    const { data, error } = await request
+      .order(column, { ascending: false })
+      .order('id', { ascending: false })
+      .limit(query.limit + 1);
+
+    if (error) throw new Error(error.message);
+
+    // El select se arma dinámico, así que supabase-js no puede inferir el tipo.
+    const rows = data as unknown as PostWithAuthorRow[];
+    const pageRows = rows.slice(0, query.limit);
+    const hasMore = rows.length > query.limit;
+
+    return {
+      items: pageRows.map(toPostWithAuthor),
+      nextCursor: hasMore ? encodeCursor(pageRows[pageRows.length - 1], query.sort) : null,
+    };
+  }
+
+  async findVotesByUser(postIds: string[], userId: string): Promise<Map<string, VoteValue>> {
+    if (postIds.length === 0) {
+      return new Map();
+    }
+
+    const { data, error } = await this.supabase.client
+      .from('post_votes')
+      .select('post_id, value')
+      .eq('user_id', userId)
+      .in('post_id', postIds);
+
+    if (error) throw new Error(error.message);
+    return new Map(
+      (data as { post_id: string; value: VoteValue }[]).map((vote) => [vote.post_id, vote.value]),
+    );
   }
 
   async update(id: string, changes: PostChanges): Promise<PostEntity> {

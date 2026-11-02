@@ -78,7 +78,7 @@ comportamiento idéntico entre ambos entornos.
 | `notify-subscribers` | Se crea un post en un panel | Busca suscriptores del panel, genera notificaciones (inserta en tabla `notifications`, que Supabase Realtime empuja a los clientes conectados) |
 | `notify-new-message` | Se envía un mensaje de chat | Si el destinatario no tiene sesión Realtime activa, dispara una push notification vía Expo Push Notifications |
 | `moderate-content` | Se crea un post (o mensaje, según alcance final) | Llama al servicio de moderación por IA; si el contenido viola reglas, oculta/elimina el post retroactivamente (ver "Publicación optimista" abajo) |
-| `recalculate-score` / recálculo periódico | Un voto o comentario nuevo, o un cron periódico | Recalcula el score de trending del post — ver [datos-y-trending.md](./datos-y-trending.md) |
+| ~~`recalculate-score`~~ | — | **Descartada**: el trending (`hot`) es una columna generada de Postgres con la fórmula de Reddit, sin cola ni cron — ver [datos-y-trending.md](./datos-y-trending.md) |
 
 ### Por qué el trabajo secundario nunca bloquea la respuesta al usuario
 
