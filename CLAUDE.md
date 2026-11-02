@@ -15,7 +15,7 @@ concreta, documentada en [docs/decisiones-descartadas.md](docs/decisiones-descar
 
 Resumen rápido: monorepo npm workspaces · NestJS en Fly.io · Supabase
 (Postgres + Auth + Realtime + Storage) · BullMQ + Redis (Upstash) para
-trabajos async (notificaciones, moderación, trending) · Postgres full-text
+trabajos async (notificaciones, moderación) · Postgres full-text
 search + `pg_trgm` para búsqueda · Sentry + logs de Fly.io para
 observabilidad.
 
@@ -63,7 +63,7 @@ del puerto (`interface`), nunca de la implementación concreta. Cuando un
 módulo necesita un dato de otro dentro del mismo request, se inyecta
 directo (patrón estándar de Nest) — no eventos genéricos, no colas (las
 colas de BullMQ son solo para lo ya definido como async: notificaciones,
-moderación, trending).
+moderación).
 
 Detalle completo, con ejemplo de código de punta a punta, en
 [docs/arquitectura-backend.md](docs/arquitectura-backend.md) — leer antes

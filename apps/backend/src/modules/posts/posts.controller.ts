@@ -10,7 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { createPostSchema, updatePostSchema } from '@utalk/shared';
+import { createPostSchema, postFeedQuerySchema, updatePostSchema } from '@utalk/shared';
 import { CurrentUserId } from '../auth/auth.guard.js';
 import { PostsService } from './posts.service.js';
 
@@ -24,14 +24,16 @@ export class PostsController {
     return this.postsService.create(input, userId);
   }
 
+  // GET /posts?forumId=…|panelId=…&sort=hot|new|top&cursor=…&limit=…
   @Get()
-  async findByForumId(@Query('forumId', ParseUUIDPipe) forumId: string) {
-    return this.postsService.findByForumId(forumId);
+  async findFeed(@Query() rawQuery: unknown, @CurrentUserId() userId: string) {
+    const query = postFeedQuerySchema.parse(rawQuery);
+    return this.postsService.findFeed(query, userId);
   }
 
   @Get(':id')
-  async findById(@Param('id') id: string) {
-    return this.postsService.findById(id);
+  async findById(@Param('id', ParseUUIDPipe) id: string, @CurrentUserId() userId: string) {
+    return this.postsService.findViewById(id, userId);
   }
 
   @Patch(':id')

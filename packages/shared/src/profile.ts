@@ -18,3 +18,12 @@ export const createProfileSchema = profileSchema.pick({
 });
 
 export type CreateProfileInput = z.infer<typeof createProfileSchema>;
+
+// Lo que se muestra del autor de un post o comentario: solo el apodo, nunca
+// la universidad ni nada que ayude a identificarlo.
+export const authorSchema = profileSchema.pick({
+  id: true,
+  username: true,
+});
+
+export type Author = z.infer<typeof authorSchema>;

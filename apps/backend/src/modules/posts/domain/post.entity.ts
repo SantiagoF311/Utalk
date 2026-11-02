@@ -5,6 +5,8 @@ export class PostEntity {
     readonly authorId: string,
     readonly title: string,
     readonly body: string,
+    readonly score: number,
+    readonly commentCount: number,
     readonly createdAt: Date,
   ) {}
 

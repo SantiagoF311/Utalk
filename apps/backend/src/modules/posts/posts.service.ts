@@ -1,11 +1,32 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { CreatePostInput, UpdatePostInput } from '@utalk/shared';
+import type {
+  CreatePostInput,
+  PostFeedQuery,
+  PostPage,
+  PostView,
+  UpdatePostInput,
+  VoteValue,
+} from '@utalk/shared';
 import { ForumsService } from '../forums/forums.service.js';
 import { PanelsService } from '../panels/panels.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { PostEntity } from './domain/post.entity.js';
 import { POST_REPOSITORY } from './domain/post.repository.js';
-import type { PostRepository } from './domain/post.repository.js';
+import type { PostRepository, PostWithAuthor } from './domain/post.repository.js';
+
+function toPostView({ post, author }: PostWithAuthor, myVote: VoteValue | null): PostView {
+  return {
+    id: post.id,
+    forumId: post.forumId,
+    title: post.title,
+    body: post.body,
+    score: post.score,
+    commentCount: post.commentCount,
+    createdAt: post.createdAt.toISOString(),
+    author,
+    myVote,
+  };
+}
 
 @Injectable()
 export class PostsService {
@@ -16,7 +37,7 @@ export class PostsService {
     private readonly profilesService: ProfilesService,
   ) {}
 
-  async create(input: CreatePostInput, authorId: string): Promise<PostEntity> {
+  async create(input: CreatePostInput, authorId: string): Promise<PostView> {
     const author = await this.profilesService.findById(authorId);
     const forum = await this.forumsService.findById(input.forumId);
     const panel = await this.panelsService.findById(forum.panelId);
@@ -24,18 +45,46 @@ export class PostsService {
       throw new ForbiddenException(`You cannot post in forum ${forum.id}`);
     }
 
-    return this.postRepository.create({
+    const post = await this.postRepository.create({
       forumId: input.forumId,
       authorId,
       title: input.title,
       body: input.body,
     });
+    return toPostView({ post, author: { id: author.id, username: author.username } }, null);
   }
 
-  async findByForumId(forumId: string): Promise<PostEntity[]> {
-    return this.postRepository.findByForumId(forumId);
+  async findFeed(query: PostFeedQuery, viewerId: string): Promise<PostPage> {
+    // 404 explícito si el foro/panel no existe, en vez de una página vacía.
+    if (query.forumId) {
+      await this.forumsService.findById(query.forumId);
+    } else if (query.panelId) {
+      await this.panelsService.findById(query.panelId);
+    }
+
+    const page = await this.postRepository.findPage(query);
+    const myVotes = await this.postRepository.findVotesByUser(
+      page.items.map((item) => item.post.id),
+      viewerId,
+    );
+
+    return {
+      items: page.items.map((item) => toPostView(item, myVotes.get(item.post.id) ?? null)),
+      nextCursor: page.nextCursor,
+    };
   }
 
+  async findViewById(id: string, viewerId: string): Promise<PostView> {
+    const item = await this.postRepository.findWithAuthorById(id);
+    if (!item) {
+      throw new NotFoundException(`Post ${id} not found`);
+    }
+    const myVotes = await this.postRepository.findVotesByUser([id], viewerId);
+    return toPostView(item, myVotes.get(id) ?? null);
+  }
+
+  // Para otros módulos (comentarios, votos, reportes) que solo necesitan
+  // saber que el post existe o leer sus datos crudos.
   async findById(id: string): Promise<PostEntity> {
     const post = await this.postRepository.findById(id);
     if (!post) {
@@ -44,9 +93,10 @@ export class PostsService {
     return post;
   }
 
-  async update(id: string, input: UpdatePostInput, userId: string): Promise<PostEntity> {
+  async update(id: string, input: UpdatePostInput, userId: string): Promise<PostView> {
     await this.findEditable(id, userId);
-    return this.postRepository.update(id, { title: input.title, body: input.body });
+    await this.postRepository.update(id, { title: input.title, body: input.body });
+    return this.findViewById(id, userId);
   }
 
   async delete(id: string, userId: string): Promise<void> {

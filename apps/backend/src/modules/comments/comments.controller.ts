@@ -24,14 +24,18 @@ export class CommentsController {
     return this.commentsService.create(input, userId);
   }
 
+  // Árbol completo de comentarios del post, con respuestas anidadas.
   @Get()
-  async findByPostId(@Query('postId', ParseUUIDPipe) postId: string) {
-    return this.commentsService.findByPostId(postId);
+  async findTreeByPostId(
+    @Query('postId', ParseUUIDPipe) postId: string,
+    @CurrentUserId() userId: string,
+  ) {
+    return this.commentsService.findTreeByPostId(postId, userId);
   }
 
   @Get(':id')
-  async findById(@Param('id') id: string) {
-    return this.commentsService.findById(id);
+  async findById(@Param('id', ParseUUIDPipe) id: string, @CurrentUserId() userId: string) {
+    return this.commentsService.findViewById(id, userId);
   }
 
   @Patch(':id')

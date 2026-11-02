@@ -155,11 +155,28 @@ siguen cubriendo los admins.
 | `author_id` | uuid, FK → `profiles.id` | |
 | `title` | text | |
 | `body` | text | |
+| `score` | integer, default 0 | suma de `post_votes.value` — mantenido por trigger |
+| `comment_count` | integer, default 0 | cantidad de comentarios (incluye borrados lógicos) — mantenido por trigger |
+| `hot` | double precision, generada | `hot_score(score, created_at)`: fórmula hot de Reddit, la recalcula Postgres al cambiar `score` |
 | `created_at` | timestamptz | |
 
-Ver [datos-y-trending.md](./datos-y-trending.md) para el campo
-`trending_score` (Opción 2) que se agregará a esta tabla cuando se
-implemente el sistema de trending — no incluido en la migración inicial.
+**Contadores desnormalizados (`score`, `comment_count`)**: los mantienen
+triggers sobre `post_votes` y `comments`, en la misma transacción que el
+voto o comentario — no se desincronizan y no hace falta contar en cada
+lectura del feed. La fuente de verdad sigue siendo `post_votes`/`comments`:
+el backfill de la migración `feed_counters_hot_and_soft_delete` sirve para
+recalcularlos desde cero. `score` es también el insumo del trending.
+
+Ver [datos-y-trending.md](./datos-y-trending.md) para la fórmula de
+`hot` y por qué es una columna generada en vez de un job de BullMQ.
+
+**Feed paginado por cursor**: `GET /posts?forumId|panelId&sort=hot|new|top` (default `hot`)
+pagina por cursor (no por número de página), ordenando por
+`(hot, id)`, `(created_at, id)` o `(score, id)` — con un índice compuesto para cada uno.
+Con páginas numeradas, los posts nuevos que entran mientras el usuario
+hace scroll correrían todo y se verían repetidos. En "hot" y "top" el valor puede
+cambiar entre páginas, así que un post puede repetirse o saltarse
+ocasionalmente; se acepta.
 
 ## `comments`
 
@@ -172,7 +189,22 @@ Comentarios anidados vía auto-referencia (`parent_id`).
 | `parent_id` | uuid, FK → `comments.id`, nullable, on delete cascade | `null` = comentario raíz del post |
 | `author_id` | uuid, FK → `profiles.id` | |
 | `body` | text | |
+| `score` | integer, default 0 | suma de `comment_votes.value` — mantenido por trigger |
+| `deleted_at` | timestamptz, nullable | borrado lógico |
 | `created_at` | timestamptz | |
+
+**Borrado lógico**: borrar un comentario solo setea `deleted_at`. Con un
+`delete` real, el `on delete cascade` de `parent_id` se llevaba todas las
+respuestas del hilo. Un comentario borrado conserva su lugar en el árbol,
+la API lo devuelve sin autor ni texto (la app lo muestra como
+"[eliminado]"), y no se puede editar, votar ni responder. El texto queda
+en la base para poder revisar reportes.
+
+**Árbol**: el backend trae todos los comentarios del post en una sola
+consulta (`parent_id` simple, sin closure table ni `WITH RECURSIVE`) y
+arma el árbol en memoria — un post universitario no tiene miles de
+comentarios. Si eso cambiara, el paso siguiente sería paginar los
+comentarios raíz y cargar respuestas profundas a demanda.
 
 ## `post_votes` / `comment_votes`
 
@@ -233,11 +265,11 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | Archivo | Exporta |
 |---|---|
 | `university.ts` | `universitySchema` |
-| `profile.ts` | `profileSchema`, `createProfileSchema` |
+| `profile.ts` | `profileSchema`, `createProfileSchema`, `authorSchema` (solo `id` + `username`, lo que se muestra del autor) |
 | `panel.ts` | `panelSchema` |
 | `forum.ts` | `forumSchema`, `createForumSchema` |
-| `post.ts` | `postSchema`, `createPostSchema` |
-| `comment.ts` | `commentSchema`, `createCommentSchema` |
+| `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author` y `myVote`), `postFeedQuerySchema`, `postPageSchema` |
+| `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`) |
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |
 | `report.ts` | `reportSchema`, `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL) |
 

@@ -5,12 +5,44 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateCommentInput, UpdateCommentInput } from '@utalk/shared';
+import type {
+  CommentView,
+  CreateCommentInput,
+  UpdateCommentInput,
+  VoteValue,
+} from '@utalk/shared';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { CommentEntity } from './domain/comment.entity.js';
 import { COMMENT_REPOSITORY } from './domain/comment.repository.js';
-import type { CommentRepository } from './domain/comment.repository.js';
+import type { CommentRepository, CommentWithAuthor } from './domain/comment.repository.js';
+
+// Un comentario borrado se devuelve sin autor ni texto: la app lo muestra
+// como "[eliminado]" y conserva sus respuestas.
+function toCommentView(
+  { comment, author }: CommentWithAuthor,
+  myVote: VoteValue | null,
+): CommentView {
+  const isDeleted = comment.isDeleted();
+  return {
+    id: comment.id,
+    postId: comment.postId,
+    parentId: comment.parentId,
+    author: isDeleted ? null : author,
+    body: isDeleted ? null : comment.body,
+    isDeleted,
+    score: comment.score,
+    myVote,
+    createdAt: comment.createdAt.toISOString(),
+    replies: [],
+  };
+}
+
+// Más votados primero; a igual score, el más antiguo primero (como el
+// "mejores" de Reddit, simplificado).
+function compareComments(a: CommentView, b: CommentView): number {
+  return b.score - a.score || a.createdAt.localeCompare(b.createdAt);
+}
 
 @Injectable()
 export class CommentsService {
@@ -20,8 +52,8 @@ export class CommentsService {
     private readonly profilesService: ProfilesService,
   ) {}
 
-  async create(input: CreateCommentInput, authorId: string): Promise<CommentEntity> {
-    await this.profilesService.findById(authorId);
+  async create(input: CreateCommentInput, authorId: string): Promise<CommentView> {
+    const author = await this.profilesService.findById(authorId);
     await this.postsService.findById(input.postId);
 
     if (input.parentId !== null) {
@@ -30,22 +62,63 @@ export class CommentsService {
       if (!parent.belongsToPost(input.postId)) {
         throw new BadRequestException(`Comment ${input.parentId} does not belong to post ${input.postId}`);
       }
+      if (parent.isDeleted()) {
+        throw new BadRequestException(`Comment ${input.parentId} was deleted`);
+      }
     }
 
-    return this.commentRepository.create({
+    const comment = await this.commentRepository.create({
       postId: input.postId,
       parentId: input.parentId,
       authorId,
       body: input.body,
     });
+    return toCommentView({ comment, author: { id: author.id, username: author.username } }, null);
   }
 
-  // Devuelve la lista plana ordenada por fecha; el árbol se arma a partir
-  // de `parentId` del lado del cliente.
-  async findByPostId(postId: string): Promise<CommentEntity[]> {
-    return this.commentRepository.findByPostId(postId);
+  // Todos los comentarios del post como árbol: cada uno trae sus respuestas
+  // en `replies`. Se trae la lista plana en una sola consulta y se arma en
+  // memoria (un post universitario no tiene miles de comentarios).
+  async findTreeByPostId(postId: string, viewerId: string): Promise<CommentView[]> {
+    await this.postsService.findById(postId);
+
+    const items = await this.commentRepository.findWithAuthorByPostId(postId);
+    const myVotes = await this.commentRepository.findVotesByUser(
+      items.map((item) => item.comment.id),
+      viewerId,
+    );
+
+    const views = new Map<string, CommentView>();
+    for (const item of items) {
+      views.set(item.comment.id, toCommentView(item, myVotes.get(item.comment.id) ?? null));
+    }
+
+    const roots: CommentView[] = [];
+    for (const view of views.values()) {
+      const parent = view.parentId ? views.get(view.parentId) : undefined;
+      if (parent) {
+        parent.replies.push(view);
+      } else {
+        roots.push(view);
+      }
+    }
+
+    for (const view of views.values()) {
+      view.replies.sort(compareComments);
+    }
+    return roots.sort(compareComments);
   }
 
+  async findViewById(id: string, viewerId: string): Promise<CommentView> {
+    const item = await this.commentRepository.findWithAuthorById(id);
+    if (!item) {
+      throw new NotFoundException(`Comment ${id} not found`);
+    }
+    const myVotes = await this.commentRepository.findVotesByUser([id], viewerId);
+    return toCommentView(item, myVotes.get(id) ?? null);
+  }
+
+  // Para otros módulos (votos, reportes) que solo necesitan el comentario crudo.
   async findById(id: string): Promise<CommentEntity> {
     const comment = await this.commentRepository.findById(id);
     if (!comment) {
@@ -54,15 +127,16 @@ export class CommentsService {
     return comment;
   }
 
-  async update(id: string, input: UpdateCommentInput, userId: string): Promise<CommentEntity> {
+  async update(id: string, input: UpdateCommentInput, userId: string): Promise<CommentView> {
     await this.findEditable(id, userId);
-    return this.commentRepository.update(id, { body: input.body });
+    await this.commentRepository.update(id, { body: input.body });
+    return this.findViewById(id, userId);
   }
 
-  // Borra también las respuestas (on delete cascade sobre parent_id).
+  // Borrado lógico: las respuestas se conservan.
   async delete(id: string, userId: string): Promise<void> {
     await this.findEditable(id, userId);
-    await this.commentRepository.delete(id);
+    await this.commentRepository.softDelete(id);
   }
 
   private async findEditable(id: string, userId: string): Promise<CommentEntity> {
