@@ -14,7 +14,8 @@ notificaciones) se documentan aparte en
 
 ```
 universities ──< panels ──< forums ──< posts ──< comments (anidado, parent_id)
-                                          │           │
+                              │           │           │
+                  forum_moderators (forum_id, user_id) │
      profiles ──< (autor de forums/posts/comments)   │
                                           │           │
                               post_votes ─┘  comment_votes ─┘
@@ -52,7 +53,17 @@ gestiona internamente — ahí vive el email/credenciales, no acá).
 | `id` | uuid, PK | mismo valor que `auth.users.id` |
 | `username` | text, unique | único **globalmente**, no por universidad — apodo fijo tipo Reddit |
 | `university_id` | uuid, FK → `universities.id` | |
+| `role` | text, default `'user'` | `check (role in ('user', 'admin'))` — rol **global** de plataforma |
 | `created_at` | timestamptz | |
+
+**Sobre `role`**: solo distingue usuarios de admins (pueden todo: crear
+paneles, ver/resolver todos los reportes, moderar cualquier foro). Se
+asigna a mano desde Supabase y nunca se acepta desde la API (no está en
+`createProfileSchema`). La moderación con alcance **no** es un rol: ser
+moderador de un foro es tener una fila en `forum_moderators` (ver abajo).
+No se agregó un valor `'moderator'` porque duplicaría ese dato y se
+desincronizaría (alguien con `role = 'moderator'` sin filas, o al revés).
+Solo tendría sentido si apareciera un "moderador global" que no sea admin.
 
 ## `panels`
 
@@ -96,11 +107,44 @@ en el de otra, o en el general — son entidades distintas aunque compartan
 nombre.
 
 **Regla de negocio (no expresable en SQL, vive en el backend)**: un
-usuario solo puede crear un foro en el panel de su propia universidad
-(`profile.university_id === panel.university_id`) o en el panel general
-(`panel.university_id === null`) — no puede crear foros en el panel de
-una universidad ajena. Se valida en el service de Nest que crea foros, no
-en una constraint de base de datos.
+usuario solo puede **crear foros y postear** en el panel de su propia
+universidad (`profile.university_id === panel.university_id`) o en un
+panel sin universidad (`panel.university_id === null`: el general, o uno
+especial a futuro). **Leer, comentar y votar** es libre en cualquier
+panel — ver lo que pasa en otras universidades es parte del producto,
+pero lo que se publica en el panel de una universidad lo publican sus
+estudiantes verificados. Vive en `PanelEntity.acceptsPostsFrom()`, usado
+por los services que crean foros y posts.
+
+**Permisos sobre el foro**: editarlo/borrarlo (y, con el flujo de
+moderación, borrar posts/comentarios ajenos y ver sus reportes) lo puede
+hacer un moderador de ese foro o un admin — no depende de `created_by`,
+que queda como dato histórico.
+
+## `forum_moderators`
+
+Moderadores por foro, tipo mods de un subreddit.
+
+| columna | tipo | notas |
+|---|---|---|
+| `forum_id` | uuid, FK → `forums.id`, on delete cascade | |
+| `user_id` | uuid, FK → `profiles.id`, on delete cascade | |
+| `created_at` | timestamptz | |
+
+Clave primaria compuesta `(forum_id, user_id)`.
+
+**El creador es el primer moderador**: el trigger
+`forums_add_creator_as_moderator` inserta la fila al crear el foro. Se
+hace con trigger y no con dos inserts desde el backend para que sea
+atómico (el cliente de Supabase no maneja transacciones). Que sea una
+fila y no un permiso implícito de `created_by` permite que el creador
+renuncie o pase el foro a otro.
+
+**Por qué por foro y no por panel**: los paneles son fijos (uno por
+universidad + general) y funcionan como "la plataforma"; los foros son
+las comunidades que crean los usuarios, y todo el contenido moderable
+(posts, comentarios) vive dentro de uno. Un foro que se queda sin mods lo
+siguen cubriendo los admins.
 
 ## `posts`
 

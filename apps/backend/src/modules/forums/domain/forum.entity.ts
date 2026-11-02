@@ -1,4 +1,6 @@
 export class ForumEntity {
+  // `createdBy` es solo histórico: los permisos sobre el foro dependen de
+  // forum_moderators, no de quién lo creó.
   constructor(
     readonly id: string,
     readonly panelId: string,
@@ -7,8 +9,4 @@ export class ForumEntity {
     readonly createdBy: string,
     readonly createdAt: Date,
   ) {}
-
-  isEditableBy(userId: string): boolean {
-    return this.createdBy === userId;
-  }
 }

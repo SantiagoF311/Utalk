@@ -18,4 +18,11 @@ export class PanelEntity {
   belongsToUniversity(universityId: string): boolean {
     return this.universityId === universityId;
   }
+
+  // Crear foros y postear: solo en el panel de tu universidad o en uno sin
+  // universidad (el general, o uno especial futuro). Leer, comentar y votar
+  // es libre en cualquier panel.
+  acceptsPostsFrom(universityId: string): boolean {
+    return this.universityId === null || this.belongsToUniversity(universityId);
+  }
 }

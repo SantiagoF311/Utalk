@@ -1,9 +1,12 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { createReportSchema } from '@utalk/shared';
+import { AdminOnly } from '../auth/admin.guard.js';
 import { CurrentUserId } from '../auth/auth.guard.js';
 import { ReportsService } from './reports.service.js';
 
 // Los reportes son inmutables: no hay PATCH. DELETE = descartar/resolver.
+// Cualquiera reporta; solo admins los ven y resuelven (los mods de foro
+// tendrán su propia vista filtrada por foro).
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
@@ -14,16 +17,19 @@ export class ReportsController {
     return this.reportsService.create(input, userId);
   }
 
+  @AdminOnly()
   @Get()
   async findAll() {
     return this.reportsService.findAll();
   }
 
+  @AdminOnly()
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.reportsService.findById(id);
   }
 
+  @AdminOnly()
   @Delete(':id')
   @HttpCode(204)
   async delete(@Param('id') id: string) {

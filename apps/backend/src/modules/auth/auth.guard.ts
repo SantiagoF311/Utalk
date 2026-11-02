@@ -10,7 +10,7 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 
-type AuthenticatedRequest = Request & { userId?: string };
+export type AuthenticatedRequest = Request & { userId?: string };
 
 const IS_PUBLIC_KEY = 'isPublic';
 

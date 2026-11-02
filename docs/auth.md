@@ -18,5 +18,8 @@ dominio del correo institucional (ej. `@unal.edu.co` → Universidad
 Nacional). No hace falta una tabla de verificación separada ni un proceso
 de aprobación manual — el dominio ya es la señal de verificación.
 
-Esto determina a qué panel de universidad tiene acceso el usuario, además
-del panel general al que todos los usuarios verificados tienen acceso.
+Esto determina en qué panel de universidad puede **publicar** el usuario
+(crear foros y posts), además del panel general donde publican todos los
+usuarios verificados. No restringe lo que puede **ver**: cualquier
+usuario lee, comenta y vota en los paneles de todas las universidades.
+Ver la regla completa en [modelo-de-datos.md](./modelo-de-datos.md#forums).

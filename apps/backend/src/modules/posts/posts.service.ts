@@ -1,6 +1,7 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreatePostInput, UpdatePostInput } from '@utalk/shared';
 import { ForumsService } from '../forums/forums.service.js';
+import { PanelsService } from '../panels/panels.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { PostEntity } from './domain/post.entity.js';
 import { POST_REPOSITORY } from './domain/post.repository.js';
@@ -11,12 +12,17 @@ export class PostsService {
   constructor(
     @Inject(POST_REPOSITORY) private readonly postRepository: PostRepository,
     private readonly forumsService: ForumsService,
+    private readonly panelsService: PanelsService,
     private readonly profilesService: ProfilesService,
   ) {}
 
   async create(input: CreatePostInput, authorId: string): Promise<PostEntity> {
-    await this.profilesService.findById(authorId);
-    await this.forumsService.findById(input.forumId);
+    const author = await this.profilesService.findById(authorId);
+    const forum = await this.forumsService.findById(input.forumId);
+    const panel = await this.panelsService.findById(forum.panelId);
+    if (!panel.acceptsPostsFrom(author.universityId)) {
+      throw new ForbiddenException(`You cannot post in forum ${forum.id}`);
+    }
 
     return this.postRepository.create({
       forumId: input.forumId,
