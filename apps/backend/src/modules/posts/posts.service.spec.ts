@@ -1,0 +1,189 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { AppException } from '../../common/appException.js';
+import {
+  IDS,
+  makeAuthor,
+  makeForum,
+  makeGeneralPanel,
+  makePanel,
+  makePost,
+  makeProfile,
+} from '../../testing/fixtures.js';
+import type { ForumsService } from '../forums/forums.service.js';
+import type { PanelsService } from '../panels/panels.service.js';
+import type { ProfilesService } from '../profiles/profiles.service.js';
+import type { PostRepository } from './domain/post.repository.js';
+import { PostsService } from './posts.service.js';
+
+const notFound = (code: 'PROFILE_NOT_FOUND' | 'FORUM_NOT_FOUND' | 'PANEL_NOT_FOUND') =>
+  new AppException(code, 'not found');
+
+describe('PostsService', () => {
+  let repository: jest.Mocked<PostRepository>;
+  let profiles: { findById: jest.Mock<ProfilesService['findById']> };
+  let forums: { findById: jest.Mock<ForumsService['findById']> };
+  let panels: { findById: jest.Mock<PanelsService['findById']> };
+  let service: PostsService;
+
+  beforeEach(() => {
+    const post = makePost();
+    repository = {
+      create: jest.fn<PostRepository['create']>().mockResolvedValue({ post, author: makeAuthor() }),
+      findById: jest.fn<PostRepository['findById']>().mockResolvedValue(post),
+      findWithAuthorById: jest
+        .fn<PostRepository['findWithAuthorById']>()
+        .mockResolvedValue({ post, author: makeAuthor() }),
+      findPage: jest.fn<PostRepository['findPage']>(),
+      findVotesByUser: jest.fn<PostRepository['findVotesByUser']>().mockResolvedValue(new Map()),
+      update: jest.fn<PostRepository['update']>().mockResolvedValue(post),
+      delete: jest.fn<PostRepository['delete']>().mockResolvedValue(undefined),
+    };
+    profiles = {
+      findById: jest.fn<ProfilesService['findById']>().mockResolvedValue(makeProfile()),
+    };
+    forums = { findById: jest.fn<ForumsService['findById']>().mockResolvedValue(makeForum()) };
+    panels = { findById: jest.fn<PanelsService['findById']>().mockResolvedValue(makePanel()) };
+
+    service = new PostsService(
+      repository,
+      forums as unknown as ForumsService,
+      panels as unknown as PanelsService,
+      profiles as unknown as ProfilesService,
+    );
+  });
+
+  describe('create', () => {
+    const input = { forumId: IDS.forum, title: 'Hola', body: 'Cuerpo' };
+
+    it('crea el post y devuelve la vista con el autor y su universidad', async () => {
+      const view = await service.create(input, IDS.ana);
+
+      expect(repository.create).toHaveBeenCalledWith({ ...input, authorId: IDS.ana });
+      expect(view.author).toEqual(makeAuthor());
+      expect(view.author.university.slug).toBe('ustavillavo');
+      expect(view.score).toBe(0);
+      expect(view.createdAt).toBe('2026-11-01T12:00:00.000Z');
+    });
+
+    it('un post recién creado no tiene voto propio', async () => {
+      const view = await service.create(input, IDS.ana);
+
+      expect(view.myVote).toBeNull();
+    });
+
+    it('no relee el post ni busca su voto: el insert ya devuelve el autor', async () => {
+      await service.create(input, IDS.ana);
+
+      expect(repository.findWithAuthorById).not.toHaveBeenCalled();
+      expect(repository.findVotesByUser).not.toHaveBeenCalled();
+    });
+
+    it('pide perfil y foro en paralelo', async () => {
+      // Si fueran en secuencia, al pedir el foro el perfil ya se habría resuelto.
+      let profileResolved = false;
+      profiles.findById.mockImplementation(async () => {
+        await Promise.resolve();
+        profileResolved = true;
+        return makeProfile();
+      });
+      forums.findById.mockImplementation(async () => {
+        expect(profileResolved).toBe(false);
+        return makeForum();
+      });
+
+      await service.create(input, IDS.ana);
+      expect(forums.findById).toHaveBeenCalled();
+    });
+
+    it('rechaza postear en el panel de otra universidad', async () => {
+      profiles.findById.mockResolvedValue(makeProfile({ universityId: IDS.otherUniversity }));
+
+      await expect(service.create(input, IDS.beto)).rejects.toMatchObject({
+        code: 'CANNOT_PUBLISH_IN_PANEL',
+      });
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('cualquier universidad puede postear en el panel general', async () => {
+      profiles.findById.mockResolvedValue(makeProfile({ universityId: IDS.otherUniversity }));
+      panels.findById.mockResolvedValue(makeGeneralPanel());
+
+      await expect(service.create(input, IDS.beto)).resolves.toBeDefined();
+    });
+
+    it('propaga PROFILE_NOT_FOUND si el autor no tiene perfil', async () => {
+      profiles.findById.mockRejectedValue(notFound('PROFILE_NOT_FOUND'));
+
+      await expect(service.create(input, IDS.ana)).rejects.toMatchObject({
+        code: 'PROFILE_NOT_FOUND',
+      });
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('propaga FORUM_NOT_FOUND si el foro no existe', async () => {
+      forums.findById.mockRejectedValue(notFound('FORUM_NOT_FOUND'));
+
+      await expect(service.create(input, IDS.ana)).rejects.toMatchObject({
+        code: 'FORUM_NOT_FOUND',
+      });
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findFeed', () => {
+    it('agrega el voto de quien mira a cada post', async () => {
+      const upvoted = makePost({ id: '00000000-0000-4000-8000-0000000000e2' });
+      repository.findPage.mockResolvedValue({
+        items: [
+          { post: makePost(), author: makeAuthor() },
+          { post: upvoted, author: makeAuthor() },
+        ],
+        nextCursor: 'abc',
+      });
+      repository.findVotesByUser.mockResolvedValue(new Map([[upvoted.id, 1]]));
+
+      const page = await service.findFeed({ forumId: IDS.forum, sort: 'hot', limit: 20 }, IDS.ana);
+
+      expect(page.items.map((p) => p.myVote)).toEqual([null, 1]);
+      expect(page.nextCursor).toBe('abc');
+    });
+
+    it('404 explícito si el foro no existe, en vez de una página vacía', async () => {
+      forums.findById.mockRejectedValue(notFound('FORUM_NOT_FOUND'));
+
+      await expect(
+        service.findFeed({ forumId: IDS.forum, sort: 'hot', limit: 20 }, IDS.ana),
+      ).rejects.toMatchObject({
+        code: 'FORUM_NOT_FOUND',
+      });
+      expect(repository.findPage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findViewById', () => {
+    it('POST_NOT_FOUND si no existe', async () => {
+      repository.findWithAuthorById.mockResolvedValue(null);
+
+      await expect(service.findViewById(IDS.post, IDS.ana)).rejects.toMatchObject({
+        code: 'POST_NOT_FOUND',
+      });
+    });
+  });
+
+  describe('update / delete', () => {
+    it('solo el autor puede editar', async () => {
+      await expect(service.update(IDS.post, { title: 'x' }, IDS.beto)).rejects.toMatchObject({
+        code: 'NOT_POST_AUTHOR',
+      });
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('solo el autor puede borrar', async () => {
+      await expect(service.delete(IDS.post, IDS.beto)).rejects.toMatchObject({
+        code: 'NOT_POST_AUTHOR',
+      });
+      await service.delete(IDS.post, IDS.ana);
+      expect(repository.delete).toHaveBeenCalledWith(IDS.post);
+    });
+  });
+});

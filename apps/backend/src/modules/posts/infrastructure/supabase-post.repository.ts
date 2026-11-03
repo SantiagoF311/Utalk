@@ -38,7 +38,8 @@ interface Cursor {
 
 // Se nombra la FK porque posts y profiles también se relacionan vía
 // post_votes y reports, y PostgREST no sabría cuál usar.
-const WITH_AUTHOR = '*, author:profiles!posts_author_id_fkey(id, username, university:universities(id, slug, name))';
+const WITH_AUTHOR =
+  '*, author:profiles!posts_author_id_fkey(id, username, university:universities(id, slug, name))';
 
 function toEntity(row: PostRow): PostEntity {
   return new PostEntity(
@@ -97,7 +98,8 @@ function decodeCursor(raw: string, sort: PostSort): Cursor {
 export class SupabasePostRepository implements PostRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async create(post: NewPost): Promise<PostEntity> {
+  async create(post: NewPost): Promise<PostWithAuthor> {
+    // El insert devuelve la fila con el join del autor: evita releerla.
     const { data, error } = await this.supabase.client
       .from('posts')
       .insert({
@@ -106,11 +108,11 @@ export class SupabasePostRepository implements PostRepository {
         title: post.title,
         body: post.body,
       })
-      .select()
+      .select(WITH_AUTHOR)
       .single();
 
     if (error) throw new Error(error.message);
-    return toEntity(data);
+    return toPostWithAuthor(data as PostWithAuthorRow);
   }
 
   async findById(id: string): Promise<PostEntity | null> {

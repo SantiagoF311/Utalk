@@ -37,7 +37,11 @@ export class PostsController {
   }
 
   @Patch(':id')
-  async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUserId() userId: string) {
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @CurrentUserId() userId: string,
+  ) {
     const input = updatePostSchema.parse(body);
     return this.postsService.update(id, input, userId);
   }

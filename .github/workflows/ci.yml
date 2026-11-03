@@ -1,0 +1,37 @@
+# Verifica cada PR y cada push a main/development en una máquina limpia:
+# solo con lo que está en el repo, sin .env ni nada instalado a mano.
+# Es lo mismo que `npm run check` en local, separado en pasos para que en
+# GitHub se vea cuál falló.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, development]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      # Desde la raíz, como pide el monorepo (npm workspaces).
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Typecheck (shared, backend, mobile)
+        run: npm run typecheck
+
+      - name: Lint (backend, mobile)
+        run: npm run lint
+
+      - name: Formato (backend)
+        run: npm run format:check -w apps/backend
+
+      - name: Tests (backend)
+        run: npm test

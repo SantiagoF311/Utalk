@@ -44,7 +44,10 @@ export class SupabaseForumRepository implements ForumRepository {
     // Dos creaciones simultáneas pueden pasar el chequeo del service; la
     // constraint unique(panel_id, slug) frena a la segunda.
     if (error && isUniqueViolation(error, 'forums_panel_id_slug_key')) {
-      throw new AppException('FORUM_SLUG_TAKEN', `Forum slug "${forum.slug}" is already taken in this panel`);
+      throw new AppException(
+        'FORUM_SLUG_TAKEN',
+        `Forum slug "${forum.slug}" is already taken in this panel`,
+      );
     }
     if (error) throw new Error(error.message);
     return toEntity(data);

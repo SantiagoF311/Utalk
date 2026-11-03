@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
 import { createReportSchema } from '@utalk/shared';
 import type { List, Report } from '@utalk/shared';
 import { AdminOnly } from '../auth/admin.guard.js';

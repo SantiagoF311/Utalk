@@ -17,12 +17,18 @@ export class VotesController {
 
   @Delete('posts/:postId')
   @HttpCode(204)
-  async removePostVote(@Param('postId', ParseUUIDPipe) postId: string, @CurrentUserId() userId: string) {
+  async removePostVote(
+    @Param('postId', ParseUUIDPipe) postId: string,
+    @CurrentUserId() userId: string,
+  ) {
     await this.votesService.removePostVote(postId, userId);
   }
 
   @Put('comments')
-  async castCommentVote(@Body() body: unknown, @CurrentUserId() userId: string): Promise<CommentVote> {
+  async castCommentVote(
+    @Body() body: unknown,
+    @CurrentUserId() userId: string,
+  ): Promise<CommentVote> {
     const input = castCommentVoteSchema.parse(body);
     return toCommentVoteView(await this.votesService.castCommentVote(input, userId));
   }

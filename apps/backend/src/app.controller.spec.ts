@@ -1,22 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { describe, expect, it } from '@jest/globals';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import type { SupabaseService } from './supabase/supabase.service.js';
 
 describe('AppController', () => {
-  let appController: AppController;
+  it('responde el health check sin tocar Supabase', () => {
+    const controller = new AppController(new AppService(), {} as SupabaseService);
 
-  beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
-      controllers: [AppController],
-      providers: [AppService],
-    }).compile();
-
-    appController = app.get<AppController>(AppController);
-  });
-
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
-    });
+    expect(controller.getHello()).toBe('Hello World!');
   });
 });

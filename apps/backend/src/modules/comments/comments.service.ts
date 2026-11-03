@@ -1,9 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type {
-  CommentView,
-  CreateCommentInput,
-  UpdateCommentInput,
-} from '@utalk/shared';
+import type { CommentView, CreateCommentInput, UpdateCommentInput } from '@utalk/shared';
 import { AppException } from '../../common/appException.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
@@ -27,28 +23,34 @@ export class CommentsService {
   ) {}
 
   async create(input: CreateCommentInput, authorId: string): Promise<CommentView> {
-    await this.profilesService.findById(authorId);
-    await this.postsService.findById(input.postId);
+    // Perfil, post y comentario padre no dependen entre sí: en paralelo.
+    const [, , parent] = await Promise.all([
+      this.profilesService.findById(authorId),
+      this.postsService.findById(input.postId),
+      input.parentId === null ? null : this.findById(input.parentId),
+    ]);
 
-    if (input.parentId !== null) {
-      const parent = await this.findById(input.parentId);
+    if (parent) {
       // La FK de parent_id no garantiza que el padre sea del mismo post.
       if (!parent.belongsToPost(input.postId)) {
-        throw new AppException('PARENT_COMMENT_MISMATCH', `Comment ${input.parentId} does not belong to post ${input.postId}`);
+        throw new AppException(
+          'PARENT_COMMENT_MISMATCH',
+          `Comment ${input.parentId} does not belong to post ${input.postId}`,
+        );
       }
       if (parent.isDeleted()) {
         throw new AppException('COMMENT_DELETED', `Comment ${input.parentId} was deleted`);
       }
     }
 
-    const comment = await this.commentRepository.create({
+    const item = await this.commentRepository.create({
       postId: input.postId,
       parentId: input.parentId,
       authorId,
       body: input.body,
     });
-    // Se relee con el join del autor (y su universidad) para responder la vista completa.
-    return this.findViewById(comment.id, authorId);
+    // myVote es null por definición: el comentario acaba de nacer.
+    return toCommentView(item, null);
   }
 
   // Todos los comentarios del post como árbol: cada uno trae sus respuestas
@@ -85,11 +87,14 @@ export class CommentsService {
   }
 
   async findViewById(id: string, viewerId: string): Promise<CommentView> {
-    const item = await this.commentRepository.findWithAuthorById(id);
+    // El comentario y el voto de quien mira se piden en paralelo.
+    const [item, myVotes] = await Promise.all([
+      this.commentRepository.findWithAuthorById(id),
+      this.commentRepository.findVotesByUser([id], viewerId),
+    ]);
     if (!item) {
       throw new AppException('COMMENT_NOT_FOUND', `Comment ${id} not found`);
     }
-    const myVotes = await this.commentRepository.findVotesByUser([id], viewerId);
     return toCommentView(item, myVotes.get(id) ?? null);
   }
 

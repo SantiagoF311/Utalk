@@ -38,7 +38,10 @@ export class UniversitiesService {
 
     const university = await this.universityRepository.findByEmailDomain(domain);
     if (!university) {
-      throw new AppException('EMAIL_DOMAIN_NOT_SUPPORTED', `No university registered for domain "${domain}"`);
+      throw new AppException(
+        'EMAIL_DOMAIN_NOT_SUPPORTED',
+        `No university registered for domain "${domain}"`,
+      );
     }
 
     return university;

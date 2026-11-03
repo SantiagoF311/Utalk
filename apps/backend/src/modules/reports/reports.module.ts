@@ -10,10 +10,7 @@ import { ReportsService } from './reports.service.js';
 @Module({
   imports: [PostsModule, CommentsModule, ProfilesModule],
   controllers: [ReportsController],
-  providers: [
-    ReportsService,
-    { provide: REPORT_REPOSITORY, useClass: SupabaseReportRepository },
-  ],
+  providers: [ReportsService, { provide: REPORT_REPOSITORY, useClass: SupabaseReportRepository }],
   exports: [ReportsService],
 })
 export class ReportsModule {}

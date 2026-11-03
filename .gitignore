@@ -1,6 +1,11 @@
 # dependencies (root + any workspace: apps/*, packages/*)
 node_modules/
 
+# npm workspaces usa un único package-lock.json, el de la raíz. Uno dentro de
+# un workspace solo aparece si alguien corrió npm install ahí (ver CLAUDE.md).
+apps/*/package-lock.json
+packages/*/package-lock.json
+
 # env files
 .env
 .env.local

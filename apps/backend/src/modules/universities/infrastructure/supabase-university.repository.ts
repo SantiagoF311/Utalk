@@ -12,7 +12,13 @@ interface UniversityRow {
 }
 
 function toEntity(row: UniversityRow): UniversityEntity {
-  return new UniversityEntity(row.id, row.slug, row.name, row.email_domain, new Date(row.created_at));
+  return new UniversityEntity(
+    row.id,
+    row.slug,
+    row.name,
+    row.email_domain,
+    new Date(row.created_at),
+  );
 }
 
 @Injectable()
@@ -20,10 +26,7 @@ export class SupabaseUniversityRepository implements UniversityRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
   async findAll(): Promise<UniversityEntity[]> {
-    const { data, error } = await this.supabase.client
-      .from('universities')
-      .select()
-      .order('name');
+    const { data, error } = await this.supabase.client.from('universities').select().order('name');
 
     if (error) throw new Error(error.message);
     return (data as UniversityRow[]).map(toEntity);

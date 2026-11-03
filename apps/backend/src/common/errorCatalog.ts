@@ -31,7 +31,10 @@ export const ERROR_CATALOG = {
 
   PANEL_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Panel not found' },
   PANEL_SLUG_TAKEN: { status: HttpStatus.CONFLICT, title: 'Panel slug already taken' },
-  UNIVERSITY_ALREADY_HAS_PANEL: { status: HttpStatus.CONFLICT, title: 'University already has a panel' },
+  UNIVERSITY_ALREADY_HAS_PANEL: {
+    status: HttpStatus.CONFLICT,
+    title: 'University already has a panel',
+  },
   CANNOT_PUBLISH_IN_PANEL: { status: HttpStatus.FORBIDDEN, title: 'Cannot publish in this panel' },
 
   FORUM_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Forum not found' },
@@ -45,7 +48,10 @@ export const ERROR_CATALOG = {
   COMMENT_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Comment not found' },
   NOT_COMMENT_AUTHOR: { status: HttpStatus.FORBIDDEN, title: 'Not the author of this comment' },
   COMMENT_DELETED: { status: HttpStatus.BAD_REQUEST, title: 'Comment was deleted' },
-  PARENT_COMMENT_MISMATCH: { status: HttpStatus.BAD_REQUEST, title: 'Parent comment belongs to another post' },
+  PARENT_COMMENT_MISMATCH: {
+    status: HttpStatus.BAD_REQUEST,
+    title: 'Parent comment belongs to another post',
+  },
 
   REPORT_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Report not found' },
 } satisfies Record<ErrorCode, ErrorDefinition>;

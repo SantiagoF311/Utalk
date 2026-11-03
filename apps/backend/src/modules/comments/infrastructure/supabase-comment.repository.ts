@@ -26,7 +26,8 @@ interface CommentWithAuthorRow extends CommentRow {
 
 // Se nombra la FK porque comments y profiles también se relacionan vía
 // comment_votes y reports, y PostgREST no sabría cuál usar.
-const WITH_AUTHOR = '*, author:profiles!comments_author_id_fkey(id, username, university:universities(id, slug, name))';
+const WITH_AUTHOR =
+  '*, author:profiles!comments_author_id_fkey(id, username, university:universities(id, slug, name))';
 
 function toEntity(row: CommentRow): CommentEntity {
   return new CommentEntity(
@@ -49,7 +50,8 @@ function toCommentWithAuthor(row: CommentWithAuthorRow): CommentWithAuthor {
 export class SupabaseCommentRepository implements CommentRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async create(comment: NewComment): Promise<CommentEntity> {
+  async create(comment: NewComment): Promise<CommentWithAuthor> {
+    // El insert devuelve la fila con el join del autor: evita releerla.
     const { data, error } = await this.supabase.client
       .from('comments')
       .insert({
@@ -58,11 +60,11 @@ export class SupabaseCommentRepository implements CommentRepository {
         author_id: comment.authorId,
         body: comment.body,
       })
-      .select()
+      .select(WITH_AUTHOR)
       .single();
 
     if (error) throw new Error(error.message);
-    return toEntity(data);
+    return toCommentWithAuthor(data as CommentWithAuthorRow);
   }
 
   async findById(id: string): Promise<CommentEntity | null> {
