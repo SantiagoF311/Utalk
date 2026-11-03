@@ -65,6 +65,24 @@ No se agregó un valor `'moderator'` porque duplicaría ese dato y se
 desincronizaría (alguien con `role = 'moderator'` sin filas, o al revés).
 Solo tendría sentido si apareciera un "moderador global" que no sea admin.
 
+**Regla de producto: la universidad del usuario siempre es visible.** Junto
+a cada usuario (autor de un post o comentario, perfil de otro usuario) se
+muestra de qué universidad es, tanto en el panel de su universidad como en
+el general — saber desde qué universidad habla alguien es parte del
+producto. El anonimato de UTalk es sobre la **identidad real** (nombre,
+correo, carnet): el correo nunca sale del backend. Lo que tampoco se
+expone a otros es el `role` — solo lo ve cada usuario en su propio perfil
+(`/auth/me`).
+
+| Vista | Dónde | Qué trae |
+|---|---|---|
+| `profileSchema` | `/auth/me`, completar registro | perfil completo, incluido `role` |
+| `publicProfileSchema` | `GET /profiles/:id` | `id`, `username`, `university`, `createdAt` — sin `role` |
+| `authorSchema` | `author` de posts y comentarios | `id`, `username`, `university` |
+
+`university` es `universitySummarySchema`: `id`, `slug`, `name` (sin el
+dominio de correo).
+
 ## `panels`
 
 Exactamente **un panel por universidad** (constraint `unique` en
@@ -264,8 +282,8 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 
 | Archivo | Exporta |
 |---|---|
-| `university.ts` | `universitySchema` |
-| `profile.ts` | `profileSchema`, `createProfileSchema`, `authorSchema` (solo `id` + `username`, lo que se muestra del autor) |
+| `university.ts` | `universitySchema`, `universitySummarySchema` (`id`, `slug`, `name`: lo que se muestra junto a un usuario) |
+| `profile.ts` | `profileSchema` (incluye `role`), `createProfileSchema`, `authorSchema` y `publicProfileSchema` (con la universidad, sin `role`) |
 | `panel.ts` | `panelSchema` |
 | `forum.ts` | `forumSchema`, `createForumSchema` |
 | `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author` y `myVote`), `postFeedQuerySchema`, `postPageSchema` |

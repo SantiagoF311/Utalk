@@ -11,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { createCommentSchema, updateCommentSchema } from '@utalk/shared';
+import type { CommentView, List } from '@utalk/shared';
 import { CurrentUserId } from '../auth/auth.guard.js';
 import { CommentsService } from './comments.service.js';
 
@@ -29,8 +30,8 @@ export class CommentsController {
   async findTreeByPostId(
     @Query('postId', ParseUUIDPipe) postId: string,
     @CurrentUserId() userId: string,
-  ) {
-    return this.commentsService.findTreeByPostId(postId, userId);
+  ): Promise<List<CommentView>> {
+    return { items: await this.commentsService.findTreeByPostId(postId, userId) };
   }
 
   @Get(':id')
@@ -39,14 +40,14 @@ export class CommentsController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: unknown, @CurrentUserId() userId: string) {
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUserId() userId: string) {
     const input = updateCommentSchema.parse(body);
     return this.commentsService.update(id, input, userId);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  async delete(@Param('id') id: string, @CurrentUserId() userId: string) {
+  async delete(@Param('id', ParseUUIDPipe) id: string, @CurrentUserId() userId: string) {
     await this.commentsService.delete(id, userId);
   }
 }

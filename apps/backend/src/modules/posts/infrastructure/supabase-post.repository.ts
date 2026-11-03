@@ -38,7 +38,7 @@ interface Cursor {
 
 // Se nombra la FK porque posts y profiles también se relacionan vía
 // post_votes y reports, y PostgREST no sabría cuál usar.
-const WITH_AUTHOR = '*, author:profiles!posts_author_id_fkey(id, username)';
+const WITH_AUTHOR = '*, author:profiles!posts_author_id_fkey(id, username, university:universities(id, slug, name))';
 
 function toEntity(row: PostRow): PostEntity {
   return new PostEntity(

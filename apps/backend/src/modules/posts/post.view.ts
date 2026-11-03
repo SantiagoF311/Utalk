@@ -1,0 +1,16 @@
+import type { PostView, VoteValue } from '@utalk/shared';
+import type { PostWithAuthor } from './domain/post.repository.js';
+
+export function toPostView({ post, author }: PostWithAuthor, myVote: VoteValue | null): PostView {
+  return {
+    id: post.id,
+    forumId: post.forumId,
+    title: post.title,
+    body: post.body,
+    score: post.score,
+    commentCount: post.commentCount,
+    createdAt: post.createdAt.toISOString(),
+    author,
+    myVote,
+  };
+}
