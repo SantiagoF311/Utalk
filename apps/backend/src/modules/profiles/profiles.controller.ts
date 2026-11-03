@@ -1,4 +1,5 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import type { PublicProfile } from '@utalk/shared';
 import { Public } from '../auth/auth.guard.js';
 import { ProfilesService } from './profiles.service.js';
 
@@ -14,8 +15,10 @@ export class ProfilesController {
     return { available };
   }
 
+  // Perfil de otro usuario: con su universidad, sin el rol. El propio
+  // (completo) es GET /auth/me.
   @Get(':id')
-  async findById(@Param('id') id: string) {
-    return this.profilesService.findById(id);
+  async findById(@Param('id', ParseUUIDPipe) id: string): Promise<PublicProfile> {
+    return this.profilesService.findPublicById(id);
   }
 }

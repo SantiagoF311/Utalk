@@ -3,35 +3,14 @@ import type {
   CommentView,
   CreateCommentInput,
   UpdateCommentInput,
-  VoteValue,
 } from '@utalk/shared';
 import { AppException } from '../../common/appException.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { CommentEntity } from './domain/comment.entity.js';
 import { COMMENT_REPOSITORY } from './domain/comment.repository.js';
-import type { CommentRepository, CommentWithAuthor } from './domain/comment.repository.js';
-
-// Un comentario borrado se devuelve sin autor ni texto: la app lo muestra
-// como "[eliminado]" y conserva sus respuestas.
-function toCommentView(
-  { comment, author }: CommentWithAuthor,
-  myVote: VoteValue | null,
-): CommentView {
-  const isDeleted = comment.isDeleted();
-  return {
-    id: comment.id,
-    postId: comment.postId,
-    parentId: comment.parentId,
-    author: isDeleted ? null : author,
-    body: isDeleted ? null : comment.body,
-    isDeleted,
-    score: comment.score,
-    myVote,
-    createdAt: comment.createdAt.toISOString(),
-    replies: [],
-  };
-}
+import type { CommentRepository } from './domain/comment.repository.js';
+import { toCommentView } from './comment.view.js';
 
 // Más votados primero; a igual score, el más antiguo primero (como el
 // "mejores" de Reddit, simplificado).
@@ -48,7 +27,7 @@ export class CommentsService {
   ) {}
 
   async create(input: CreateCommentInput, authorId: string): Promise<CommentView> {
-    const author = await this.profilesService.findById(authorId);
+    await this.profilesService.findById(authorId);
     await this.postsService.findById(input.postId);
 
     if (input.parentId !== null) {
@@ -68,7 +47,8 @@ export class CommentsService {
       authorId,
       body: input.body,
     });
-    return toCommentView({ comment, author: { id: author.id, username: author.username } }, null);
+    // Se relee con el join del autor (y su universidad) para responder la vista completa.
+    return this.findViewById(comment.id, authorId);
   }
 
   // Todos los comentarios del post como árbol: cada uno trae sus respuestas

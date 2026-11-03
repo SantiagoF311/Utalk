@@ -53,6 +53,7 @@ modules/<dominio>/
 ├── infrastructure/
 │   └── supabase-<dominio>.repository.ts  # el adaptador: implementa el puerto
 ├── <dominio>.service.ts            # casos de uso, inyecta el puerto (no Supabase directo)
+├── <dominio>.view.ts               # entidad → respuesta de la API (nunca se devuelve la entidad)
 ├── <dominio>.controller.ts
 └── <dominio>.module.ts
 ```

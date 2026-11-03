@@ -37,14 +37,14 @@ export class PostsController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: unknown, @CurrentUserId() userId: string) {
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUserId() userId: string) {
     const input = updatePostSchema.parse(body);
     return this.postsService.update(id, input, userId);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  async delete(@Param('id') id: string, @CurrentUserId() userId: string) {
+  async delete(@Param('id', ParseUUIDPipe) id: string, @CurrentUserId() userId: string) {
     await this.postsService.delete(id, userId);
   }
 }

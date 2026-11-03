@@ -5,7 +5,6 @@ import type {
   PostPage,
   PostView,
   UpdatePostInput,
-  VoteValue,
 } from '@utalk/shared';
 import { AppException } from '../../common/appException.js';
 import { ForumsService } from '../forums/forums.service.js';
@@ -13,21 +12,8 @@ import { PanelsService } from '../panels/panels.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { PostEntity } from './domain/post.entity.js';
 import { POST_REPOSITORY } from './domain/post.repository.js';
-import type { PostRepository, PostWithAuthor } from './domain/post.repository.js';
-
-function toPostView({ post, author }: PostWithAuthor, myVote: VoteValue | null): PostView {
-  return {
-    id: post.id,
-    forumId: post.forumId,
-    title: post.title,
-    body: post.body,
-    score: post.score,
-    commentCount: post.commentCount,
-    createdAt: post.createdAt.toISOString(),
-    author,
-    myVote,
-  };
-}
+import type { PostRepository } from './domain/post.repository.js';
+import { toPostView } from './post.view.js';
 
 @Injectable()
 export class PostsService {
@@ -52,7 +38,8 @@ export class PostsService {
       title: input.title,
       body: input.body,
     });
-    return toPostView({ post, author: { id: author.id, username: author.username } }, null);
+    // Se relee con el join del autor (y su universidad) para responder la vista completa.
+    return this.findViewById(post.id, authorId);
   }
 
   async findFeed(query: PostFeedQuery, viewerId: string): Promise<PostPage> {

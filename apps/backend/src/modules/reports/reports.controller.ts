@@ -1,7 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { createReportSchema } from '@utalk/shared';
+import type { List, Report } from '@utalk/shared';
 import { AdminOnly } from '../auth/admin.guard.js';
 import { CurrentUserId } from '../auth/auth.guard.js';
+import { toReportView } from './report.view.js';
 import { ReportsService } from './reports.service.js';
 
 // Los reportes son inmutables: no hay PATCH. DELETE = descartar/resolver.
@@ -12,27 +14,28 @@ export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Post()
-  async create(@Body() body: unknown, @CurrentUserId() userId: string) {
+  async create(@Body() body: unknown, @CurrentUserId() userId: string): Promise<Report> {
     const input = createReportSchema.parse(body);
-    return this.reportsService.create(input, userId);
+    return toReportView(await this.reportsService.create(input, userId));
   }
 
   @AdminOnly()
   @Get()
-  async findAll() {
-    return this.reportsService.findAll();
+  async findAll(): Promise<List<Report>> {
+    const reports = await this.reportsService.findAll();
+    return { items: reports.map(toReportView) };
   }
 
   @AdminOnly()
   @Get(':id')
-  async findById(@Param('id') id: string) {
-    return this.reportsService.findById(id);
+  async findById(@Param('id', ParseUUIDPipe) id: string): Promise<Report> {
+    return toReportView(await this.reportsService.findById(id));
   }
 
   @AdminOnly()
   @Delete(':id')
   @HttpCode(204)
-  async delete(@Param('id') id: string) {
+  async delete(@Param('id', ParseUUIDPipe) id: string) {
     await this.reportsService.delete(id);
   }
 }

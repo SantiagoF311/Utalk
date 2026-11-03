@@ -42,6 +42,7 @@ apps/backend/src/modules/<dominio>/
 ├── infrastructure/
 │   └── supabase-<dominio>.repository.ts  # el adaptador: implementa el puerto con Supabase
 ├── <dominio>.service.ts            # casos de uso (equivalente a application/)
+├── <dominio>.view.ts               # entidad → lo que sale por la red (schema de @utalk/shared)
 ├── <dominio>.controller.ts         # rutas HTTP (equivalente a presentation/)
 └── <dominio>.module.ts             # cablea todo vía DI de Nest
 ```
@@ -90,6 +91,41 @@ es un concepto interno del backend, nunca cruza la red. El
 `infrastructure/supabase-<dominio>.repository.ts` es responsable de
 convertir entre la fila cruda de Supabase (snake_case) y una instancia
 real de la Entity.
+
+## Vistas: lo que sale por la red
+
+Los controllers **nunca devuelven una Entity**. Nest serializa a JSON
+cualquier objeto que devuelva un controller, con todos sus campos: si se
+devolviera la Entity, cualquier campo que se le agregue aparecería solo en
+la API, sin que nadie lo decida. Así se filtró `profiles.role` en
+`GET /profiles/:id` antes de adoptar este patrón.
+
+Cada módulo tiene un `<dominio>.view.ts` con funciones puras que convierten
+la Entity al schema de `@utalk/shared` que es el contrato con el cliente
+(`toForumView(forum): Forum`). La vista decide explícitamente qué campos
+se exponen y adapta el formato (ej. `Date` → string ISO).
+
+**Dónde se arma la vista**:
+
+- **En el controller**, si la Entity ya trae todo lo que la vista muestra
+  (foros, paneles, universidades, reportes, votos): solo se traduce.
+- **En el service**, si armarla requiere consultar o combinar datos que la
+  Entity no tiene (posts y comentarios: el autor con su universidad y el
+  voto de quien mira; comentarios, además, el árbol de respuestas; perfil
+  público: la universidad). El service expone entonces dos métodos: uno
+  que devuelve la vista, para el controller (`findViewById`), y otro que
+  devuelve la Entity, para otros módulos del backend (`findById`). Las
+  vistas van hacia afuera; las Entities se quedan adentro.
+
+**Colecciones**: toda respuesta que es una lista va envuelta en
+`{ items: [...] }` (`listSchema` / `List<T>` en shared), aunque hoy no
+pagine; las paginadas agregan `nextCursor`. Con un array suelto, agregar
+paginación después rompería a los clientes; con el objeto, solo se agrega
+un campo.
+
+**Parámetros de ruta**: todo id en la URL se valida con `ParseUUIDPipe`;
+un id mal formado responde 400 en vez de llegar a Postgres y terminar en
+500.
 
 ## Comunicación entre módulos: inyección directa, no eventos genéricos
 
