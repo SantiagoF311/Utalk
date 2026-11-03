@@ -19,6 +19,7 @@ alternativas se descartaron y por qué.
 - [auth.md](./auth.md) — autenticación anónima, verificación de universidad por dominio de correo
 - [busqueda.md](./busqueda.md) — full-text search y por qué no se usa un motor dedicado
 - [observabilidad.md](./observabilidad.md) — logging, manejo de errores, monitoreo
+- [testing.md](./testing.md) — tests unitarios, fixtures, `npm run check` y CI
 - [decisiones-descartadas.md](./decisiones-descartadas.md) — tecnologías evaluadas y por qué no se usan (todavía)
 
 ## Resumen del stack

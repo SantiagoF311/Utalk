@@ -9,7 +9,11 @@ workspaces o herramientas de build como Turborepo o Nx.
 
 - Ambas apps (`apps/backend`, `apps/mobile`) ya usaban `package-lock.json`
   (npm), no `pnpm-lock.yaml` ni `yarn.lock` — usar npm workspaces evita
-  migrar de gestor de paquetes solo para tener monorepo.
+  migrar de gestor de paquetes solo para tener monorepo. Hoy hay un
+  **único `package-lock.json`, en la raíz**: los que tenía cada app se
+  borraron y están en `.gitignore` (`apps/*/package-lock.json`), porque
+  npm workspaces los ignora y solo reaparecen si alguien corre
+  `npm install` dentro de una app.
 - El proyecto tiene 3 paquetes (`backend`, `mobile`, `shared`). A este
   tamaño, herramientas de orquestación de builds como Turborepo o Nx son
   sobre-ingeniería: no hay suficientes paquetes ni tiempos de build lo

@@ -87,6 +87,15 @@ no dejar que el código y `docs/` diverjan.
 documentar el cambio** — no documentar de forma automática sin confirmar
 primero.
 
+## Tests
+
+Antes de abrir un PR, correr `npm run check` desde la raíz (typecheck,
+lint, formato y tests: lo mismo que el CI). Un módulo, regla de negocio o
+código de error nuevo trae sus tests unitarios en el mismo PR: junto al
+archivo (`*.spec.ts`), con repositorios falsos y los builders de
+`apps/backend/src/testing/fixtures.ts`. Detalle en
+[docs/testing.md](docs/testing.md).
+
 ## Convenciones de código
 
 - **camelCase** para variables, funciones, propiedades y nombres de
