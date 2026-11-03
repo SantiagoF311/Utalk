@@ -35,7 +35,10 @@ export class SupabasePanelRepository implements PanelRepository {
     // Mismo caso que en el service, pero frenado por la base (requests
     // simultáneos). Hay dos constraints unique: se distingue por nombre.
     if (error && isUniqueViolation(error, 'panels_university_id_key')) {
-      throw new AppException('UNIVERSITY_ALREADY_HAS_PANEL', `University ${panel.universityId} already has a panel`);
+      throw new AppException(
+        'UNIVERSITY_ALREADY_HAS_PANEL',
+        `University ${panel.universityId} already has a panel`,
+      );
     }
     if (error && isUniqueViolation(error, 'panels_slug_key')) {
       throw new AppException('PANEL_SLUG_TAKEN', `Panel slug "${panel.slug}" is already taken`);
@@ -45,10 +48,7 @@ export class SupabasePanelRepository implements PanelRepository {
   }
 
   async findAll(): Promise<PanelEntity[]> {
-    const { data, error } = await this.supabase.client
-      .from('panels')
-      .select()
-      .order('name');
+    const { data, error } = await this.supabase.client.from('panels').select().order('name');
 
     if (error) throw new Error(error.message);
     return (data as PanelRow[]).map(toEntity);

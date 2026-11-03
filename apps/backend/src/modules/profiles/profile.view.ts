@@ -15,7 +15,10 @@ export function toProfileView(profile: ProfileEntity): Profile {
 }
 
 // Perfil de otro usuario: con su universidad (siempre se muestra), sin el rol.
-export function toPublicProfileView(profile: ProfileEntity, university: UniversityEntity): PublicProfile {
+export function toPublicProfileView(
+  profile: ProfileEntity,
+  university: UniversityEntity,
+): PublicProfile {
   return {
     id: profile.id,
     username: profile.username,

@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { createPanelSchema, updatePanelSchema } from '@utalk/shared';
 import type { List, Panel } from '@utalk/shared';
 import { AdminOnly } from '../auth/admin.guard.js';

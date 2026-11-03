@@ -10,7 +10,10 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('complete-registration')
-  async completeRegistration(@CurrentUserId() userId: string, @Body() body: unknown): Promise<Profile> {
+  async completeRegistration(
+    @CurrentUserId() userId: string,
+    @Body() body: unknown,
+  ): Promise<Profile> {
     const input = completeRegistrationSchema.parse(body);
     return toProfileView(await this.authService.completeRegistration(userId, input.username));
   }

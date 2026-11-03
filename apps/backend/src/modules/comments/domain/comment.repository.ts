@@ -18,7 +18,8 @@ export interface CommentWithAuthor {
 }
 
 export interface CommentRepository {
-  create(comment: NewComment): Promise<CommentEntity>;
+  // Devuelve el comentario ya con su autor (mismo viaje a la base que el insert).
+  create(comment: NewComment): Promise<CommentWithAuthor>;
   findById(id: string): Promise<CommentEntity | null>;
   findWithAuthorById(id: string): Promise<CommentWithAuthor | null>;
   // Lista plana de todo el post (incluidos los borrados); el árbol lo arma el service.

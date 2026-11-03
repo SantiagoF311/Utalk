@@ -10,10 +10,7 @@ import { PostsService } from './posts.service.js';
 @Module({
   imports: [ForumsModule, PanelsModule, ProfilesModule],
   controllers: [PostsController],
-  providers: [
-    PostsService,
-    { provide: POST_REPOSITORY, useClass: SupabasePostRepository },
-  ],
+  providers: [PostsService, { provide: POST_REPOSITORY, useClass: SupabasePostRepository }],
   exports: [PostsService],
 })
 export class PostsModule {}

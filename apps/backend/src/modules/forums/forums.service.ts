@@ -23,12 +23,18 @@ export class ForumsService {
     const profile = await this.profilesService.findById(userId);
     const panel = await this.panelsService.findById(input.panelId);
     if (!panel.acceptsPostsFrom(profile.universityId)) {
-      throw new AppException('CANNOT_PUBLISH_IN_PANEL', `You cannot create forums in panel ${panel.id}`);
+      throw new AppException(
+        'CANNOT_PUBLISH_IN_PANEL',
+        `You cannot create forums in panel ${panel.id}`,
+      );
     }
 
     const existing = await this.forumRepository.findByPanelAndSlug(input.panelId, input.slug);
     if (existing) {
-      throw new AppException('FORUM_SLUG_TAKEN', `Forum slug "${input.slug}" is already taken in this panel`);
+      throw new AppException(
+        'FORUM_SLUG_TAKEN',
+        `Forum slug "${input.slug}" is already taken in this panel`,
+      );
     }
 
     // El trigger forums_add_creator_as_moderator deja al creador como primer mod.

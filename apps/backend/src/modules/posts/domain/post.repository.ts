@@ -33,7 +33,8 @@ export interface PostPage {
 }
 
 export interface PostRepository {
-  create(post: NewPost): Promise<PostEntity>;
+  // Devuelve el post ya con su autor (mismo viaje a la base que el insert).
+  create(post: NewPost): Promise<PostWithAuthor>;
   findById(id: string): Promise<PostEntity | null>;
   findWithAuthorById(id: string): Promise<PostWithAuthor | null>;
   findPage(query: PostPageQuery): Promise<PostPage>;

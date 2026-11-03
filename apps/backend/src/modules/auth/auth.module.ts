@@ -9,10 +9,7 @@ import { UniversitiesModule } from '../universities/universities.module.js';
 @Module({
   imports: [ProfilesModule, UniversitiesModule],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    { provide: AUTH_REPOSITORY, useClass: SupabaseAuthRepository },
-  ],
+  providers: [AuthService, { provide: AUTH_REPOSITORY, useClass: SupabaseAuthRepository }],
   exports: [AuthService],
 })
 export class AuthModule {}

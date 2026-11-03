@@ -40,7 +40,11 @@ export class CommentsController {
   }
 
   @Patch(':id')
-  async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUserId() userId: string) {
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @CurrentUserId() userId: string,
+  ) {
     const input = updateCommentSchema.parse(body);
     return this.commentsService.update(id, input, userId);
   }

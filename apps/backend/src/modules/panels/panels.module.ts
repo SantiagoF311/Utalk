@@ -8,10 +8,7 @@ import { PanelsService } from './panels.service.js';
 @Module({
   imports: [UniversitiesModule],
   controllers: [PanelsController],
-  providers: [
-    PanelsService,
-    { provide: PANEL_REPOSITORY, useClass: SupabasePanelRepository },
-  ],
+  providers: [PanelsService, { provide: PANEL_REPOSITORY, useClass: SupabasePanelRepository }],
   exports: [PanelsService],
 })
 export class PanelsModule {}

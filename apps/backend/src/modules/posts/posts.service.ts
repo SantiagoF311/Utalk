@@ -25,21 +25,27 @@ export class PostsService {
   ) {}
 
   async create(input: CreatePostInput, authorId: string): Promise<PostView> {
-    const author = await this.profilesService.findById(authorId);
-    const forum = await this.forumsService.findById(input.forumId);
+    // Perfil y foro no dependen entre sí: se piden en paralelo. El panel
+    // necesita el panelId del foro, así que va después.
+    const [author, forum] = await Promise.all([
+      this.profilesService.findById(authorId),
+      this.forumsService.findById(input.forumId),
+    ]);
     const panel = await this.panelsService.findById(forum.panelId);
     if (!panel.acceptsPostsFrom(author.universityId)) {
       throw new AppException('CANNOT_PUBLISH_IN_PANEL', `You cannot post in forum ${forum.id}`);
     }
 
-    const post = await this.postRepository.create({
+    const item = await this.postRepository.create({
       forumId: input.forumId,
       authorId,
       title: input.title,
       body: input.body,
     });
-    // Se relee con el join del autor (y su universidad) para responder la vista completa.
-    return this.findViewById(post.id, authorId);
+    // myVote es null por definición: nadie votó un post que acaba de nacer.
+    // Si algún día se agrega el voto automático del autor (como Reddit),
+    // esto tiene que pasar a 1.
+    return toPostView(item, null);
   }
 
   async findFeed(query: PostFeedQuery, viewerId: string): Promise<PostPage> {
@@ -63,11 +69,14 @@ export class PostsService {
   }
 
   async findViewById(id: string, viewerId: string): Promise<PostView> {
-    const item = await this.postRepository.findWithAuthorById(id);
+    // El post y el voto de quien mira se piden en paralelo.
+    const [item, myVotes] = await Promise.all([
+      this.postRepository.findWithAuthorById(id),
+      this.postRepository.findVotesByUser([id], viewerId),
+    ]);
     if (!item) {
       throw new AppException('POST_NOT_FOUND', `Post ${id} not found`);
     }
-    const myVotes = await this.postRepository.findVotesByUser([id], viewerId);
     return toPostView(item, myVotes.get(id) ?? null);
   }
 

@@ -17,9 +17,14 @@ export class PanelsService {
     if (input.universityId !== null) {
       await this.universitiesService.findById(input.universityId);
 
-      const existingForUniversity = await this.panelRepository.findByUniversityId(input.universityId);
+      const existingForUniversity = await this.panelRepository.findByUniversityId(
+        input.universityId,
+      );
       if (existingForUniversity) {
-        throw new AppException('UNIVERSITY_ALREADY_HAS_PANEL', `University ${input.universityId} already has a panel`);
+        throw new AppException(
+          'UNIVERSITY_ALREADY_HAS_PANEL',
+          `University ${input.universityId} already has a panel`,
+        );
       }
     }
 
