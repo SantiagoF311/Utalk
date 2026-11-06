@@ -1,8 +1,8 @@
 import { router, usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
+import { useSession } from '@/hooks/useSession';
 import { api, ApiError } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
 
 // Rutas que crean el perfil ellas mismas: ahí la sesión existe un momento
 // sin perfil a propósito, así que no hay que redirigir.
@@ -22,7 +22,10 @@ async function redirectIfProfileMissing() {
 
 // Si hay sesión pero no perfil (verificó el correo y cerró la app antes de
 // elegir usuario), manda a completar el perfil al abrir la app o al entrar.
+// Se revisa cada vez que cambia el usuario con sesión, no en cada renovación
+// del token (que cambia la sesión pero no el usuario).
 export function useRequireProfile() {
+  const userId = useSession()?.user.id;
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
 
@@ -31,15 +34,7 @@ export function useRequireProfile() {
   }, [pathname]);
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session || (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN')) return;
-      if (ROUTES_THAT_CREATE_PROFILE.includes(pathnameRef.current)) return;
-
-      // Supabase pide no esperar otras llamadas suyas dentro de este callback
-      // (puede bloquearse); getMyProfile lee la sesión, así que va aparte.
-      setTimeout(() => void redirectIfProfileMissing(), 0);
-    });
-
-    return () => data.subscription.unsubscribe();
-  }, []);
+    if (!userId || ROUTES_THAT_CREATE_PROFILE.includes(pathnameRef.current)) return;
+    void redirectIfProfileMissing();
+  }, [userId]);
 }

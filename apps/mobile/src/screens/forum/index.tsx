@@ -2,7 +2,6 @@ import { Stack } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
 import { FeedList } from '@/components/feedList';
-import { RequireSession } from '@/components/requireSession';
 import { ThemedView } from '@/components/themedView';
 import { useForum } from '@/hooks/queries';
 
@@ -13,9 +12,7 @@ export function ForumScreen({ forumId }: { forumId: string }) {
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: forum.data?.name ?? '' }} />
-      <RequireSession>
-        <FeedList scope={{ forumId }} />
-      </RequireSession>
+      <FeedList scope={{ forumId }} />
     </ThemedView>
   );
 }

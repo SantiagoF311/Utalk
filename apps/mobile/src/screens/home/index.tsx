@@ -4,7 +4,6 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FeedList } from '@/components/feedList';
-import { RequireSession } from '@/components/requireSession';
 import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
@@ -17,9 +16,7 @@ export function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top']}>
-        <RequireSession>
-          <MyUniversityFeed />
-        </RequireSession>
+        <MyUniversityFeed />
       </SafeAreaView>
     </ThemedView>
   );

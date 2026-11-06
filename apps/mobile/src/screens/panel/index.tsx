@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { FeedList } from '@/components/feedList';
-import { RequireSession } from '@/components/requireSession';
 import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { Spacing } from '@/constants/theme';
@@ -16,9 +15,7 @@ export function PanelScreen({ panelId }: { panelId: string }) {
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: panel.data?.name ?? '' }} />
-      <RequireSession>
-        <PanelFeed panelId={panelId} />
-      </RequireSession>
+      <PanelFeed panelId={panelId} />
     </ThemedView>
   );
 }

@@ -1,4 +1,4 @@
-import { router, Link } from 'expo-router';
+import { Link } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Switch, View } from 'react-native';
@@ -34,7 +34,8 @@ export function LoginScreen() {
         refresh_token: session.refreshToken,
       });
       if (error) throw error;
-      router.back();
+      // No hace falta navegar: con la sesión, las rutas protegidas del
+      // layout raíz cambian solas a las pestañas.
     } catch (error) {
       setLoginError(
         error instanceof ApiError && error.code === 'INVALID_CREDENTIALS'

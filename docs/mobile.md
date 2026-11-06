@@ -23,10 +23,40 @@ y votar). De ahí: panel (sus foros + el feed de todos ellos) → foro (su
 feed). Panel y foro van en el stack raíz, fuera de las pestañas, con
 header y botón atrás.
 
-**Sesión**: toda la API exige sesión, así que las pantallas que la usan se
-envuelven en `<RequireSession>`: muestra "Iniciar sesión / Crear cuenta"
-si no hay sesión. `useRequireProfile` (en el layout raíz) manda a
-completar el perfil si hay sesión pero todavía no se eligió apodo.
+**Sesión: dos zonas con rutas protegidas.** Toda la API exige sesión, así
+que la app se divide en dos zonas con `Stack.Protected` de Expo Router, en
+el layout raíz (`app/_layout.tsx`):
+
+| Zona | Pantallas |
+|---|---|
+| Sin sesión | `welcome` (presenta la app, con "Iniciar sesión / Crear cuenta"), `login` |
+| Con sesión | las pestañas, `panel`, `forum`, `complete-profile` |
+| Ambas | `register` |
+
+Una pantalla solo existe si el guard de su zona es true: sin sesión no se
+puede llegar a las pestañas (ni con un link), y al iniciar o cerrar sesión
+la app redirige sola a la primera pantalla disponible de la otra zona. Por
+eso el login no navega al terminar, y **el orden de declaración importa**:
+la primera pantalla de cada zona es a donde se cae (`welcome` y `(tabs)`).
+En SDK 57 no existe `redirectTo` (llega en SDK 58).
+
+`register` queda fuera de las dos zonas porque su flujo cruza el momento en
+que aparece la sesión: después de verificar el código ya hay sesión, pero
+todavía falta elegir el apodo; protegido, se cerraría a la mitad.
+
+La sesión la provee un único `SessionProvider` (`hooks/useSession.tsx`),
+que es el único lugar que se suscribe a los cambios de sesión de Supabase
+(y vacía la caché al cerrar sesión); el resto la lee con `useSession()`.
+Por eso el layout raíz pone los proveedores afuera y la navegación en un
+componente adentro (`RootNavigator`), que ya puede leer el contexto.
+
+Mientras se lee la sesión guardada en el dispositivo, la pantalla de carga
+nativa sigue visible, para no mostrar un instante la zona equivocada.
+`useRequireProfile` manda a completar el perfil si hay sesión pero todavía
+no se eligió apodo.
+
+Las rutas protegidas son solo navegación del cliente: la seguridad real la
+da el backend, que exige el token en cada request.
 
 ## Datos del servidor: TanStack Query
 
@@ -92,6 +122,12 @@ instalada y cualquiera puede leerlo: **nunca** va una clave secreta.
   renombraron.
 - Las rutas de `app/` son la excepción: su nombre es la URL
   (`complete-profile.tsx` → `/complete-profile`, `panel/[panelId].tsx`).
+- **Versiones de los paquetes de Expo**: tienen que ser las que Expo probó
+  para el SDK instalado. `npx expo install --check` (desde `apps/mobile`)
+  dice cuáles están desalineadas; se instalan **desde la raíz** con
+  `npm install <paquete>@<versión> -w apps/mobile`, no con
+  `npx expo install --fix` (que correría la instalación dentro del
+  workspace).
 - Estilos con `StyleSheet` y los tokens de `constants/theme.ts`
   (`Colors`, `Spacing`), con `ThemedText` / `ThemedView` para modo claro y
   oscuro.

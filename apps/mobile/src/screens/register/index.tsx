@@ -61,7 +61,9 @@ export function RegisterScreen() {
 
     try {
       await api.completeRegistration(username.trim());
-      router.back();
+      // A Inicio. No `back()`: la bienvenida de la que vino ya no existe con
+      // sesión (es de la zona sin sesión del layout raíz).
+      router.replace('/');
     } catch (error) {
       setStep('username');
       setErrorMessage(getCompleteRegistrationErrorMessage(error));
