@@ -1,5 +1,15 @@
 import { problemDetailsSchema } from '@utalk/shared';
-import type { AuthSession, ErrorCode, FieldError, Profile } from '@utalk/shared';
+import type {
+  AuthSession,
+  ErrorCode,
+  FieldError,
+  Forum,
+  List,
+  Panel,
+  PostPage,
+  PostSort,
+  Profile,
+} from '@utalk/shared';
 
 import { supabase } from '@/lib/supabase';
 
@@ -53,6 +63,24 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${accessToken}` };
 }
 
+// Feed de un foro o de un panel (exactamente uno de los dos), paginado por
+// cursor: `cursor` es el `nextCursor` de la página anterior.
+export type FeedParams = ({ forumId: string } | { panelId: string }) & {
+  sort: PostSort;
+  cursor?: string;
+};
+
+function toQueryString(params: Record<string, string | undefined>): string {
+  const entries = Object.entries(params).filter(
+    (entry): entry is [string, string] => entry[1] !== undefined,
+  );
+  return new URLSearchParams(entries).toString();
+}
+
+async function authGet<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'GET', headers: await authHeaders() });
+}
+
 export const api = {
   async completeRegistration(username: string) {
     return request<Profile>('/auth/complete-registration', {
@@ -80,6 +108,29 @@ export const api = {
     return request<{ available: boolean }>(
       `/profiles/check-username/${encodeURIComponent(username)}`,
       { method: 'GET' },
+    );
+  },
+
+  getPanels() {
+    return authGet<List<Panel>>('/panels');
+  },
+
+  getPanel(panelId: string) {
+    return authGet<Panel>(`/panels/${encodeURIComponent(panelId)}`);
+  },
+
+  getForums(panelId: string) {
+    return authGet<List<Forum>>(`/forums?${toQueryString({ panelId })}`);
+  },
+
+  getForum(forumId: string) {
+    return authGet<Forum>(`/forums/${encodeURIComponent(forumId)}`);
+  },
+
+  getFeed(params: FeedParams) {
+    const scope = 'forumId' in params ? { forumId: params.forumId } : { panelId: params.panelId };
+    return authGet<PostPage>(
+      `/posts?${toQueryString({ ...scope, sort: params.sort, cursor: params.cursor })}`,
     );
   },
 };

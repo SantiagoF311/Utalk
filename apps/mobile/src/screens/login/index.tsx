@@ -6,12 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Callout } from '@/components/callout';
-import { PasswordField } from '@/components/password-field';
-import { TextField } from '@/components/text-field';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { PasswordField } from '@/components/passwordField';
+import { TextField } from '@/components/textField';
+import { ThemedText } from '@/components/themedText';
+import { ThemedView } from '@/components/themedView';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/hooks/useTheme';
 import { api, ApiError } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 

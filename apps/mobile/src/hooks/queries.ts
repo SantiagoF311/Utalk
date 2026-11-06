@@ -1,0 +1,50 @@
+import type { PostSort } from '@utalk/shared';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+
+import { api } from '@/lib/api';
+import { queryKeys } from '@/lib/queryKeys';
+
+export function useMyProfile() {
+  return useQuery({ queryKey: queryKeys.me, queryFn: () => api.getMyProfile() });
+}
+
+export function usePanels() {
+  return useQuery({
+    queryKey: queryKeys.panels,
+    queryFn: () => api.getPanels(),
+    select: (list) => list.items,
+    // Los paneles casi no cambian.
+    staleTime: 10 * 60_000,
+  });
+}
+
+export function usePanel(panelId: string) {
+  return useQuery({ queryKey: queryKeys.panel(panelId), queryFn: () => api.getPanel(panelId) });
+}
+
+// `panelId` vacío = todavía no se sabe qué panel (ej. Inicio esperando el
+// perfil): no se pide nada.
+export function useForums(panelId: string) {
+  return useQuery({
+    queryKey: queryKeys.forums(panelId),
+    queryFn: () => api.getForums(panelId),
+    select: (list) => list.items,
+    enabled: panelId !== '',
+  });
+}
+
+export function useForum(forumId: string) {
+  return useQuery({ queryKey: queryKeys.forum(forumId), queryFn: () => api.getForum(forumId) });
+}
+
+// Feed paginado por cursor: cada página trae `nextCursor`, que se manda para
+// pedir la siguiente; `null` = no hay más.
+export function useFeed(scope: { forumId: string } | { panelId: string }, sort: PostSort) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.feed(scope, sort),
+    queryFn: ({ pageParam }) => api.getFeed({ ...scope, sort, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    select: (data) => data.pages.flatMap((page) => page.items),
+  });
+}

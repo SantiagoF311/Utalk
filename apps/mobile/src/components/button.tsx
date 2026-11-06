@@ -1,8 +1,8 @@
 import { ActivityIndicator, Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { ThemedText } from '@/components/themedText';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/hooks/useTheme';
 
 export type ButtonVariant = 'primary' | 'ghost';
 

@@ -3,14 +3,14 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedView } from '@/components/themed-view';
+import { ThemedView } from '@/components/themedView';
 import { Spacing } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
-import { CodeStep } from '@/screens/register/code-step';
-import { EmailStep } from '@/screens/register/email-step';
-import { StepHeader } from '@/screens/register/step-header';
-import { getCompleteRegistrationErrorMessage, UsernameStep } from '@/screens/register/username-step';
+import { CodeStep } from '@/screens/register/codeStep';
+import { EmailStep } from '@/screens/register/emailStep';
+import { StepHeader } from '@/screens/register/stepHeader';
+import { getCompleteRegistrationErrorMessage, UsernameStep } from '@/screens/register/usernameStep';
 
 type RegisterStep = 'email' | 'code' | 'username';
 
