@@ -10,8 +10,10 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { createCommentSchema, updateCommentSchema } from '@utalk/shared';
 import type { CommentView, List } from '@utalk/shared';
+import { STRICT_RATE_LIMITS } from '../../common/rateLimits.js';
 import { CurrentUserId } from '../auth/auth.guard.js';
 import { CommentsService } from './comments.service.js';
 
@@ -19,6 +21,7 @@ import { CommentsService } from './comments.service.js';
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
+  @Throttle(STRICT_RATE_LIMITS.createComment)
   @Post()
   async create(@Body() body: unknown, @CurrentUserId() userId: string) {
     const input = createCommentSchema.parse(body);

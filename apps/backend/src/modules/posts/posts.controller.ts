@@ -10,7 +10,9 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { createPostSchema, postFeedQuerySchema, updatePostSchema } from '@utalk/shared';
+import { STRICT_RATE_LIMITS } from '../../common/rateLimits.js';
 import { CurrentUserId } from '../auth/auth.guard.js';
 import { PostsService } from './posts.service.js';
 
@@ -18,6 +20,7 @@ import { PostsService } from './posts.service.js';
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
+  @Throttle(STRICT_RATE_LIMITS.createPost)
   @Post()
   async create(@Body() body: unknown, @CurrentUserId() userId: string) {
     const input = createPostSchema.parse(body);

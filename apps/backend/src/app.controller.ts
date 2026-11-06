@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AppService } from './app.service.js';
 import { Public } from './modules/auth/auth.guard.js';
 import { SupabaseService } from './supabase/supabase.service.js';
@@ -13,6 +14,7 @@ export class AppController {
   // Público para que el health check del hosting pueda verificar que el
   // proceso está vivo sin token.
   @Public()
+  @SkipThrottle()
   @Get()
   getHello(): string {
     return this.appService.getHello();

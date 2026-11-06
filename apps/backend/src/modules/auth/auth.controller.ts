@@ -1,6 +1,8 @@
 import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { completeRegistrationSchema, loginSchema } from '@utalk/shared';
 import type { AuthSession, Profile } from '@utalk/shared';
+import { STRICT_RATE_LIMITS } from '../../common/rateLimits.js';
 import { toProfileView } from '../profiles/profile.view.js';
 import { CurrentUserId, Public } from './auth.guard.js';
 import { AuthService } from './auth.service.js';
@@ -26,6 +28,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(STRICT_RATE_LIMITS.login)
   @Post('login')
   @HttpCode(200)
   async login(@Body() body: unknown): Promise<AuthSession> {

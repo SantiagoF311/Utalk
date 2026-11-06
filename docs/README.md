@@ -13,10 +13,10 @@ alternativas se descartaron y por qué.
 - [monorepo.md](./monorepo.md) — estructura del repositorio, npm workspaces, paquete compartido
 - [modelo-de-datos.md](./modelo-de-datos.md) — tablas de Supabase, relaciones, y los schemas Zod compartidos que las espejan
 - [arquitectura-backend.md](./arquitectura-backend.md) — organización interna de módulos NestJS: hexagonal/Clean Architecture, Entities, comunicación entre módulos
-- [backend-y-colas.md](./backend-y-colas.md) — NestJS, hosting, BullMQ + Redis, notificaciones y moderación
+- [backend-y-colas.md](./backend-y-colas.md) — NestJS, hosting, variables de entorno, BullMQ + Redis, notificaciones, moderación y rate limiting
 - [datos-y-trending.md](./datos-y-trending.md) — Supabase/Postgres como fuente de verdad, trending (`hot`) como columna generada, contadores por trigger
 - [chat-realtime.md](./chat-realtime.md) — chats 1 a 1 con Supabase Realtime y Presence
-- [auth.md](./auth.md) — autenticación anónima, verificación de universidad por dominio de correo
+- [auth.md](./auth.md) — registro y login, verificación local del JWT, universidad por dominio de correo
 - [busqueda.md](./busqueda.md) — full-text search y por qué no se usa un motor dedicado
 - [observabilidad.md](./observabilidad.md) — logging, manejo de errores, monitoreo
 - [testing.md](./testing.md) — tests unitarios, fixtures, `npm run check` y CI
@@ -35,9 +35,9 @@ alternativas se descartaron y por qué.
 | Tiempo real | Supabase Realtime + Presence | Chats, indicadores de lectura y "escribiendo..." |
 | Almacenamiento de archivos | Supabase Storage | Imágenes de posts |
 | Colas de trabajo | BullMQ | Notificaciones, moderación |
-| Backing store de colas / cache | Redis (Upstash, serverless) | Almacenamiento de BullMQ y conteo del rate limiting |
+| Backing store de colas / cache | Redis (Upstash, serverless) | Almacenamiento de BullMQ (y del rate limiting cuando el backend tenga más de una instancia) |
 | Búsqueda | Postgres full-text search + `pg_trgm` | Buscar posts/comentarios |
-| Rate limiting | `@nestjs/throttler` (sobre Redis) | Anti-spam a nivel de API |
+| Rate limiting | `@nestjs/throttler` (en memoria; a Redis con más de una instancia) | Anti-spam a nivel de API |
 | Observabilidad | Sentry + logs de Fly.io | Detección de errores en producción |
 | Tipos compartidos | `packages/shared` (Zod) | Contratos de datos entre backend, mobile, y payloads de jobs |
 

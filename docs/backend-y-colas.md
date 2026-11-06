@@ -140,7 +140,54 @@ más de una vez con el mismo payload (ej. no duplicar notificaciones si
 
 ## Rate limiting anti-spam (distinto de la moderación de contenido)
 
-Para evitar abuso de la API en sí (spam de posts, votos repetidos), se usa
-`@nestjs/throttler`, que reutiliza el mismo Redis de Upstash como backend
-de conteo — no requiere infraestructura adicional. Esto es una decisión de
-implementación, no de arquitectura de sistema.
+Para evitar abuso de la API en sí (fuerza bruta de contraseñas, spam de
+posts y comentarios, saturar el backend), se usa `@nestjs/throttler`: un
+guard global que cuenta las requests de cada IP por minuto y, al superar
+el límite, responde 429 `TOO_MANY_REQUESTS`. Corre antes que la
+autenticación, así frena también a quien manda tokens inválidos en masa.
+
+| Endpoint | Límite por IP |
+|---|---|
+| cualquiera | 120 / min |
+| `POST /auth/login` | 10 / min |
+| `POST /posts` | 5 / min |
+| `POST /comments` | 20 / min |
+| `POST /reports` | 10 / min |
+| `GET /` (health check) | sin límite, para el monitoreo del hosting |
+
+Definidos en `apps/backend/src/common/rateLimits.ts`. Detrás del proxy de
+Fly.io, el backend usa `trust proxy` para ver la IP real del cliente — si
+no, todas las requests parecerían venir de la IP del proxy.
+
+**Almacenamiento del contador: en memoria (por ahora)**. La decisión
+original era guardarlo en el Redis de Upstash, pero Redis todavía no
+existe en el proyecto (llega con BullMQ). Mientras el backend corra en una
+**sola instancia**, contar en memoria es equivalente. **Pasar a Redis**
+cuando se agregue Redis o cuando el backend corra en más de una instancia:
+si no, cada instancia contaría por su lado y el límite real se
+multiplicaría por la cantidad de instancias. El cambio es solo de
+configuración del `ThrottlerModule` (otro storage), sin tocar los límites
+ni los endpoints.
+
+## Configuración del backend en producción
+
+Variables de entorno que el backend necesita (en Fly.io, con
+`fly secrets set ...`; en local, en `apps/backend/.env` — la plantilla con
+todas está en `apps/backend/.env.example`):
+
+| Variable | Para qué |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` | Acceso a Supabase |
+| `PORT` | Puerto HTTP (default 3000) |
+| `CORS_ORIGINS` | Orígenes web que pueden llamar a la API, separados por coma (ej. `https://utalk.app`) |
+
+**Sobre `CORS_ORIGINS`**: CORS es una protección de los navegadores —
+solo afecta a la versión **web** de la app; la app nativa no manda
+`Origin` y no se ve afectada. Sin la variable, el backend solo acepta
+`http://localhost:8081` (Expo web en desarrollo). **Si se olvida en
+producción**, la versión web no puede llamar a la API (el navegador lo
+bloquea con "blocked by CORS policy") mientras la app nativa sigue
+funcionando — un error fácil de no detectar.
+
+El backend además agrega los headers de seguridad estándar con `helmet`
+(`nosniff`, HSTS, sin `X-Powered-By`).
