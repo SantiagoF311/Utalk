@@ -1,4 +1,4 @@
-import { CompleteProfileScreen } from '@/screens/complete-profile';
+import { CompleteProfileScreen } from '@/screens/completeProfile';
 
 export default function CompleteProfile() {
   return <CompleteProfileScreen />;

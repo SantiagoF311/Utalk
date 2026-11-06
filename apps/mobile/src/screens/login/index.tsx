@@ -1,4 +1,4 @@
-import { router, Link } from 'expo-router';
+import { Link } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Switch, View } from 'react-native';
@@ -6,12 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Callout } from '@/components/callout';
-import { PasswordField } from '@/components/password-field';
-import { TextField } from '@/components/text-field';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { PasswordField } from '@/components/passwordField';
+import { TextField } from '@/components/textField';
+import { ThemedText } from '@/components/themedText';
+import { ThemedView } from '@/components/themedView';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/hooks/useTheme';
 import { api, ApiError } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 
@@ -34,7 +34,8 @@ export function LoginScreen() {
         refresh_token: session.refreshToken,
       });
       if (error) throw error;
-      router.back();
+      // No hace falta navegar: con la sesión, las rutas protegidas del
+      // layout raíz cambian solas a las pestañas.
     } catch (error) {
       setLoginError(
         error instanceof ApiError && error.code === 'INVALID_CREDENTIALS'

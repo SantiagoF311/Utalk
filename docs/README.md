@@ -13,6 +13,7 @@ alternativas se descartaron y por qué.
 - [monorepo.md](./monorepo.md) — estructura del repositorio, npm workspaces, paquete compartido
 - [modelo-de-datos.md](./modelo-de-datos.md) — tablas de Supabase, relaciones, y los schemas Zod compartidos que las espejan
 - [arquitectura-backend.md](./arquitectura-backend.md) — organización interna de módulos NestJS: hexagonal/Clean Architecture, Entities, comunicación entre módulos
+- [mobile.md](./mobile.md) — estructura de la app Expo, navegación, TanStack Query (datos y caché del cliente), errores y variables de entorno
 - [backend-y-colas.md](./backend-y-colas.md) — NestJS, hosting, variables de entorno, BullMQ + Redis, notificaciones, moderación y rate limiting
 - [datos-y-trending.md](./datos-y-trending.md) — Supabase/Postgres como fuente de verdad, trending (`hot`) como columna generada, contadores por trigger
 - [chat-realtime.md](./chat-realtime.md) — chats 1 a 1 con Supabase Realtime y Presence
@@ -28,6 +29,7 @@ alternativas se descartaron y por qué.
 |---|---|---|
 | Monorepo | npm workspaces | Compartir código entre `apps/backend` y `apps/mobile` vía `packages/shared` |
 | Cliente | Expo (React Native) | App móvil |
+| Datos en el cliente | TanStack Query | Caché, paginación por cursor y reintentos de los datos de la API en el mobile |
 | Backend | NestJS | API HTTP |
 | Hosting backend | Fly.io | Proceso persistente 24/7 (necesario para los workers de colas) |
 | Base de datos | Supabase (Postgres) | Fuente de verdad de todos los datos |
