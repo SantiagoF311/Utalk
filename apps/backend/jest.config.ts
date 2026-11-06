@@ -15,6 +15,8 @@ const config: Config = {
   // "nodenext"); en los tests se resuelven al .ts original.
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    // Ver src/testing/throttlerStub.ts.
+    '^@nestjs/throttler$': '<rootDir>/src/testing/throttlerStub.ts',
   },
   collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
   coverageDirectory: './coverage',
