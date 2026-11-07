@@ -1,6 +1,7 @@
 import { problemDetailsSchema } from '@utalk/shared';
 import type {
   AuthSession,
+  CommentView,
   ErrorCode,
   FieldError,
   Forum,
@@ -8,16 +9,20 @@ import type {
   Panel,
   PostPage,
   PostSort,
+  PostView,
   Profile,
 } from '@utalk/shared';
 
+import { resolveApiUrl } from '@/lib/apiUrl';
 import { supabase } from '@/lib/supabase';
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-if (!apiUrl) {
+if (!configuredApiUrl) {
   throw new Error('Missing EXPO_PUBLIC_API_URL');
 }
+
+const apiUrl = resolveApiUrl(configuredApiUrl);
 
 // Error de la API (Problem Details, RFC 9457). Para decidir qué hacer o qué
 // texto mostrar, usar `code`; `message` es el `detail` técnico en inglés,
@@ -132,5 +137,14 @@ export const api = {
     return authGet<PostPage>(
       `/posts?${toQueryString({ ...scope, sort: params.sort, cursor: params.cursor })}`,
     );
+  },
+
+  getPost(postId: string) {
+    return authGet<PostView>(`/posts/${encodeURIComponent(postId)}`);
+  },
+
+  // Árbol completo: cada comentario trae sus respuestas en `replies`.
+  getComments(postId: string) {
+    return authGet<List<CommentView>>(`/comments?${toQueryString({ postId })}`);
   },
 };

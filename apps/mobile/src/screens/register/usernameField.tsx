@@ -30,13 +30,13 @@ export function UsernameField({ value, onChangeText, availability }: UsernameFie
           availability.status === 'available' ? (
             <SymbolView
               tintColor={theme.success}
-              name={{ ios: 'checkmark.circle.fill', android: 'check_circle' }}
+              name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
               size={20}
             />
           ) : availability.status === 'taken' ? (
             <SymbolView
               tintColor={theme.warning}
-              name={{ ios: 'xmark.circle.fill', android: 'cancel' }}
+              name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
               size={20}
             />
           ) : undefined

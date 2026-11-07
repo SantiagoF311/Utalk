@@ -12,24 +12,29 @@ type PostCardProps = {
   // Nombre del foro: se muestra en el feed de un panel, donde se mezclan
   // posts de varios foros. En el feed de un foro se omite.
   forumName?: string;
+  // En el detalle del post se muestra todo el texto; en el feed, recortado.
+  full?: boolean;
 };
 
-export function PostCard({ post, forumName }: PostCardProps) {
+export function PostCard({ post, forumName, full = false }: PostCardProps) {
   const theme = useTheme();
   const comments = post.commentCount === 1 ? '1 comentario' : `${post.commentCount} comentarios`;
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+      <ThemedText type="small" themeColor="textSecondary" numberOfLines={full ? undefined : 1}>
         {forumName ? `${forumName} · ` : ''}u/{post.author.username} · {post.author.university.name}
         {' · '}
         {relativeTime(post.createdAt)}
       </ThemedText>
 
-      <ThemedText style={styles.title} numberOfLines={3}>
+      <ThemedText style={styles.title} numberOfLines={full ? undefined : 3}>
         {post.title}
       </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" numberOfLines={3}>
+      <ThemedText
+        type={full ? 'default' : 'small'}
+        themeColor={full ? 'text' : 'textSecondary'}
+        numberOfLines={full ? undefined : 3}>
         {post.body}
       </ThemedText>
 

@@ -27,7 +27,7 @@ export function PasswordField({ label = 'Contraseña', ...inputProps }: Password
           hitSlop={8}>
           <SymbolView
             tintColor={theme.textSecondary}
-            name={{ ios: visible ? 'eye.slash' : 'eye', android: visible ? 'visibility_off' : 'visibility' }}
+            name={{ ios: visible ? 'eye.slash' : 'eye', android: visible ? 'visibility_off' : 'visibility', web: visible ? 'visibility_off' : 'visibility' }}
             size={20}
           />
         </Pressable>

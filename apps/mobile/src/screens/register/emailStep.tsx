@@ -72,13 +72,13 @@ export function EmailStep({
               domainCheck.status === 'registered' ? (
                 <SymbolView
                   tintColor={theme.success}
-                  name={{ ios: 'checkmark.circle.fill', android: 'check_circle' }}
+                  name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
                   size={20}
                 />
               ) : domainCheck.status === 'unregistered' ? (
                 <SymbolView
                   tintColor={theme.warning}
-                  name={{ ios: 'xmark.circle.fill', android: 'cancel' }}
+                  name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
                   size={20}
                 />
               ) : undefined
@@ -88,7 +88,7 @@ export function EmailStep({
             <View style={[styles.universityBadge, { backgroundColor: theme.backgroundElement }]}>
               <SymbolView
                 tintColor={theme.textSecondary}
-                name={{ ios: 'graduationcap.fill', android: 'school' }}
+                name={{ ios: 'graduationcap.fill', android: 'school', web: 'school' }}
                 size={14}
               />
               <ThemedText type="small" themeColor="textSecondary">

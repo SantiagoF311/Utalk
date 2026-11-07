@@ -59,6 +59,10 @@ function RootNavigator() {
             name="forum/[forumId]"
             options={{ headerShown: true, title: '', headerBackTitle: 'Atrás' }}
           />
+          <Stack.Screen
+            name="post/[postId]"
+            options={{ headerShown: true, title: 'Post', headerBackTitle: 'Atrás' }}
+          />
           <Stack.Screen name="complete-profile" options={{ gestureEnabled: false }} />
         </Stack.Protected>
 

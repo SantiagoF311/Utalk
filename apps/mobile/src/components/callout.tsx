@@ -24,6 +24,7 @@ export function Callout({ variant = 'info', children }: CalloutProps) {
         name={{
           ios: isWarning ? 'exclamationmark.triangle.fill' : 'info.circle.fill',
           android: isWarning ? 'warning' : 'info',
+          web: isWarning ? 'warning' : 'info',
         }}
         size={16}
         style={styles.icon}

@@ -20,8 +20,15 @@ src/
 universidad) y **Explorar** (todos los paneles: primero el general y el
 tuyo, donde puedes publicar; después el resto, donde puedes leer, comentar
 y votar). De ahí: panel (sus foros + el feed de todos ellos) → foro (su
-feed). Panel y foro van en el stack raíz, fuera de las pestañas, con
-header y botón atrás.
+feed) → post (el post completo y su árbol de comentarios). Panel, foro y
+post van en el stack raíz, fuera de las pestañas, con header y botón
+atrás.
+
+**Comentarios**: el árbol llega armado del backend (`replies` anidadas) y
+se dibuja recursivo (`components/commentItem.tsx`). La sangría deja de
+crecer a partir del 4.º nivel para no dejar el texto sin ancho en un
+celular. Tocar la cabecera de un comentario colapsa o expande su hilo. Un
+comentario borrado se ve como "[eliminado]" y conserva sus respuestas.
 
 **Sesión: dos zonas con rutas protegidas.** Toda la API exige sesión, así
 que la app se divide en dos zonas con `Stack.Protected` de Expo Router, en
@@ -93,6 +100,11 @@ escritas a mano, y TanStack Query las resuelve:
 (ej. refrescar el feed después de postear) use exactamente la misma clave
 que la query. Las queries viven en `src/hooks/queries.ts`.
 
+**Pre-llenar la caché al navegar**: al tocar un post del feed, el post (que
+el feed ya trae completo) se guarda con `setQueryData` en la clave del
+detalle antes de navegar. Así el detalle se muestra al instante, sin
+pantalla de carga, y solo se piden los comentarios.
+
 **No confundir con la caché del backend**: esta caché vive en el celular
 de cada usuario y ahorra requests al backend. Una caché del servidor
 (Redis) sería compartida entre usuarios y ahorraría consultas a Postgres —
@@ -114,6 +126,19 @@ En `apps/mobile/.env` (plantilla: `apps/mobile/.env.example`):
 `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y
 `EXPO_PUBLIC_API_URL`. Todo lo `EXPO_PUBLIC_*` queda dentro de la app
 instalada y cualquiera puede leerlo: **nunca** va una clave secreta.
+
+**`EXPO_PUBLIC_API_URL` en un celular**: en el celular, `localhost` es el
+propio celular, no el computador con el backend. Por eso, **solo en
+desarrollo y fuera de la web**, `src/lib/apiUrl.ts` reemplaza `localhost`
+por la IP del computador que sirve la app (la que usa Metro, que Expo
+expone en `Constants.expoConfig.hostUri`). Con `localhost:3000` en el
+`.env` alcanza para probar en el navegador y en un celular con Expo Go
+(misma red WiFi). En producción la URL se usa tal cual. Si igual no
+conecta, revisar que el backend esté corriendo y que el firewall de
+Windows permita a Node.js en redes privadas.
+
+**Las variables se incorporan al compilar**: después de cambiar el `.env`
+hay que reiniciar Expo limpiando la caché (`npm run mobile -- --clear`).
 
 ## Convenciones
 
@@ -162,6 +187,10 @@ cambiar de SDK, actualizar ese valor a la versión que pida
 - Estilos con `StyleSheet` y los tokens de `constants/theme.ts`
   (`Colors`, `Spacing`), con `ThemedText` / `ThemedView` para modo claro y
   oscuro.
+- **Íconos** (`SymbolView` de `expo-symbols`): siempre con las tres claves,
+  `ios` (SF Symbols), `android` y `web` (las dos Material Symbols, el mismo
+  nombre). Sin `web`, en el navegador el ícono no se ve — grave si es un
+  botón, como el ojo de la contraseña.
 
 ## Pendiente
 

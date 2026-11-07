@@ -1,6 +1,15 @@
 import type { PostSort, PostView } from '@utalk/shared';
+import { useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { ReactElement, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { PostCard } from '@/components/postCard';
 import { SortSelector } from '@/components/sortSelector';
@@ -9,6 +18,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFeed } from '@/hooks/queries';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
+import { queryKeys } from '@/lib/queryKeys';
 
 type FeedListProps = {
   scope: { forumId: string } | { panelId: string };
@@ -24,6 +34,14 @@ export function FeedList({ scope, header, forumNames }: FeedListProps) {
   const theme = useTheme();
   const [sort, setSort] = useState<PostSort>('hot');
   const feed = useFeed(scope, sort);
+  const queryClient = useQueryClient();
+
+  // El post del feed ya está completo: se guarda en la caché del detalle para
+  // que se abra al instante, sin pantalla de carga (los comentarios se piden).
+  const openPost = (post: PostView) => {
+    queryClient.setQueryData(queryKeys.post(post.id), post);
+    router.push({ pathname: '/post/[postId]', params: { postId: post.id } });
+  };
 
   const emptyState = feed.isPending ? (
     <StateMessage kind="loading" />
@@ -42,7 +60,13 @@ export function FeedList({ scope, header, forumNames }: FeedListProps) {
       data={feed.data ?? []}
       keyExtractor={(post) => post.id}
       renderItem={({ item }) => (
-        <PostCard post={item} forumName={forumNames?.get(item.forumId)} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={item.title}
+          onPress={() => openPost(item)}
+          style={({ pressed }) => pressed && styles.pressed}>
+          <PostCard post={item} forumName={forumNames?.get(item.forumId)} />
+        </Pressable>
       )}
       ListHeaderComponent={
         <View style={styles.header}>
@@ -87,6 +111,9 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.three,
     marginBottom: Spacing.three,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   separator: {
     height: Spacing.two,

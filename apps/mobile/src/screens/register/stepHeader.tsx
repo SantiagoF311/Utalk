@@ -21,7 +21,7 @@ export function StepHeader({ step, onBack }: StepHeaderProps) {
         <Pressable accessibilityRole="button" accessibilityLabel="Volver" onPress={onBack} hitSlop={8}>
           <SymbolView
             tintColor={theme.text}
-            name={{ ios: 'chevron.left', android: 'arrow_back' }}
+            name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
             size={20}
           />
         </Pressable>
