@@ -53,7 +53,7 @@ Nacional). No hace falta una tabla de verificación separada ni un proceso
 de aprobación manual — el dominio ya es la señal de verificación.
 
 Esto determina en qué panel de universidad puede **publicar** el usuario
-(crear foros y posts), además del panel general donde publican todos los
+(crear comunidades y posts), además del panel general donde publican todos los
 usuarios verificados. No restringe lo que puede **ver**: cualquier
 usuario lee, comenta y vota en los paneles de todas las universidades.
-Ver la regla completa en [modelo-de-datos.md](./modelo-de-datos.md#forums).
+Ver la regla completa en [modelo-de-datos.md](./modelo-de-datos.md#communities).

@@ -24,17 +24,17 @@ export function usePanel(panelId: string) {
 
 // `panelId` vacío = todavía no se sabe qué panel (ej. Inicio esperando el
 // perfil): no se pide nada.
-export function useForums(panelId: string) {
+export function useCommunities(panelId: string) {
   return useQuery({
-    queryKey: queryKeys.forums(panelId),
-    queryFn: () => api.getForums(panelId),
+    queryKey: queryKeys.communities(panelId),
+    queryFn: () => api.getCommunities(panelId),
     select: (list) => list.items,
     enabled: panelId !== '',
   });
 }
 
-export function useForum(forumId: string) {
-  return useQuery({ queryKey: queryKeys.forum(forumId), queryFn: () => api.getForum(forumId) });
+export function useCommunity(communityId: string) {
+  return useQuery({ queryKey: queryKeys.community(communityId), queryFn: () => api.getCommunity(communityId) });
 }
 
 export function usePost(postId: string) {
@@ -51,7 +51,7 @@ export function useComments(postId: string) {
 
 // Feed paginado por cursor: cada página trae `nextCursor`, que se manda para
 // pedir la siguiente; `null` = no hay más.
-export function useFeed(scope: { forumId: string } | { panelId: string }, sort: PostSort) {
+export function useFeed(scope: { communityId: string } | { panelId: string }, sort: PostSort) {
   return useInfiniteQuery({
     queryKey: queryKeys.feed(scope, sort),
     queryFn: ({ pageParam }) => api.getFeed({ ...scope, sort, cursor: pageParam }),

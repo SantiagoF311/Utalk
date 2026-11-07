@@ -3,16 +3,16 @@ import { StyleSheet } from 'react-native';
 
 import { FeedList } from '@/components/feedList';
 import { ThemedView } from '@/components/themedView';
-import { useForum } from '@/hooks/queries';
+import { useCommunity } from '@/hooks/queries';
 
-// Un foro: su feed.
-export function ForumScreen({ forumId }: { forumId: string }) {
-  const forum = useForum(forumId);
+// Una comunidad: su feed.
+export function CommunityScreen({ communityId }: { communityId: string }) {
+  const community = useCommunity(communityId);
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: forum.data?.name ?? '' }} />
-      <FeedList scope={{ forumId }} />
+      <Stack.Screen options={{ title: community.data?.name ?? '' }} />
+      <FeedList scope={{ communityId }} />
     </ThemedView>
   );
 }

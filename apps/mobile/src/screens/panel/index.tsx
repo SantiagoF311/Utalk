@@ -6,9 +6,9 @@ import { FeedList } from '@/components/feedList';
 import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { Spacing } from '@/constants/theme';
-import { useForums, usePanel } from '@/hooks/queries';
+import { useCommunities, usePanel } from '@/hooks/queries';
 
-// Un panel: sus foros (para entrar a uno) y el feed de todos ellos juntos.
+// Un panel: sus comunidades (para entrar a una) y el feed de todas juntas.
 export function PanelScreen({ panelId }: { panelId: string }) {
   const panel = usePanel(panelId);
 
@@ -21,34 +21,34 @@ export function PanelScreen({ panelId }: { panelId: string }) {
 }
 
 function PanelFeed({ panelId }: { panelId: string }) {
-  const forums = useForums(panelId);
-  const forumNames = useMemo(
-    () => new Map(forums.data?.map((forum) => [forum.id, forum.name])),
-    [forums.data],
+  const communities = useCommunities(panelId);
+  const communityNames = useMemo(
+    () => new Map(communities.data?.map((community) => [community.id, community.name])),
+    [communities.data],
   );
 
   return (
     <FeedList
       scope={{ panelId }}
-      forumNames={forumNames}
+      communityNames={communityNames}
       header={
-        forums.data && forums.data.length > 0 ? (
-          <View style={styles.forums}>
+        communities.data && communities.data.length > 0 ? (
+          <View style={styles.communities}>
             <ThemedText type="smallBold" themeColor="textSecondary">
-              Foros
+              Comunidades
             </ThemedText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.forumRow}>
-                {forums.data.map((forum) => (
+              <View style={styles.communityRow}>
+                {communities.data.map((community) => (
                   <Pressable
-                    key={forum.id}
+                    key={community.id}
                     accessibilityRole="button"
                     onPress={() =>
-                      router.push({ pathname: '/forum/[forumId]', params: { forumId: forum.id } })
+                      router.push({ pathname: '/community/[communityId]', params: { communityId: community.id } })
                     }
                     style={({ pressed }) => pressed && styles.pressed}>
-                    <ThemedView type="backgroundElement" style={styles.forumChip}>
-                      <ThemedText type="small">{forum.name}</ThemedText>
+                    <ThemedView type="backgroundElement" style={styles.communityChip}>
+                      <ThemedText type="small">{community.name}</ThemedText>
                     </ThemedView>
                   </Pressable>
                 ))}
@@ -65,14 +65,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  forums: {
+  communities: {
     gap: Spacing.two,
   },
-  forumRow: {
+  communityRow: {
     flexDirection: 'row',
     gap: Spacing.two,
   },
-  forumChip: {
+  communityChip: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,

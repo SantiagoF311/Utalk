@@ -2,7 +2,7 @@ import type { Author, PostSort, VoteValue } from '@utalk/shared';
 import { PostEntity } from './post.entity.js';
 
 export interface NewPost {
-  forumId: string;
+  communityId: string;
   authorId: string;
   title: string;
   body: string;
@@ -18,9 +18,9 @@ export interface PostWithAuthor {
   author: Author;
 }
 
-// Exactamente uno de forumId/panelId (lo garantiza postFeedQuerySchema).
+// Exactamente uno de communityId/panelId (lo garantiza postFeedQuerySchema).
 export interface PostPageQuery {
-  forumId?: string;
+  communityId?: string;
   panelId?: string;
   sort: PostSort;
   cursor?: string;

@@ -8,7 +8,7 @@ import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { Spacing } from '@/constants/theme';
-import { useForums, useMyProfile, usePanels } from '@/hooks/queries';
+import { useCommunities, useMyProfile, usePanels } from '@/hooks/queries';
 import { errorMessage } from '@/lib/errorMessages';
 
 // Inicio: el feed del panel de la universidad del usuario.
@@ -26,11 +26,11 @@ function MyUniversityFeed() {
   const me = useMyProfile();
   const panels = usePanels();
   const myPanel = panels.data?.find((panel) => panel.universityId === me.data?.universityId);
-  const forums = useForums(myPanel?.id ?? '');
+  const communities = useCommunities(myPanel?.id ?? '');
 
-  const forumNames = useMemo(
-    () => new Map(forums.data?.map((forum) => [forum.id, forum.name])),
-    [forums.data],
+  const communityNames = useMemo(
+    () => new Map(communities.data?.map((community) => [community.id, community.name])),
+    [communities.data],
   );
 
   if (me.isPending || panels.isPending) return <StateMessage kind="loading" />;
@@ -59,7 +59,7 @@ function MyUniversityFeed() {
   return (
     <FeedList
       scope={{ panelId: myPanel.id }}
-      forumNames={forumNames}
+      communityNames={communityNames}
       header={
         <View style={styles.heading}>
           <ThemedText type="subtitle" style={styles.title}>
@@ -67,7 +67,7 @@ function MyUniversityFeed() {
           </ThemedText>
           <Link href={{ pathname: '/panel/[panelId]', params: { panelId: myPanel.id } }}>
             <ThemedText type="small" themeColor="primary">
-              Ver los foros del panel
+              Ver las comunidades del panel
             </ThemedText>
           </Link>
         </View>

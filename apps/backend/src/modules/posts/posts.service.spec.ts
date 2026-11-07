@@ -3,25 +3,25 @@ import { AppException } from '../../common/appException.js';
 import {
   IDS,
   makeAuthor,
-  makeForum,
+  makeCommunity,
   makeGeneralPanel,
   makePanel,
   makePost,
   makeProfile,
 } from '../../testing/fixtures.js';
-import type { ForumsService } from '../forums/forums.service.js';
+import type { CommunitiesService } from '../communities/communities.service.js';
 import type { PanelsService } from '../panels/panels.service.js';
 import type { ProfilesService } from '../profiles/profiles.service.js';
 import type { PostRepository } from './domain/post.repository.js';
 import { PostsService } from './posts.service.js';
 
-const notFound = (code: 'PROFILE_NOT_FOUND' | 'FORUM_NOT_FOUND' | 'PANEL_NOT_FOUND') =>
+const notFound = (code: 'PROFILE_NOT_FOUND' | 'COMMUNITY_NOT_FOUND' | 'PANEL_NOT_FOUND') =>
   new AppException(code, 'not found');
 
 describe('PostsService', () => {
   let repository: jest.Mocked<PostRepository>;
   let profiles: { findById: jest.Mock<ProfilesService['findById']> };
-  let forums: { findById: jest.Mock<ForumsService['findById']> };
+  let communities: { findById: jest.Mock<CommunitiesService['findById']> };
   let panels: { findById: jest.Mock<PanelsService['findById']> };
   let service: PostsService;
 
@@ -41,19 +41,21 @@ describe('PostsService', () => {
     profiles = {
       findById: jest.fn<ProfilesService['findById']>().mockResolvedValue(makeProfile()),
     };
-    forums = { findById: jest.fn<ForumsService['findById']>().mockResolvedValue(makeForum()) };
+    communities = {
+      findById: jest.fn<CommunitiesService['findById']>().mockResolvedValue(makeCommunity()),
+    };
     panels = { findById: jest.fn<PanelsService['findById']>().mockResolvedValue(makePanel()) };
 
     service = new PostsService(
       repository,
-      forums as unknown as ForumsService,
+      communities as unknown as CommunitiesService,
       panels as unknown as PanelsService,
       profiles as unknown as ProfilesService,
     );
   });
 
   describe('create', () => {
-    const input = { forumId: IDS.forum, title: 'Hola', body: 'Cuerpo' };
+    const input = { communityId: IDS.community, title: 'Hola', body: 'Cuerpo' };
 
     it('crea el post y devuelve la vista con el autor y su universidad', async () => {
       const view = await service.create(input, IDS.ana);
@@ -78,21 +80,21 @@ describe('PostsService', () => {
       expect(repository.findVotesByUser).not.toHaveBeenCalled();
     });
 
-    it('pide perfil y foro en paralelo', async () => {
-      // Si fueran en secuencia, al pedir el foro el perfil ya se habría resuelto.
+    it('pide perfil y comunidad en paralelo', async () => {
+      // Si fueran en secuencia, al pedir la comunidad el perfil ya se habría resuelto.
       let profileResolved = false;
       profiles.findById.mockImplementation(async () => {
         await Promise.resolve();
         profileResolved = true;
         return makeProfile();
       });
-      forums.findById.mockImplementation(async () => {
+      communities.findById.mockImplementation(async () => {
         expect(profileResolved).toBe(false);
-        return makeForum();
+        return makeCommunity();
       });
 
       await service.create(input, IDS.ana);
-      expect(forums.findById).toHaveBeenCalled();
+      expect(communities.findById).toHaveBeenCalled();
     });
 
     it('rechaza postear en el panel de otra universidad', async () => {
@@ -120,11 +122,11 @@ describe('PostsService', () => {
       expect(repository.create).not.toHaveBeenCalled();
     });
 
-    it('propaga FORUM_NOT_FOUND si el foro no existe', async () => {
-      forums.findById.mockRejectedValue(notFound('FORUM_NOT_FOUND'));
+    it('propaga COMMUNITY_NOT_FOUND si la comunidad no existe', async () => {
+      communities.findById.mockRejectedValue(notFound('COMMUNITY_NOT_FOUND'));
 
       await expect(service.create(input, IDS.ana)).rejects.toMatchObject({
-        code: 'FORUM_NOT_FOUND',
+        code: 'COMMUNITY_NOT_FOUND',
       });
       expect(repository.create).not.toHaveBeenCalled();
     });
@@ -142,19 +144,22 @@ describe('PostsService', () => {
       });
       repository.findVotesByUser.mockResolvedValue(new Map([[upvoted.id, 1]]));
 
-      const page = await service.findFeed({ forumId: IDS.forum, sort: 'hot', limit: 20 }, IDS.ana);
+      const page = await service.findFeed(
+        { communityId: IDS.community, sort: 'hot', limit: 20 },
+        IDS.ana,
+      );
 
       expect(page.items.map((p) => p.myVote)).toEqual([null, 1]);
       expect(page.nextCursor).toBe('abc');
     });
 
-    it('404 explícito si el foro no existe, en vez de una página vacía', async () => {
-      forums.findById.mockRejectedValue(notFound('FORUM_NOT_FOUND'));
+    it('404 explícito si la comunidad no existe, en vez de una página vacía', async () => {
+      communities.findById.mockRejectedValue(notFound('COMMUNITY_NOT_FOUND'));
 
       await expect(
-        service.findFeed({ forumId: IDS.forum, sort: 'hot', limit: 20 }, IDS.ana),
+        service.findFeed({ communityId: IDS.community, sort: 'hot', limit: 20 }, IDS.ana),
       ).rejects.toMatchObject({
-        code: 'FORUM_NOT_FOUND',
+        code: 'COMMUNITY_NOT_FOUND',
       });
       expect(repository.findPage).not.toHaveBeenCalled();
     });

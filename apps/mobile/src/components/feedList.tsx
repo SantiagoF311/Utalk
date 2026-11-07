@@ -21,16 +21,16 @@ import { errorMessage } from '@/lib/errorMessages';
 import { queryKeys } from '@/lib/queryKeys';
 
 type FeedListProps = {
-  scope: { forumId: string } | { panelId: string };
-  // Lo que va arriba del selector de orden (título del panel o foro, etc.).
+  scope: { communityId: string } | { panelId: string };
+  // Lo que va arriba del selector de orden (título del panel o comunidad, etc.).
   header?: ReactElement;
-  // forumId → nombre, para mostrar el foro de cada post en el feed de un panel.
-  forumNames?: Map<string, string>;
+  // communityId → nombre, para mostrar la comunidad de cada post en el feed de un panel.
+  communityNames?: Map<string, string>;
 };
 
 // Feed paginado por cursor con scroll infinito: al acercarse al final pide la
 // página siguiente. Tirar hacia abajo lo refresca.
-export function FeedList({ scope, header, forumNames }: FeedListProps) {
+export function FeedList({ scope, header, communityNames }: FeedListProps) {
   const theme = useTheme();
   const [sort, setSort] = useState<PostSort>('hot');
   const feed = useFeed(scope, sort);
@@ -65,7 +65,7 @@ export function FeedList({ scope, header, forumNames }: FeedListProps) {
           accessibilityLabel={item.title}
           onPress={() => openPost(item)}
           style={({ pressed }) => pressed && styles.pressed}>
-          <PostCard post={item} forumName={forumNames?.get(item.forumId)} />
+          <PostCard post={item} communityName={communityNames?.get(item.communityId)} />
         </Pressable>
       )}
       ListHeaderComponent={

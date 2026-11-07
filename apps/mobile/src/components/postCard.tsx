@@ -9,21 +9,21 @@ import { relativeTime } from '@/lib/relativeTime';
 
 type PostCardProps = {
   post: PostView;
-  // Nombre del foro: se muestra en el feed de un panel, donde se mezclan
-  // posts de varios foros. En el feed de un foro se omite.
-  forumName?: string;
+  // Nombre de la comunidad: se muestra en el feed de un panel, donde se mezclan
+  // posts de varias comunidades. En el feed de una comunidad se omite.
+  communityName?: string;
   // En el detalle del post se muestra todo el texto; en el feed, recortado.
   full?: boolean;
 };
 
-export function PostCard({ post, forumName, full = false }: PostCardProps) {
+export function PostCard({ post, communityName, full = false }: PostCardProps) {
   const theme = useTheme();
   const comments = post.commentCount === 1 ? '1 comentario' : `${post.commentCount} comentarios`;
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
       <ThemedText type="small" themeColor="textSecondary" numberOfLines={full ? undefined : 1}>
-        {forumName ? `${forumName} · ` : ''}u/{post.author.username} · {post.author.university.name}
+        {communityName ? `${communityName} · ` : ''}u/{post.author.username} · {post.author.university.name}
         {' · '}
         {relativeTime(post.createdAt)}
       </ThemedText>

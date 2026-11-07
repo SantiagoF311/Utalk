@@ -56,7 +56,7 @@ function RootNavigator() {
             options={{ headerShown: true, title: '', headerBackTitle: 'Atrás' }}
           />
           <Stack.Screen
-            name="forum/[forumId]"
+            name="community/[communityId]"
             options={{ headerShown: true, title: '', headerBackTitle: 'Atrás' }}
           />
           <Stack.Screen

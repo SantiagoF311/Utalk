@@ -10,7 +10,7 @@ sesión, que van directo contra Supabase Auth (ver [auth.md](./auth.md)).
 src/
 ├── app/          # rutas de Expo Router: archivos finos que solo leen
 │                 # parámetros y renderizan una pantalla de screens/
-├── screens/      # una carpeta por pantalla (home, explore, panel, forum…)
+├── screens/      # una carpeta por pantalla (home, explore, panel, community…)
 ├── components/   # piezas reutilizables (PostCard, FeedList, StateMessage…)
 ├── hooks/        # useSession, queries.ts (las queries de TanStack Query)…
 └── lib/          # api.ts, queryClient.ts, queryKeys.ts, errorMessages.ts…
@@ -19,8 +19,8 @@ src/
 **Navegación**: dos pestañas, **Inicio** (el feed del panel de tu
 universidad) y **Explorar** (todos los paneles: primero el general y el
 tuyo, donde puedes publicar; después el resto, donde puedes leer, comentar
-y votar). De ahí: panel (sus foros + el feed de todos ellos) → foro (su
-feed) → post (el post completo y su árbol de comentarios). Panel, foro y
+y votar). De ahí: panel (sus comunidades + el feed de todas ellas) → comunidad (su
+feed) → post (el post completo y su árbol de comentarios). Panel, comunidad y
 post van en el stack raíz, fuera de las pestañas, con header y botón
 atrás.
 
@@ -37,7 +37,7 @@ el layout raíz (`app/_layout.tsx`):
 | Zona | Pantallas |
 |---|---|
 | Sin sesión | `welcome` (presenta la app, con "Iniciar sesión / Crear cuenta"), `login` |
-| Con sesión | las pestañas, `panel`, `forum`, `complete-profile` |
+| Con sesión | las pestañas, `panel`, `community`, `complete-profile` |
 | Ambas | `register` |
 
 Una pantalla solo existe si el guard de su zona es true: sin sesión no se

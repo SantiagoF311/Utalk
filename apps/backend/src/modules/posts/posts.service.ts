@@ -7,7 +7,7 @@ import type {
   UpdatePostInput,
 } from '@utalk/shared';
 import { AppException } from '../../common/appException.js';
-import { ForumsService } from '../forums/forums.service.js';
+import { CommunitiesService } from '../communities/communities.service.js';
 import { PanelsService } from '../panels/panels.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { PostEntity } from './domain/post.entity.js';
@@ -19,25 +19,28 @@ import { toPostView } from './post.view.js';
 export class PostsService {
   constructor(
     @Inject(POST_REPOSITORY) private readonly postRepository: PostRepository,
-    private readonly forumsService: ForumsService,
+    private readonly communitiesService: CommunitiesService,
     private readonly panelsService: PanelsService,
     private readonly profilesService: ProfilesService,
   ) {}
 
   async create(input: CreatePostInput, authorId: string): Promise<PostView> {
-    // Perfil y foro no dependen entre sí: se piden en paralelo. El panel
-    // necesita el panelId del foro, así que va después.
-    const [author, forum] = await Promise.all([
+    // Perfil y comunidad no dependen entre sí: se piden en paralelo. El panel
+    // necesita el panelId de la comunidad, así que va después.
+    const [author, community] = await Promise.all([
       this.profilesService.findById(authorId),
-      this.forumsService.findById(input.forumId),
+      this.communitiesService.findById(input.communityId),
     ]);
-    const panel = await this.panelsService.findById(forum.panelId);
+    const panel = await this.panelsService.findById(community.panelId);
     if (!panel.acceptsPostsFrom(author.universityId)) {
-      throw new AppException('CANNOT_PUBLISH_IN_PANEL', `You cannot post in forum ${forum.id}`);
+      throw new AppException(
+        'CANNOT_PUBLISH_IN_PANEL',
+        `You cannot post in community ${community.id}`,
+      );
     }
 
     const item = await this.postRepository.create({
-      forumId: input.forumId,
+      communityId: input.communityId,
       authorId,
       title: input.title,
       body: input.body,
@@ -49,9 +52,9 @@ export class PostsService {
   }
 
   async findFeed(query: PostFeedQuery, viewerId: string): Promise<PostPage> {
-    // 404 explícito si el foro/panel no existe, en vez de una página vacía.
-    if (query.forumId) {
-      await this.forumsService.findById(query.forumId);
+    // 404 explícito si la comunidad/panel no existe, en vez de una página vacía.
+    if (query.communityId) {
+      await this.communitiesService.findById(query.communityId);
     } else if (query.panelId) {
       await this.panelsService.findById(query.panelId);
     }

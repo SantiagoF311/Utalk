@@ -1,6 +1,6 @@
-export class ForumEntity {
-  // `createdBy` es solo histórico: los permisos sobre el foro dependen de
-  // forum_moderators, no de quién lo creó.
+export class CommunityEntity {
+  // `createdBy` es solo histórico: los permisos sobre la comunidad dependen de
+  // community_moderators, no de quién lo creó.
   constructor(
     readonly id: string,
     readonly panelId: string,

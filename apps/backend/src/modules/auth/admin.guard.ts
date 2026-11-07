@@ -7,8 +7,8 @@ import type { AuthenticatedRequest } from './auth.guard.js';
 const IS_ADMIN_ONLY_KEY = 'isAdminOnly';
 
 // Marca un endpoint como exclusivo de admins (profiles.role = 'admin').
-// La moderación por foro no pasa por acá: se valida en cada service contra
-// forum_moderators, porque depende de qué foro se toca.
+// La moderación por comunidad no pasa por acá: se valida en cada service contra
+// community_moderators, porque depende de qué comunidad se toca.
 export const AdminOnly = () => SetMetadata(IS_ADMIN_ONLY_KEY, true);
 
 // Guard global (registrado como APP_GUARD en AppModule, después de

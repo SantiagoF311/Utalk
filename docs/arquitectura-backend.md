@@ -64,7 +64,7 @@ Zod (`type Post = z.infer<typeof postSchema>`) usados directamente.
 export class Post {
   constructor(
     readonly id: string,
-    readonly forumId: string,
+    readonly communityId: string,
     readonly authorId: string,
     readonly title: string,
     readonly body: string,
@@ -102,13 +102,13 @@ la API, sin que nadie lo decida. Así se filtró `profiles.role` en
 
 Cada módulo tiene un `<dominio>.view.ts` con funciones puras que convierten
 la Entity al schema de `@utalk/shared` que es el contrato con el cliente
-(`toForumView(forum): Forum`). La vista decide explícitamente qué campos
+(`toCommunityView(community): Community`). La vista decide explícitamente qué campos
 se exponen y adapta el formato (ej. `Date` → string ISO).
 
 **Dónde se arma la vista**:
 
 - **En el controller**, si la Entity ya trae todo lo que la vista muestra
-  (foros, paneles, universidades, reportes, votos): solo se traduce.
+  (comunidades, paneles, universidades, reportes, votos): solo se traduce.
 - **En el service**, si armarla requiere consultar o combinar datos que la
   Entity no tiene (posts y comentarios: el autor con su universidad y el
   voto de quien mira; comentarios, además, el árbol de respuestas; perfil
@@ -131,7 +131,7 @@ un id mal formado responde 400 en vez de llegar a Postgres y terminar en
 
 Cuando un módulo necesita un dato de otro **dentro del mismo request**
 (ej. `PostsModule` necesita el `university_id` del autor, que vive en
-`ProfilesModule`, para validar en qué foros puede postear), la
+`ProfilesModule`, para validar en qué comunidades puede postear), la
 comunicación es una **llamada directa e inyectada** — el patrón estándar
 de Nest (`PostsModule` importa `ProfilesModule`, inyecta
 `ProfilesService` en su constructor), no un event emitter genérico
@@ -195,7 +195,7 @@ export class SupabasePostRepository implements PostRepository {
       .select()
       .single();
     if (error) throw new Error(error.message);
-    return new Post(data.id, data.forum_id, data.author_id, data.title, data.body, new Date(data.created_at));
+    return new Post(data.id, data.community_id, data.author_id, data.title, data.body, new Date(data.created_at));
   }
 }
 
