@@ -37,6 +37,18 @@ export function useForum(forumId: string) {
   return useQuery({ queryKey: queryKeys.forum(forumId), queryFn: () => api.getForum(forumId) });
 }
 
+export function usePost(postId: string) {
+  return useQuery({ queryKey: queryKeys.post(postId), queryFn: () => api.getPost(postId) });
+}
+
+export function useComments(postId: string) {
+  return useQuery({
+    queryKey: queryKeys.comments(postId),
+    queryFn: () => api.getComments(postId),
+    select: (list) => list.items,
+  });
+}
+
 // Feed paginado por cursor: cada página trae `nextCursor`, que se manda para
 // pedir la siguiente; `null` = no hay más.
 export function useFeed(scope: { forumId: string } | { panelId: string }, sort: PostSort) {

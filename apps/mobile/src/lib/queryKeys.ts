@@ -10,4 +10,6 @@ export const queryKeys = {
   forum: (forumId: string) => ['forum', forumId] as const,
   feed: (scope: { forumId: string } | { panelId: string }, sort: PostSort) =>
     ['feed', scope, sort] as const,
+  post: (postId: string) => ['post', postId] as const,
+  comments: (postId: string) => ['comments', postId] as const,
 };

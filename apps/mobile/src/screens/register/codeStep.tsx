@@ -69,7 +69,7 @@ export function CodeStep({
         <OtpCodeInput value={code} onChangeText={onChangeCode} length={CODE_LENGTH} />
 
         <View style={styles.countdownRow}>
-          <SymbolView tintColor={theme.textSecondary} name={{ ios: 'clock', android: 'schedule' }} size={14} />
+          <SymbolView tintColor={theme.textSecondary} name={{ ios: 'clock', android: 'schedule', web: 'schedule' }} size={14} />
           <ThemedText type="small" themeColor="textSecondary">
             {canResend ? 'Ya puedes pedir otro código' : `Puedes pedir otro en ${formatCountdown(secondsLeft)}`}
           </ThemedText>
