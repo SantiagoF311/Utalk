@@ -54,7 +54,7 @@ export function FeedList({ scope, header, forumNames }: FeedListProps) {
       ListFooterComponent={
         feed.isFetchingNextPage ? (
           <ActivityIndicator color={theme.textSecondary} style={styles.footer} />
-        ) : null
+        ) : undefined
       }
       onEndReached={() => {
         if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage();

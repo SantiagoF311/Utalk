@@ -1,5 +1,4 @@
 import { Link } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,12 +52,6 @@ export function LoginScreen() {
         <KeyboardAvoidingView
           style={styles.content}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <SymbolView
-            tintColor={theme.primary}
-            name={{ ios: 'bubble.left.and.bubble.right.fill', android: 'forum' }}
-            size={32}
-          />
-
           <View style={styles.headingGroup}>
             <ThemedText type="title" style={styles.title}>
               Qué bueno verte

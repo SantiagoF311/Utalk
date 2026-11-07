@@ -33,7 +33,10 @@ export default function AppTabs() {
   );
 }
 
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+// La `ref` no se reenvía al Pressable: Expo Router la tipa como la de un View
+// y React Native 0.88 (SDK 58) ya no la acepta en Pressable. La navegación
+// de la pestaña va por `onPress`, que sí se pasa.
+export function TabButton({ children, isFocused, ref: _ref, ...props }: TabTriggerSlotProps) {
   return (
     <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
       <ThemedView

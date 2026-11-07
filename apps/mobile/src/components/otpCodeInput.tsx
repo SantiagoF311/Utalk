@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 import { ThemedText } from '@/components/themedText';
 import { Spacing } from '@/constants/theme';
@@ -13,7 +14,7 @@ type OtpCodeInputProps = {
 
 export function OtpCodeInput({ value, onChangeText, length = 6 }: OtpCodeInputProps) {
   const theme = useTheme();
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const [focused, setFocused] = useState(false);
 
   return (
