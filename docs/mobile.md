@@ -38,7 +38,8 @@ puede llegar a las pestañas (ni con un link), y al iniciar o cerrar sesión
 la app redirige sola a la primera pantalla disponible de la otra zona. Por
 eso el login no navega al terminar, y **el orden de declaración importa**:
 la primera pantalla de cada zona es a donde se cae (`welcome` y `(tabs)`).
-En SDK 57 no existe `redirectTo` (llega en SDK 58).
+Desde SDK 58 existe `redirectTo` para indicar el destino explícitamente;
+no se usa porque el orden ya da el resultado buscado.
 
 `register` queda fuera de las dos zonas porque su flujo cruza el momento en
 que aparece la sesión: después de verificar el código ya hay sesión, pero
@@ -127,7 +128,37 @@ instalada y cualquiera puede leerlo: **nunca** va una clave secreta.
   dice cuáles están desalineadas; se instalan **desde la raíz** con
   `npm install <paquete>@<versión> -w apps/mobile`, no con
   `npx expo install --fix` (que correría la instalación dentro del
-  workspace).
+  workspace). Los paquetes que Expo pide con versión exacta (`react`,
+  `react-native`, `react-native-reanimated`, `react-native-worklets`) se
+  instalan con `--save-exact`.
+
+## Actualizar el SDK de Expo
+
+El proyecto está en **SDK 58** (React Native 0.88). Expo Go en iOS solo
+soporta el último SDK, así que quedarse atrás impide probar en un iPhone.
+Pasos, de a un SDK por vez, leyendo antes las notas de la versión
+(expo.dev/changelog):
+
+1. `npm install expo@~<versión> -w apps/mobile` desde la raíz.
+2. `npx expo install --check` en `apps/mobile` → instalar desde la raíz
+   las versiones que pide (ver Convenciones).
+3. `npx expo-doctor@latest` en `apps/mobile` tiene que pasar entero.
+4. `npm run check` y `npx expo export --platform web` en `apps/mobile`.
+
+**Copias duplicadas en el monorepo**: al actualizar de a poco, npm suele
+dejar copias viejas en la raíz (la versión nueva queda anidada en
+`apps/mobile/node_modules` y los paquetes de la raíz siguen viendo la
+vieja). `expo-doctor` lo detecta ("duplicate native module dependencies").
+Solución: quitar del `package-lock.json` solo las entradas de esos paquetes
+y correr `npm install` para que los vuelva a resolver. No usar
+`npm dedupe`: reorganiza todo el monorepo, incluido el backend, y choca con
+sus dependencias de tests.
+
+**`overrides` en el `package.json` raíz**: `react-native-worklets` está
+forzado a la versión exacta que pide el SDK, porque otros paquetes aceptan
+un rango (`0.13.x`) y npm elegía la más alta, dejando dos copias. Al
+cambiar de SDK, actualizar ese valor a la versión que pida
+`npx expo install --check`.
 - Estilos con `StyleSheet` y los tokens de `constants/theme.ts`
   (`Colors`, `Spacing`), con `ThemedText` / `ThemedView` para modo claro y
   oscuro.

@@ -28,7 +28,7 @@ alternativas se descartaron y por qué.
 | Capa | Tecnología | Rol |
 |---|---|---|
 | Monorepo | npm workspaces | Compartir código entre `apps/backend` y `apps/mobile` vía `packages/shared` |
-| Cliente | Expo (React Native) | App móvil |
+| Cliente | Expo SDK 58 (React Native 0.88) | App móvil |
 | Datos en el cliente | TanStack Query | Caché, paginación por cursor y reintentos de los datos de la API en el mobile |
 | Backend | NestJS | API HTTP |
 | Hosting backend | Fly.io | Proceso persistente 24/7 (necesario para los workers de colas) |
