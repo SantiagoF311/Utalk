@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Callout } from '@/components/callout';
+import { Logo } from '@/components/logo';
 import { PasswordField } from '@/components/passwordField';
 import { TextField } from '@/components/textField';
 import { ThemedText } from '@/components/themedText';
@@ -53,6 +54,7 @@ export function LoginScreen() {
           style={styles.content}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.headingGroup}>
+            <Logo />
             <ThemedText type="title" style={styles.title}>
               Qué bueno verte
             </ThemedText>

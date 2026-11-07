@@ -18,8 +18,8 @@ export function usePanels() {
   });
 }
 
-export function usePanel(panelId: string) {
-  return useQuery({ queryKey: queryKeys.panel(panelId), queryFn: () => api.getPanel(panelId) });
+export function useProfile(userId: string) {
+  return useQuery({ queryKey: queryKeys.profile(userId), queryFn: () => api.getProfile(userId) });
 }
 
 // `panelId` vacío = todavía no se sabe qué panel (ej. Inicio esperando el

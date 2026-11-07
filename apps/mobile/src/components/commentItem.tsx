@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themedText';
+import { VoteBar } from '@/components/voteBar';
 import { Spacing } from '@/constants/theme';
+import { useOpenProfile } from '@/hooks/useOpenProfile';
 import { useTheme } from '@/hooks/useTheme';
 import { relativeTime } from '@/lib/relativeTime';
 
@@ -20,8 +22,10 @@ type CommentItemProps = {
 // expande el hilo, como en Reddit.
 export function CommentItem({ comment, depth = 0 }: CommentItemProps) {
   const theme = useTheme();
+  const openProfile = useOpenProfile();
   const [collapsed, setCollapsed] = useState(false);
   const replyCount = countReplies(comment);
+  const author = comment.author;
 
   return (
     <View style={styles.container}>
@@ -31,10 +35,16 @@ export function CommentItem({ comment, depth = 0 }: CommentItemProps) {
         accessibilityHint={collapsed ? 'Muestra el hilo' : 'Oculta el hilo'}
         onPress={() => setCollapsed((value) => !value)}
         style={({ pressed }) => pressed && styles.pressed}>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {comment.author
-            ? `u/${comment.author.username} · ${comment.author.university.name}`
-            : '[eliminado]'}
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.meta}>
+          <ThemedText
+            type="smallBold"
+            themeColor={comment.author ? 'text' : 'textSecondary'}
+            style={styles.meta}
+            // Tocar el apodo abre su perfil; el resto de la cabecera colapsa.
+            onPress={author ? () => openProfile(author.id) : undefined}>
+            {comment.author ? `u/${comment.author.username}` : '[eliminado]'}
+          </ThemedText>
+          {comment.author ? ` · ${comment.author.university.name}` : ''}
           {' · '}
           {relativeTime(comment.createdAt)}
           {collapsed && replyCount > 0 ? ` · +${replyCount}` : ''}
@@ -48,14 +58,12 @@ export function CommentItem({ comment, depth = 0 }: CommentItemProps) {
               Este comentario fue eliminado.
             </ThemedText>
           ) : (
-            <ThemedText type="small">{comment.body}</ThemedText>
+            <ThemedText type="small" style={styles.body}>
+              {comment.body}
+            </ThemedText>
           )}
 
-          <ThemedText
-            type="smallBold"
-            style={{ color: comment.myVote === null ? theme.textSecondary : theme.primary }}>
-            ▲ {comment.score}
-          </ThemedText>
+          <VoteBar score={comment.score} myVote={comment.myVote} bordered={false} />
 
           {comment.replies.length > 0 && (
             <View
@@ -85,8 +93,15 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.6,
   },
+  meta: {
+    fontSize: 13,
+  },
   deleted: {
     fontStyle: 'italic',
+  },
+  body: {
+    fontSize: 15,
+    lineHeight: 22,
   },
   replies: {
     gap: Spacing.three,

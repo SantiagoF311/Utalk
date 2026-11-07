@@ -11,6 +11,7 @@ import type {
   PostSort,
   PostView,
   Profile,
+  PublicProfile,
 } from '@utalk/shared';
 
 import { resolveApiUrl } from '@/lib/apiUrl';
@@ -120,8 +121,9 @@ export const api = {
     return authGet<List<Panel>>('/panels');
   },
 
-  getPanel(panelId: string) {
-    return authGet<Panel>(`/panels/${encodeURIComponent(panelId)}`);
+  // Perfil de otra persona: apodo, universidad y desde cuándo está.
+  getProfile(userId: string) {
+    return authGet<PublicProfile>(`/profiles/${encodeURIComponent(userId)}`);
   },
 
   getCommunities(panelId: string) {

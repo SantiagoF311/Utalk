@@ -7,30 +7,37 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+// Paleta del diseño de UTalk: azul institucional, fondos casi blancos y
+// tarjetas con borde en vez de sombra.
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-    primary: '#1D4ED8',
+    text: '#0F172A',
+    background: '#FFFFFF',
+    backgroundElement: '#F1F3F7',
+    backgroundSelected: '#E2E6EE',
+    textSecondary: '#64748B',
+    primary: '#0B3BBF',
+    // Fondo suave del azul: chips de comunidad, ítem activo del sidebar.
+    primarySoft: '#E8EEFB',
     onPrimary: '#FFFFFF',
-    success: '#16A34A',
+    success: '#15803D',
     warning: '#B45309',
-    border: '#D8D9DE',
+    border: '#E2E8F0',
   },
+  // Oscuro como el de Reddit: grises neutros casi negros (sin tinte azul);
+  // el azul queda solo para botones, enlaces y lo seleccionado.
   dark: {
-    text: '#ffffff',
-    background: '#0B1120',
-    backgroundElement: '#161E31',
-    backgroundSelected: '#1E293B',
-    textSecondary: '#94A3B8',
-    primary: '#3B82F6',
+    text: '#E3E6E8',
+    background: '#0E1113',
+    backgroundElement: '#1A1D21',
+    backgroundSelected: '#2A3036',
+    textSecondary: '#8B979E',
+    primary: '#4A86F7',
+    primarySoft: '#1B2333',
     onPrimary: '#FFFFFF',
     success: '#4ADE80',
     warning: '#FBBF24',
-    border: '#293548',
+    border: '#2A3036',
   },
 } as const;
 

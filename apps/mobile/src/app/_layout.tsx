@@ -1,28 +1,62 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { ReactNode } from 'react';
 
 import { AnimatedSplashOverlay } from '@/components/animatedIcon';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { useRequireProfile } from '@/hooks/useRequireProfile';
 import { SessionProvider, useSession } from '@/hooks/useSession';
+import { ThemePreferenceProvider } from '@/hooks/useThemePreference';
 import { queryClient } from '@/lib/queryClient';
 
 SplashScreen.preventAutoHideAsync();
 
+// Las cabeceras de navegación (post, comunidad, ajustes…) con nuestra paleta
+// en vez de los grises por defecto de React Navigation.
+const NAVIGATION_THEMES = {
+  light: withPalette(DefaultTheme, Colors.light),
+  dark: withPalette(DarkTheme, Colors.dark),
+};
+
+function withPalette(base: typeof DefaultTheme, palette: (typeof Colors)['light' | 'dark']) {
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: palette.primary,
+      background: palette.background,
+      card: palette.background,
+      text: palette.text,
+      border: palette.border,
+    },
+  };
+}
+
 // Los proveedores van afuera y la navegación adentro: RootNavigator lee la
 // sesión del contexto, que tiene que existir antes.
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <SessionProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <RootNavigator />
-        </ThemeProvider>
-      </QueryClientProvider>
-    </SessionProvider>
+    <ThemePreferenceProvider>
+      <SessionProvider>
+        <QueryClientProvider client={queryClient}>
+          <NavigationTheme>
+            <RootNavigator />
+          </NavigationTheme>
+        </QueryClientProvider>
+      </SessionProvider>
+    </ThemePreferenceProvider>
+  );
+}
+
+// Aparte de RootLayout porque lee el tema elegido, que viene del proveedor.
+function NavigationTheme({ children }: { children: ReactNode }) {
+  const colorScheme = useColorScheme();
+  return (
+    <ThemeProvider value={NAVIGATION_THEMES[colorScheme === 'dark' ? 'dark' : 'light']}>
+      {children}
+    </ThemeProvider>
   );
 }
 
@@ -41,7 +75,7 @@ function RootNavigator() {
       {/* Dos zonas (rutas protegidas de Expo Router): cada pantalla existe
           solo si su guard es true. Al iniciar o cerrar sesión, la app
           redirige sola a la primera pantalla disponible — por eso el orden
-          importa: sin sesión es `welcome`, con sesión `(tabs)`. */}
+          importa: sin sesión es `welcome`, con sesión `(drawer)`. */}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="welcome" />
@@ -49,20 +83,25 @@ function RootNavigator() {
         </Stack.Protected>
 
         <Stack.Protected guard={signedIn}>
-          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(drawer)" />
           {/* El título lo pone cada pantalla cuando carga el nombre. */}
-          <Stack.Screen
-            name="panel/[panelId]"
-            options={{ headerShown: true, title: '', headerBackTitle: 'Atrás' }}
-          />
           <Stack.Screen
             name="community/[communityId]"
             options={{ headerShown: true, title: '', headerBackTitle: 'Atrás' }}
           />
           <Stack.Screen
             name="post/[postId]"
-            options={{ headerShown: true, title: 'Post', headerBackTitle: 'Atrás' }}
+            options={{ headerShown: true, title: 'Publicación', headerBackTitle: 'Atrás' }}
           />
+          <Stack.Screen
+            name="user/[userId]"
+            options={{ headerShown: true, title: '', headerBackTitle: 'Atrás' }}
+          />
+          <Stack.Screen
+            name="settings"
+            options={{ headerShown: true, title: 'Ajustes', headerBackTitle: 'Atrás' }}
+          />
+          <Stack.Screen name="compose" options={{ presentation: 'modal' }} />
           <Stack.Screen name="complete-profile" options={{ gestureEnabled: false }} />
         </Stack.Protected>
 

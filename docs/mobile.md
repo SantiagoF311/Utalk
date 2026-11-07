@@ -10,41 +10,119 @@ sesión, que van directo contra Supabase Auth (ver [auth.md](./auth.md)).
 src/
 ├── app/          # rutas de Expo Router: archivos finos que solo leen
 │                 # parámetros y renderizan una pantalla de screens/
-├── screens/      # una carpeta por pantalla (home, explore, panel, community…)
+├── screens/      # una carpeta por pantalla (home, communities, community, user…)
 ├── components/   # piezas reutilizables (PostCard, FeedList, StateMessage…)
 ├── hooks/        # useSession, queries.ts (las queries de TanStack Query)…
 └── lib/          # api.ts, queryClient.ts, queryKeys.ts, errorMessages.ts…
 ```
 
-**Navegación**: dos pestañas, **Inicio** (el feed del panel de tu
-universidad) y **Explorar** (todos los paneles: primero el general y el
-tuyo, donde puedes publicar; después el resto, donde puedes leer, comentar
-y votar). De ahí: panel (sus comunidades + el feed de todas ellas) → comunidad (su
-feed) → post (el post completo y su árbol de comentarios). Panel, comunidad y
-post van en el stack raíz, fuera de las pestañas, con header y botón
-atrás.
+## Navegación
 
-**Comentarios**: el árbol llega armado del backend (`replies` anidadas) y
+Organizada como Reddit: un **sidebar** (☰) y una **barra de abajo**.
+
+```
+app/
+├── (drawer)/_layout.tsx         sidebar: Drawer de Expo Router con contenido propio
+│   └── (tabs)/_layout.tsx       barra de abajo propia (components/tabBar.tsx)
+│       ├── index                Inicio
+│       ├── communities          Comunidades
+│       ├── chats                Chats (reservada: todavía no existen)
+│       └── profile              Perfil (con su propia barra: solo ⚙️ Ajustes)
+├── community/[communityId]      ┐
+├── post/[postId]                │ stack raíz, encima de todo, con botón atrás
+├── user/[userId]                │
+├── settings                     │
+└── compose                      ┘ modal del botón ✏️ (publicar llega con la interacción)
+```
+
+**El panel elegido manda.** El sidebar (`components/sidebar.tsx`) tiene
+arriba un selector de panel: el de tu universidad, el general y el resto
+(los de otras universidades se pueden leer, comentar y votar, ver
+[modelo-de-datos.md](./modelo-de-datos.md)). Todo lo demás es de ese panel:
+
+- **Popular / Reciente** en el sidebar: el orden del feed de Inicio. Inicio
+  no tiene selector de orden propio, para no tener dos controles de lo
+  mismo.
+- **Inicio**: el feed del panel elegido. Tocar el nombre del panel en la
+  cabecera abre el sidebar. En el panel general, cada post dice además de
+  qué universidad es el autor.
+- **Comunidades**: las del panel elegido, con un buscador (filtra en el
+  celular, sin tildes ni mayúsculas).
+- **Visitadas recientemente** en el sidebar: las comunidades que abriste en
+  ese panel.
+
+El panel elegido y su orden viven en un contexto (`hooks/useFeedSelection.tsx`),
+que el layout `(drawer)` pone alrededor del sidebar y las pestañas.
+
+**Una comunidad** tiene su propio orden (Popular, Reciente, Más votados),
+en un menú que se abre desde abajo al tocar "POPULAR ▾"
+(`components/sortMenu.tsx`), como en Reddit.
+
+**Perfiles**: tocar `u/apodo` en un post o comentario abre su perfil
+público (`GET /profiles/:id`: apodo, universidad, desde cuándo). Si es el
+tuyo, va a tu pestaña Perfil (`hooks/useOpenProfile.ts`).
+
+**Por qué la barra de abajo es propia y no las pestañas nativas**: las
+nativas no admiten un botón en el medio (el ✏️ de publicar).
+
+**El orden de las pestañas en el layout no es el visual.** Expo Router arma
+el estado inicial con las pestañas en su orden por defecto (`index`
+primero, después por largo del nombre); si el layout las declara en otro
+orden, al montar despacha `ROUTE_NAMES_CHANGED` y en desarrollo avisa que
+nadie lo manejó. Por eso `(tabs)/_layout.tsx` las declara en ese orden, y
+el orden visual lo decide `TabBar`. Al agregar una pestaña, ubicarla según
+esa regla.
+
+**Aviso conocido en desarrollo**: al arrancar sale `The action
+'CLOSE_DRAWER' was not handled by any navigator`. Lo dispara la librería del
+drawer (`react-native-drawer-layout`) al montar, antes de que Expo Router
+registre el navegador; no afecta nada y no existe en producción. Se podría
+evitar usando el componente `Drawer` suelto en vez del navegador, pero
+habría que programar a mano el botón atrás de Android que cierra el
+sidebar; se prefirió seguir el camino oficial. Los avisos de Reanimated
+("Dependencies should only be used on the web") también vienen de esa
+librería.
+
+**Guardado en el dispositivo** (`lib/deviceStorage.ts`, AsyncStorage). No
+son datos importantes: si el almacenamiento falla, la app sigue sin
+recordarlos.
+
+| Dato | Al cerrar sesión |
+|---|---|
+| Panel elegido, comunidades visitadas | **Se borran** (junto con la caché): otra cuenta en el mismo celular no debe ver qué visitó la anterior |
+| Tema (Ajustes) | Se queda: es del dispositivo, no de la cuenta |
+
+**Tema** (Ajustes, desde el ⚙️ del perfil): según el sistema, claro u
+oscuro (`hooks/useThemePreference.tsx`). Se aplica en `useColorScheme`, que
+es lo que leen todos los colores; en iOS y Android además con
+`Appearance.setColorScheme`, para que también cambie lo que dibuja el
+sistema (teclado, alertas). En la web eso no existe y basta con el hook.
+
+## Comentarios
+
+El árbol llega armado del backend (`replies` anidadas) y
 se dibuja recursivo (`components/commentItem.tsx`). La sangría deja de
 crecer a partir del 4.º nivel para no dejar el texto sin ancho en un
 celular. Tocar la cabecera de un comentario colapsa o expande su hilo. Un
 comentario borrado se ve como "[eliminado]" y conserva sus respuestas.
 
-**Sesión: dos zonas con rutas protegidas.** Toda la API exige sesión, así
+## Sesión
+
+**Dos zonas con rutas protegidas.** Toda la API exige sesión, así
 que la app se divide en dos zonas con `Stack.Protected` de Expo Router, en
 el layout raíz (`app/_layout.tsx`):
 
 | Zona | Pantallas |
 |---|---|
-| Sin sesión | `welcome` (presenta la app, con "Iniciar sesión / Crear cuenta"), `login` |
-| Con sesión | las pestañas, `panel`, `community`, `complete-profile` |
+| Sin sesión | `welcome` (qué es UTalk y su anonimato, con "Empezar" e "Inicia sesión"), `login` |
+| Con sesión | `(drawer)` (sidebar y pestañas), `community`, `post`, `user`, `compose`, `complete-profile` |
 | Ambas | `register` |
 
 Una pantalla solo existe si el guard de su zona es true: sin sesión no se
 puede llegar a las pestañas (ni con un link), y al iniciar o cerrar sesión
 la app redirige sola a la primera pantalla disponible de la otra zona. Por
 eso el login no navega al terminar, y **el orden de declaración importa**:
-la primera pantalla de cada zona es a donde se cae (`welcome` y `(tabs)`).
+la primera pantalla de cada zona es a donde se cae (`welcome` y `(drawer)`).
 Desde SDK 58 existe `redirectTo` para indicar el destino explícitamente;
 no se usa porque el orden ya da el resultado buscado.
 
@@ -186,11 +264,16 @@ cambiar de SDK, actualizar ese valor a la versión que pida
 `npx expo install --check`.
 - Estilos con `StyleSheet` y los tokens de `constants/theme.ts`
   (`Colors`, `Spacing`), con `ThemedText` / `ThemedView` para modo claro y
-  oscuro.
-- **Íconos** (`SymbolView` de `expo-symbols`): siempre con las tres claves,
-  `ios` (SF Symbols), `android` y `web` (las dos Material Symbols, el mismo
-  nombre). Sin `web`, en el navegador el ícono no se ve — grave si es un
-  botón, como el ojo de la contraseña.
+  oscuro. Paleta del diseño: azul `primary` para botones, enlaces y lo
+  seleccionado, `primarySoft` para chips; tarjetas con borde en vez de
+  sombra. El modo oscuro es como el de Reddit: grises neutros casi negros,
+  sin tinte azul.
+- **Íconos**: con `components/icon.tsx` (`<Icon name="search" />`), que
+  tiene cada ícono por nombre propio. Detrás usa `SymbolView` de
+  `expo-symbols`, siempre con las tres claves: `ios` (SF Symbols),
+  `android` y `web` (las dos Material Symbols, el mismo nombre). Sin `web`,
+  en el navegador el ícono no se ve — grave si es un botón, como el ojo de
+  la contraseña. Un ícono nuevo se agrega al mapa de `icon.tsx`.
 
 ## Pendiente
 
@@ -198,7 +281,10 @@ cambiar de SDK, actualizar ese valor a la versión que pida
   la animación de arranque (`AnimatedSplashOverlay`, en
   `components/animatedIcon.tsx`) muestra el logo de Expo, y el ícono de
   la app y la pantalla de carga (`app.json`) son los genéricos. Hay que
-  reemplazar esas imágenes cuando exista un logo de UTalk.
+  reemplazar esas imágenes cuando exista un logo de UTalk. Dentro de la
+  app, la bienvenida y el login usan una marca provisional
+  (`components/logo.tsx`, dos globos de conversación) que también se
+  reemplaza.
 - **Tests del mobile**: no hay todavía (ni Jest configurado en el
   workspace). El CI sí corre su typecheck y lint.
 - **Rutas tipadas**: Expo Router genera los tipos de las rutas en

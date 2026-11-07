@@ -1,7 +1,7 @@
 import type { PostSort, PostView } from '@utalk/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { ReactElement, useState } from 'react';
+import { ReactElement } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 
 import { PostCard } from '@/components/postCard';
-import { SortSelector } from '@/components/sortSelector';
 import { StateMessage } from '@/components/stateMessage';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFeed } from '@/hooks/queries';
@@ -22,17 +21,27 @@ import { queryKeys } from '@/lib/queryKeys';
 
 type FeedListProps = {
   scope: { communityId: string } | { panelId: string };
-  // Lo que va arriba del selector de orden (título del panel o comunidad, etc.).
+  // Lo que va arriba de los posts (ej. la cabecera de la comunidad y su orden).
   header?: ReactElement;
   // communityId → nombre, para mostrar la comunidad de cada post en el feed de un panel.
   communityNames?: Map<string, string>;
+  // En el panel general: mostrar la universidad del autor de cada post.
+  showUniversity?: boolean;
+  // El orden lo elige quien usa la lista: en Inicio, el sidebar (Popular /
+  // Reciente); en una comunidad, su menú de orden.
+  sort: PostSort;
 };
 
 // Feed paginado por cursor con scroll infinito: al acercarse al final pide la
 // página siguiente. Tirar hacia abajo lo refresca.
-export function FeedList({ scope, header, communityNames }: FeedListProps) {
+export function FeedList({
+  scope,
+  header,
+  communityNames,
+  showUniversity,
+  sort,
+}: FeedListProps) {
   const theme = useTheme();
-  const [sort, setSort] = useState<PostSort>('hot');
   const feed = useFeed(scope, sort);
   const queryClient = useQueryClient();
 
@@ -50,7 +59,7 @@ export function FeedList({ scope, header, communityNames }: FeedListProps) {
   ) : (
     <StateMessage
       kind="empty"
-      title="Todavía no hay posts"
+      title="Todavía no hay publicaciones"
       description="Cuando alguien publique algo, va a aparecer acá."
     />
   );
@@ -65,15 +74,14 @@ export function FeedList({ scope, header, communityNames }: FeedListProps) {
           accessibilityLabel={item.title}
           onPress={() => openPost(item)}
           style={({ pressed }) => pressed && styles.pressed}>
-          <PostCard post={item} communityName={communityNames?.get(item.communityId)} />
+          <PostCard
+            post={item}
+            communityName={communityNames?.get(item.communityId)}
+            showUniversity={showUniversity}
+          />
         </Pressable>
       )}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          {header}
-          <SortSelector value={sort} onChange={setSort} />
-        </View>
-      }
+      ListHeaderComponent={header ? <View style={styles.header}>{header}</View> : undefined}
       ListEmptyComponent={emptyState}
       ListFooterComponent={
         feed.isFetchingNextPage ? (
@@ -116,7 +124,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   separator: {
-    height: Spacing.two,
+    height: Spacing.three,
   },
   footer: {
     marginVertical: Spacing.four,

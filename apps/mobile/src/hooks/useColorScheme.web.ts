@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 
+import { useThemePreference } from '@/hooks/useThemePreference';
+
 const subscribe = () => () => {};
 
 /**
@@ -16,10 +18,12 @@ export function useColorScheme() {
   );
 
   const colorScheme = useRNColorScheme();
+  const { preference } = useThemePreference();
 
-  if (hasHydrated) {
-    return colorScheme;
+  if (!hasHydrated) {
+    return 'light';
   }
 
-  return 'light';
+  // El tema elegido en Ajustes, o el del sistema.
+  return preference === 'system' ? colorScheme : preference;
 }
