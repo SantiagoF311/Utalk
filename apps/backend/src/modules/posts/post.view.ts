@@ -4,7 +4,7 @@ import type { PostWithAuthor } from './domain/post.repository.js';
 export function toPostView({ post, author }: PostWithAuthor, myVote: VoteValue | null): PostView {
   return {
     id: post.id,
-    forumId: post.forumId,
+    communityId: post.communityId,
     title: post.title,
     body: post.body,
     score: post.score,

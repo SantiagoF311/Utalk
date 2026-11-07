@@ -15,7 +15,7 @@ import type {
 
 interface PostRow {
   id: string;
-  forum_id: string;
+  community_id: string;
   author_id: string;
   title: string;
   body: string;
@@ -44,7 +44,7 @@ const WITH_AUTHOR =
 function toEntity(row: PostRow): PostEntity {
   return new PostEntity(
     row.id,
-    row.forum_id,
+    row.community_id,
     row.author_id,
     row.title,
     row.body,
@@ -103,7 +103,7 @@ export class SupabasePostRepository implements PostRepository {
     const { data, error } = await this.supabase.client
       .from('posts')
       .insert({
-        forum_id: post.forumId,
+        community_id: post.communityId,
         author_id: post.authorId,
         title: post.title,
         body: post.body,
@@ -138,15 +138,15 @@ export class SupabasePostRepository implements PostRepository {
   }
 
   async findPage(query: PostPageQuery): Promise<PostPage> {
-    // El feed de un panel trae los posts de todos sus foros: inner join con
-    // forums para poder filtrar por forums.panel_id.
+    // El feed de un panel trae los posts de todas sus comunidades: inner join con
+    // communities para poder filtrar por communities.panel_id.
     let request = this.supabase.client
       .from('posts')
-      .select(query.panelId ? `${WITH_AUTHOR}, forums!inner(panel_id)` : WITH_AUTHOR);
+      .select(query.panelId ? `${WITH_AUTHOR}, communities!inner(panel_id)` : WITH_AUTHOR);
 
     request = query.panelId
-      ? request.eq('forums.panel_id', query.panelId)
-      : request.eq('forum_id', query.forumId!);
+      ? request.eq('communities.panel_id', query.panelId)
+      : request.eq('community_id', query.communityId!);
 
     const column = sortColumn[query.sort];
 

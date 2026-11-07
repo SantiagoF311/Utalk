@@ -27,7 +27,7 @@ export class PostsController {
     return this.postsService.create(input, userId);
   }
 
-  // GET /posts?forumId=…|panelId=…&sort=hot|new|top&cursor=…&limit=…
+  // GET /posts?communityId=…|panelId=…&sort=hot|new|top&cursor=…&limit=…
   @Get()
   async findFeed(@Query() rawQuery: unknown, @CurrentUserId() userId: string) {
     const query = postFeedQuerySchema.parse(rawQuery);

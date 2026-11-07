@@ -34,7 +34,7 @@ function run(exception: unknown) {
 
 describe('ProblemDetailsFilter', () => {
   it('AppException: usa su código y toma el status del catálogo', () => {
-    const sent = run(new AppException('CANNOT_PUBLISH_IN_PANEL', 'You cannot post in forum x'));
+    const sent = run(new AppException('CANNOT_PUBLISH_IN_PANEL', 'You cannot post in community x'));
 
     expect(sent.status).toBe(403);
     expect(sent.type).toBe('application/problem+json');
@@ -42,7 +42,7 @@ describe('ProblemDetailsFilter', () => {
       type: 'urn:utalk:error:cannot-publish-in-panel',
       title: 'Cannot publish in this panel',
       status: 403,
-      detail: 'You cannot post in forum x',
+      detail: 'You cannot post in community x',
       instance: '/posts',
       code: 'CANNOT_PUBLISH_IN_PANEL',
       errors: [],

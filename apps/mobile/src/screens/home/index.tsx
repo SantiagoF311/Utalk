@@ -1,77 +1,59 @@
-import { Link } from 'expo-router';
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FeedList } from '@/components/feedList';
+import { ScreenHeader } from '@/components/screenHeader';
 import { StateMessage } from '@/components/stateMessage';
-import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
-import { Spacing } from '@/constants/theme';
-import { useForums, useMyProfile, usePanels } from '@/hooks/queries';
+import { useCommunities } from '@/hooks/queries';
+import { useFeedSelection } from '@/hooks/useFeedSelection';
 import { errorMessage } from '@/lib/errorMessages';
 
-// Inicio: el feed del panel de la universidad del usuario.
+// Inicio: el feed del panel elegido en el sidebar (por defecto, el de tu
+// universidad). Tocar el nombre del panel abre el sidebar para cambiarlo.
 export function HomeScreen() {
+  const selection = useFeedSelection();
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top']}>
-        <MyUniversityFeed />
+        <ScreenHeader title={selection.panel?.name ?? 'UTalk'} titleOpensSidebar />
+        <PanelFeed />
       </SafeAreaView>
     </ThemedView>
   );
 }
 
-function MyUniversityFeed() {
-  const me = useMyProfile();
-  const panels = usePanels();
-  const myPanel = panels.data?.find((panel) => panel.universityId === me.data?.universityId);
-  const forums = useForums(myPanel?.id ?? '');
+function PanelFeed() {
+  const { panel, sort, status, error, retry } = useFeedSelection();
+  const communities = useCommunities(panel?.id ?? '');
 
-  const forumNames = useMemo(
-    () => new Map(forums.data?.map((forum) => [forum.id, forum.name])),
-    [forums.data],
+  const communityNames = useMemo(
+    () => new Map(communities.data?.map((community) => [community.id, community.name])),
+    [communities.data],
   );
 
-  if (me.isPending || panels.isPending) return <StateMessage kind="loading" />;
-  if (me.isError || panels.isError) {
-    return (
-      <StateMessage
-        kind="error"
-        message={errorMessage(me.error ?? panels.error)}
-        onRetry={() => {
-          void me.refetch();
-          void panels.refetch();
-        }}
-      />
-    );
-  }
-  if (!myPanel) {
+  if (status === 'pending') return <StateMessage kind="loading" />;
+  if (status === 'error') return <StateMessage kind="error" message={errorMessage(error)} onRetry={retry} />;
+  if (!panel) {
     return (
       <StateMessage
         kind="empty"
-        title="Tu universidad todavía no tiene panel"
-        description="Mientras tanto, mira el panel general en Explorar."
+        title="Todavía no hay paneles"
+        description="Cuando se abra el de tu universidad, va a aparecer acá."
       />
     );
   }
 
   return (
     <FeedList
-      scope={{ panelId: myPanel.id }}
-      forumNames={forumNames}
-      header={
-        <View style={styles.heading}>
-          <ThemedText type="subtitle" style={styles.title}>
-            {myPanel.name}
-          </ThemedText>
-          <Link href={{ pathname: '/panel/[panelId]', params: { panelId: myPanel.id } }}>
-            <ThemedText type="small" themeColor="primary">
-              Ver los foros del panel
-            </ThemedText>
-          </Link>
-        </View>
-      }
+      // Al cambiar de panel, la lista se monta de nuevo y vuelve arriba.
+      key={panel.id}
+      scope={{ panelId: panel.id }}
+      communityNames={communityNames}
+      showUniversity={panel.universityId === null}
+      sort={sort}
     />
   );
 }
@@ -79,12 +61,5 @@ function MyUniversityFeed() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  heading: {
-    gap: Spacing.one,
-  },
-  title: {
-    fontSize: 26,
-    lineHeight: 32,
   },
 });

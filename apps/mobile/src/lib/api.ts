@@ -4,13 +4,14 @@ import type {
   CommentView,
   ErrorCode,
   FieldError,
-  Forum,
+  Community,
   List,
   Panel,
   PostPage,
   PostSort,
   PostView,
   Profile,
+  PublicProfile,
 } from '@utalk/shared';
 
 import { resolveApiUrl } from '@/lib/apiUrl';
@@ -68,9 +69,9 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${accessToken}` };
 }
 
-// Feed de un foro o de un panel (exactamente uno de los dos), paginado por
+// Feed de una comunidad o de un panel (exactamente uno de los dos), paginado por
 // cursor: `cursor` es el `nextCursor` de la página anterior.
-export type FeedParams = ({ forumId: string } | { panelId: string }) & {
+export type FeedParams = ({ communityId: string } | { panelId: string }) & {
   sort: PostSort;
   cursor?: string;
 };
@@ -120,20 +121,21 @@ export const api = {
     return authGet<List<Panel>>('/panels');
   },
 
-  getPanel(panelId: string) {
-    return authGet<Panel>(`/panels/${encodeURIComponent(panelId)}`);
+  // Perfil de otra persona: apodo, universidad y desde cuándo está.
+  getProfile(userId: string) {
+    return authGet<PublicProfile>(`/profiles/${encodeURIComponent(userId)}`);
   },
 
-  getForums(panelId: string) {
-    return authGet<List<Forum>>(`/forums?${toQueryString({ panelId })}`);
+  getCommunities(panelId: string) {
+    return authGet<List<Community>>(`/communities?${toQueryString({ panelId })}`);
   },
 
-  getForum(forumId: string) {
-    return authGet<Forum>(`/forums/${encodeURIComponent(forumId)}`);
+  getCommunity(communityId: string) {
+    return authGet<Community>(`/communities/${encodeURIComponent(communityId)}`);
   },
 
   getFeed(params: FeedParams) {
-    const scope = 'forumId' in params ? { forumId: params.forumId } : { panelId: params.panelId };
+    const scope = 'communityId' in params ? { communityId: params.communityId } : { panelId: params.panelId };
     return authGet<PostPage>(
       `/posts?${toQueryString({ ...scope, sort: params.sort, cursor: params.cursor })}`,
     );

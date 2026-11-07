@@ -9,7 +9,7 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   UNAUTHENTICATED: 'Tu sesión venció. Vuelve a iniciar sesión.',
   TOO_MANY_REQUESTS: 'Vas muy rápido. Espera un momento y vuelve a intentar.',
   PANEL_NOT_FOUND: 'Este panel ya no existe.',
-  FORUM_NOT_FOUND: 'Este foro ya no existe.',
+  COMMUNITY_NOT_FOUND: 'Esta comunidad ya no existe.',
   POST_NOT_FOUND: 'Este post ya no existe.',
 };
 

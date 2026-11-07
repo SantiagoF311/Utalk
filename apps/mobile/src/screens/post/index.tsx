@@ -58,8 +58,9 @@ export function PostScreen({ postId }: { postId: string }) {
         ListHeaderComponent={
           <View style={styles.header}>
             <PostCard post={post.data} full />
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              Comentarios
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <ThemedText type="smallBold">
+              {post.data.commentCount === 1 ? '1 comentario' : `${post.data.commentCount} comentarios`}
             </ThemedText>
           </View>
         }
@@ -98,6 +99,9 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.three,
     marginBottom: Spacing.three,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
   },
   separator: {
     height: Spacing.four,

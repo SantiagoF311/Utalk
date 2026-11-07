@@ -13,10 +13,10 @@ notificaciones) se documentan aparte en
 ## Diagrama de relaciones
 
 ```
-universities ──< panels ──< forums ──< posts ──< comments (anidado, parent_id)
+universities ──< panels ──< communities ──< posts ──< comments (anidado, parent_id)
                               │           │           │
-                  forum_moderators (forum_id, user_id) │
-     profiles ──< (autor de forums/posts/comments)   │
+                  community_moderators (community_id, user_id) │
+     profiles ──< (autor de communities/posts/comments)   │
                                           │           │
                               post_votes ─┘  comment_votes ─┘
                                           │           │
@@ -57,10 +57,10 @@ gestiona internamente — ahí vive el email/credenciales, no acá).
 | `created_at` | timestamptz | |
 
 **Sobre `role`**: solo distingue usuarios de admins (pueden todo: crear
-paneles, ver/resolver todos los reportes, moderar cualquier foro). Se
+paneles, ver/resolver todos los reportes, moderar cualquier comunidad). Se
 asigna a mano desde Supabase y nunca se acepta desde la API (no está en
 `createProfileSchema`). La moderación con alcance **no** es un rol: ser
-moderador de un foro es tener una fila en `forum_moderators` (ver abajo).
+moderador de una comunidad es tener una fila en `community_moderators` (ver abajo).
 No se agregó un valor `'moderator'` porque duplicaría ese dato y se
 desincronizaría (alguien con `role = 'moderator'` sin filas, o al revés).
 Solo tendría sentido si apareciera un "moderador global" que no sea admin.
@@ -106,9 +106,9 @@ universidad", porque dejaría de serlo. No se agregó un campo `type`
 (`'university' | 'general' | 'special'`) todavía porque no hay un caso de
 uso real hoy que lo necesite; se evaluará si ese caso aparece.
 
-## `forums`
+## `communities`
 
-Foros tipo subreddit, creados por usuarios, anidados dentro de un panel.
+Comunidades tipo subreddit, creadas por usuarios, anidadas dentro de un panel.
 
 | columna | tipo | notas |
 |---|---|---|
@@ -119,49 +119,49 @@ Foros tipo subreddit, creados por usuarios, anidados dentro de un panel.
 | `created_by` | uuid, FK → `profiles.id` | |
 | `created_at` | timestamptz | |
 
-**Por qué único por panel y no globalmente**: un foro "matemáticas" puede
+**Por qué único por panel y no globalmente**: una comunidad "matemáticas" puede
 existir de forma independiente tanto en el panel de una universidad como
 en el de otra, o en el general — son entidades distintas aunque compartan
 nombre.
 
 **Regla de negocio (no expresable en SQL, vive en el backend)**: un
-usuario solo puede **crear foros y postear** en el panel de su propia
+usuario solo puede **crear comunidades y postear** en el panel de su propia
 universidad (`profile.university_id === panel.university_id`) o en un
 panel sin universidad (`panel.university_id === null`: el general, o uno
 especial a futuro). **Leer, comentar y votar** es libre en cualquier
 panel — ver lo que pasa en otras universidades es parte del producto,
 pero lo que se publica en el panel de una universidad lo publican sus
 estudiantes verificados. Vive en `PanelEntity.acceptsPostsFrom()`, usado
-por los services que crean foros y posts.
+por los services que crean comunidades y posts.
 
-**Permisos sobre el foro**: editarlo/borrarlo (y, con el flujo de
+**Permisos sobre la comunidad**: editarla/borrarla (y, con el flujo de
 moderación, borrar posts/comentarios ajenos y ver sus reportes) lo puede
-hacer un moderador de ese foro o un admin — no depende de `created_by`,
+hacer un moderador de esa comunidad o un admin — no depende de `created_by`,
 que queda como dato histórico.
 
-## `forum_moderators`
+## `community_moderators`
 
-Moderadores por foro, tipo mods de un subreddit.
+Moderadores por comunidad, tipo mods de un subreddit.
 
 | columna | tipo | notas |
 |---|---|---|
-| `forum_id` | uuid, FK → `forums.id`, on delete cascade | |
+| `community_id` | uuid, FK → `communities.id`, on delete cascade | |
 | `user_id` | uuid, FK → `profiles.id`, on delete cascade | |
 | `created_at` | timestamptz | |
 
-Clave primaria compuesta `(forum_id, user_id)`.
+Clave primaria compuesta `(community_id, user_id)`.
 
 **El creador es el primer moderador**: el trigger
-`forums_add_creator_as_moderator` inserta la fila al crear el foro. Se
+`communities_add_creator_as_moderator` inserta la fila al crear la comunidad. Se
 hace con trigger y no con dos inserts desde el backend para que sea
 atómico (el cliente de Supabase no maneja transacciones). Que sea una
 fila y no un permiso implícito de `created_by` permite que el creador
-renuncie o pase el foro a otro.
+renuncie o pase la comunidad a otro.
 
-**Por qué por foro y no por panel**: los paneles son fijos (uno por
-universidad + general) y funcionan como "la plataforma"; los foros son
-las comunidades que crean los usuarios, y todo el contenido moderable
-(posts, comentarios) vive dentro de uno. Un foro que se queda sin mods lo
+**Por qué por comunidad y no por panel**: los paneles son fijos (uno por
+universidad + general) y funcionan como "la plataforma"; las comunidades son
+las que crean los usuarios, y todo el contenido moderable
+(posts, comentarios) vive dentro de una. Una comunidad que se queda sin mods la
 siguen cubriendo los admins.
 
 ## `posts`
@@ -169,7 +169,7 @@ siguen cubriendo los admins.
 | columna | tipo | notas |
 |---|---|---|
 | `id` | uuid, PK | |
-| `forum_id` | uuid, FK → `forums.id`, on delete cascade | |
+| `community_id` | uuid, FK → `communities.id`, on delete cascade | |
 | `author_id` | uuid, FK → `profiles.id` | |
 | `title` | text | |
 | `body` | text | |
@@ -188,7 +188,7 @@ recalcularlos desde cero. `score` es también el insumo del trending.
 Ver [datos-y-trending.md](./datos-y-trending.md) para la fórmula de
 `hot` y por qué es una columna generada en vez de un job de BullMQ.
 
-**Feed paginado por cursor**: `GET /posts?forumId|panelId&sort=hot|new|top` (default `hot`)
+**Feed paginado por cursor**: `GET /posts?communityId|panelId&sort=hot|new|top` (default `hot`)
 pagina por cursor (no por número de página), ordenando por
 `(hot, id)`, `(created_at, id)` o `(score, id)` — con un índice compuesto para cada uno.
 Con páginas numeradas, los posts nuevos que entran mientras el usuario
@@ -285,7 +285,7 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | `university.ts` | `universitySchema`, `universitySummarySchema` (`id`, `slug`, `name`: lo que se muestra junto a un usuario) |
 | `profile.ts` | `profileSchema` (incluye `role`), `createProfileSchema`, `authorSchema` y `publicProfileSchema` (con la universidad, sin `role`) |
 | `panel.ts` | `panelSchema` |
-| `forum.ts` | `forumSchema`, `createForumSchema` |
+| `community.ts` | `communitySchema`, `createCommunitySchema` |
 | `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author` y `myVote`), `postFeedQuerySchema`, `postPageSchema` |
 | `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`) |
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |

@@ -4,7 +4,7 @@ import { voteValueSchema } from './vote.ts';
 
 export const postSchema = z.object({
   id: z.uuid(),
-  forumId: z.uuid(),
+  communityId: z.uuid(),
   authorId: z.uuid(),
   title: z.string().min(1).max(300),
   body: z.string().min(1),
@@ -16,7 +16,7 @@ export const postSchema = z.object({
 export type Post = z.infer<typeof postSchema>;
 
 export const createPostSchema = postSchema.pick({
-  forumId: true,
+  communityId: true,
   title: true,
   body: true,
 });
@@ -52,19 +52,19 @@ export const postSortSchema = z.enum(POST_SORTS);
 
 export type PostSort = z.infer<typeof postSortSchema>;
 
-// Feed de un foro o de un panel (posts de todos sus foros), paginado por
+// Feed de una comunidad o de un panel (posts de todas sus comunidades), paginado por
 // cursor: `nextCursor` de una página se manda como `cursor` para pedir la
 // siguiente; es opaco para el cliente.
 export const postFeedQuerySchema = z
   .object({
-    forumId: z.uuid().optional(),
+    communityId: z.uuid().optional(),
     panelId: z.uuid().optional(),
     sort: postSortSchema.default('hot'),
     cursor: z.string().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
   })
-  .refine((query) => (query.forumId === undefined) !== (query.panelId === undefined), {
-    message: 'Exactly one of forumId or panelId must be set',
+  .refine((query) => (query.communityId === undefined) !== (query.panelId === undefined), {
+    message: 'Exactly one of communityId or panelId must be set',
   });
 
 export type PostFeedQuery = z.infer<typeof postFeedQuerySchema>;

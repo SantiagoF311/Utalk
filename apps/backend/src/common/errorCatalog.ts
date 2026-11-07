@@ -37,9 +37,12 @@ export const ERROR_CATALOG = {
   },
   CANNOT_PUBLISH_IN_PANEL: { status: HttpStatus.FORBIDDEN, title: 'Cannot publish in this panel' },
 
-  FORUM_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Forum not found' },
-  FORUM_SLUG_TAKEN: { status: HttpStatus.CONFLICT, title: 'Forum slug already taken' },
-  NOT_FORUM_MODERATOR: { status: HttpStatus.FORBIDDEN, title: 'Not a moderator of this forum' },
+  COMMUNITY_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Community not found' },
+  COMMUNITY_SLUG_TAKEN: { status: HttpStatus.CONFLICT, title: 'Community slug already taken' },
+  NOT_COMMUNITY_MODERATOR: {
+    status: HttpStatus.FORBIDDEN,
+    title: 'Not a moderator of this community',
+  },
 
   POST_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Post not found' },
   NOT_POST_AUTHOR: { status: HttpStatus.FORBIDDEN, title: 'Not the author of this post' },

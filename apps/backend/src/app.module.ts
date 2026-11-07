@@ -9,7 +9,7 @@ import { AdminGuard } from './modules/auth/admin.guard.js';
 import { AuthGuard } from './modules/auth/auth.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CommentsModule } from './modules/comments/comments.module.js';
-import { ForumsModule } from './modules/forums/forums.module.js';
+import { CommunitiesModule } from './modules/communities/communities.module.js';
 import { PanelsModule } from './modules/panels/panels.module.js';
 import { PostsModule } from './modules/posts/posts.module.js';
 import { ProfilesModule } from './modules/profiles/profiles.module.js';
@@ -27,7 +27,7 @@ import { SupabaseModule } from './supabase/supabase.module.js';
     ProfilesModule,
     AuthModule,
     PanelsModule,
-    ForumsModule,
+    CommunitiesModule,
     PostsModule,
     CommentsModule,
     VotesModule,

@@ -18,8 +18,8 @@ import { toReportView } from './report.view.js';
 import { ReportsService } from './reports.service.js';
 
 // Los reportes son inmutables: no hay PATCH. DELETE = descartar/resolver.
-// Cualquiera reporta; solo admins los ven y resuelven (los mods de foro
-// tendrán su propia vista filtrada por foro).
+// Cualquiera reporta; solo admins los ven y resuelven (los mods de comunidad
+// tendrán su propia vista filtrada por comunidad).
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}

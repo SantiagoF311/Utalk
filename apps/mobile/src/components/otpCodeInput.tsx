@@ -26,7 +26,9 @@ export function OtpCodeInput({ value, onChangeText, length = 6 }: OtpCodeInputPr
             key={index}
             style={[
               styles.box,
-              { borderColor: isCursor ? theme.primary : theme.border, backgroundColor: theme.background },
+              isCursor
+                ? { borderColor: theme.primary, backgroundColor: theme.background }
+                : { borderColor: 'transparent', backgroundColor: theme.backgroundElement },
             ]}>
             <ThemedText style={styles.digit}>{value[index] ?? ''}</ThemedText>
           </View>

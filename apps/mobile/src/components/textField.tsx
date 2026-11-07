@@ -32,7 +32,10 @@ export function TextField({ label, trailingIcon, style, onFocus, onBlur, ...inpu
       <View
         style={[
           styles.inputRow,
-          { borderColor: focused ? theme.primary : theme.border, backgroundColor: theme.background },
+          // Relleno gris en reposo; al escribir, fondo normal con borde azul.
+          focused
+            ? { borderColor: theme.primary, backgroundColor: theme.background }
+            : { borderColor: 'transparent', backgroundColor: theme.backgroundElement },
         ]}>
         <TextInput
           placeholderTextColor={theme.textSecondary}

@@ -47,7 +47,7 @@ Ejemplo mínimo:
 
 ```ts
 import { describe, expect, it, jest } from '@jest/globals';
-import { IDS, makeForum, makePanel, makeProfile } from '../../testing/fixtures.js';
+import { IDS, makeCommunity, makePanel, makeProfile } from '../../testing/fixtures.js';
 
 it('rechaza postear en el panel de otra universidad', async () => {
   profiles.findById.mockResolvedValue(makeProfile({ universityId: IDS.otherUniversity }));

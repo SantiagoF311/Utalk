@@ -1,7 +1,7 @@
 export class PostEntity {
   constructor(
     readonly id: string,
-    readonly forumId: string,
+    readonly communityId: string,
     readonly authorId: string,
     readonly title: string,
     readonly body: string,

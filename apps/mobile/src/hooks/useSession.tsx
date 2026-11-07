@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
+import { deviceStorage } from '@/lib/deviceStorage';
 import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 
@@ -20,7 +21,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
       // Al cerrar sesión se vacía la caché: si entra otra cuenta en el mismo
       // dispositivo, no puede ver datos (ej. "mi voto") de la anterior.
-      if (event === 'SIGNED_OUT') queryClient.clear();
+      // Lo mismo con lo guardado en el dispositivo (panel elegido, visitados).
+      if (event === 'SIGNED_OUT') {
+        queryClient.clear();
+        void deviceStorage.clearAccountData();
+      }
     });
     return () => data.subscription.unsubscribe();
   }, []);

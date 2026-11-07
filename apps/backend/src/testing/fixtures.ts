@@ -1,6 +1,6 @@
 import type { Author } from '@utalk/shared';
 import { CommentEntity } from '../modules/comments/domain/comment.entity.js';
-import { ForumEntity } from '../modules/forums/domain/forum.entity.js';
+import { CommunityEntity } from '../modules/communities/domain/community.entity.js';
 import { PanelEntity } from '../modules/panels/domain/panel.entity.js';
 import { PostEntity } from '../modules/posts/domain/post.entity.js';
 import { ProfileEntity } from '../modules/profiles/domain/profile.entity.js';
@@ -19,7 +19,7 @@ export const IDS = {
   admin: '00000000-0000-4000-8000-0000000000b3',
   ustPanel: '00000000-0000-4000-8000-0000000000c1',
   generalPanel: '00000000-0000-4000-8000-0000000000c2',
-  forum: '00000000-0000-4000-8000-0000000000d1',
+  community: '00000000-0000-4000-8000-0000000000d1',
   post: '00000000-0000-4000-8000-0000000000e1',
 } as const;
 
@@ -70,18 +70,18 @@ export function makeGeneralPanel(): PanelEntity {
   return makePanel({ id: IDS.generalPanel, universityId: null, slug: PanelEntity.GENERAL_SLUG });
 }
 
-export function makeForum(
+export function makeCommunity(
   overrides: Partial<{ id: string; panelId: string; createdBy: string }> = {},
-): ForumEntity {
-  const f = { id: IDS.forum, panelId: IDS.ustPanel, createdBy: IDS.ana, ...overrides };
-  return new ForumEntity(f.id, f.panelId, 'calculo', 'Cálculo', f.createdBy, CREATED_AT);
+): CommunityEntity {
+  const f = { id: IDS.community, panelId: IDS.ustPanel, createdBy: IDS.ana, ...overrides };
+  return new CommunityEntity(f.id, f.panelId, 'calculo', 'Cálculo', f.createdBy, CREATED_AT);
 }
 
 export function makePost(
-  overrides: Partial<{ id: string; forumId: string; authorId: string; score: number }> = {},
+  overrides: Partial<{ id: string; communityId: string; authorId: string; score: number }> = {},
 ): PostEntity {
-  const p = { id: IDS.post, forumId: IDS.forum, authorId: IDS.ana, score: 0, ...overrides };
-  return new PostEntity(p.id, p.forumId, p.authorId, 'Hola', 'Cuerpo', p.score, 0, CREATED_AT);
+  const p = { id: IDS.post, communityId: IDS.community, authorId: IDS.ana, score: 0, ...overrides };
+  return new PostEntity(p.id, p.communityId, p.authorId, 'Hola', 'Cuerpo', p.score, 0, CREATED_AT);
 }
 
 export function makeComment(

@@ -92,13 +92,13 @@ resolver un problema (el decaimiento) que la fórmula de Reddit no tiene.
 
 ### Opción 3 — Redis Sorted Set como índice acelerador
 
-Se mantiene un **Sorted Set** de Redis (`trending:<forumId>`) con
+Se mantiene un **Sorted Set** de Redis (`trending:<communityId>`) con
 `postId → score`, actualizado en tiempo real. Redis ordena
 automáticamente por score y responde "top N" en microsegundos:
 
 ```
-ZADD trending:forum-123 <score> <postId>
-ZREVRANGE trending:forum-123 0 19   -- top 20 IDs, ya ordenados
+ZADD trending:community-123 <score> <postId>
+ZREVRANGE trending:community-123 0 19   -- top 20 IDs, ya ordenados
 ```
 
 Redis **no almacena el post completo** — solo ID + score. Con esos IDs se
@@ -124,7 +124,7 @@ vuelve lenta. Si llega, la fórmula de Reddit lo simplifica: basta un
 
 ```
 voto → trigger actualiza posts.score → Postgres recalcula posts.hot
-     → el feed ordena por hot con el índice (forum_id, hot desc, id desc)
+     → el feed ordena por hot con el índice (community_id, hot desc, id desc)
 ```
 
 Todo en la misma transacción que el voto: exacto al instante, sin

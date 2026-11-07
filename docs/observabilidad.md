@@ -71,7 +71,7 @@ ASP.NET Core, y cuesta lo mismo que uno propio.
   de infraestructura), nunca en el filtro — así la capa HTTP no conoce
   códigos de Postgres. Hoy se traduce el `23505` (unique violation): dos
   requests simultáneos que pasan el chequeo previo del service y chocan
-  contra la constraint (username, slug de foro, slug/universidad de panel)
+  contra la constraint (username, slug de comunidad, slug/universidad de panel)
   responden 409 con su código, no 500.
 - **Errores inesperados** (cualquier cosa que no sea una de las anteriores,
   típicamente un error de Supabase no traducido): responden 500
