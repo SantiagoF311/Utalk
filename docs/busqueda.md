@@ -11,19 +11,21 @@ GIN).
 
 ## Cómo está implementada
 
-`GET /search?q=…&panelId=…&sort=relevance|new&cursor=…` busca en
-**publicaciones y comentarios de un panel**, en una sola lista. **Nunca en
+`GET /search?q=…&(panelId=…|communityId=…)&sort=relevance|new&cursor=…`
+busca en **publicaciones y comentarios de un panel o de una comunidad**
+(exactamente uno de los dos, como el feed), en una sola lista. **Nunca en
 apodos**: nadie puede juntar desde el buscador todo lo que escribió alguien
-(el diseño lo dice en la pantalla).
+(el diseño lo dice en la pantalla). Con `communityId`, el backend busca en
+el panel de esa comunidad filtrando por ella (404 si no existe).
 
-### En la base (migración `full_text_search`)
+### En la base (migraciones `full_text_search` y `search_by_community`)
 
 | Pieza | Qué es |
 |---|---|
 | `search_vector` (tsvector, columna generada) | Raíces de las palabras, en español y sin tildes. En `posts`, título con peso `A` y cuerpo `B` (el título pesa más al ordenar); en `comments`, el cuerpo. Índice GIN |
 | `search_text` (text, columna generada) | El mismo texto en minúsculas y sin tildes, para comparar por trigramas. Índice GIN `gin_trgm_ops` |
 | `immutable_unaccent()` | Envoltorio de `unaccent` que fija el diccionario. Hace falta porque una columna generada o un índice solo aceptan funciones `IMMUTABLE`, y `unaccent` no lo es |
-| `search_content()` | La búsqueda en sí (ver abajo) |
+| `search_content()` | La búsqueda en sí (ver abajo). `p_community_id` null = todo el panel. Se agregó en una migración aparte (`search_by_community`) que borra y recrea la función, porque la primera ya estaba aplicada |
 
 Las columnas generadas se recalculan solas al crear o editar: no hay nada
 que sincronizar (justamente el costo que tendría un motor aparte).
@@ -71,10 +73,14 @@ refrescarla, responde "Could not find the function … in the schema cache".
 ### En el mobile
 
 La barra "Buscar en <panel>" de Inicio abre la búsqueda en el panel
-elegido, con opción de pasar al general. Busca mientras se escribe, con una
-pausa de 400 ms para no mandar un request por letra. Las búsquedas
+elegido, con opción de pasar al general. El 🔍 de una comunidad la abre
+**dentro de esa comunidad**, como en Reddit: un chip "c/… ✕" deja claro dónde
+se busca (la ✕ quita el filtro y pasa a todo su panel), y antes de escribir
+ofrece "Lo mejor de c/…" y "Nuevo en c/…". Busca mientras se escribe, con
+una pausa de 400 ms para no mandar un request por letra. Las búsquedas
 recientes se guardan en el dispositivo (ver [mobile.md](./mobile.md)). Sin
-resultados, ofrece publicar la pregunta.
+resultados, ofrece publicar la pregunta (en esa comunidad, si se buscaba en
+una).
 
 ### Pendiente
 

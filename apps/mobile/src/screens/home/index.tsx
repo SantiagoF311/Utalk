@@ -30,8 +30,17 @@ export function HomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top']}>
         {/* Como Reddit: la búsqueda es una barra siempre visible arriba, que
-            dice además en qué panel estás. */}
+            dice además en qué panel estás, y publicar es el "+" de al lado. */}
         <ScreenHeader
+          right={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Nueva publicación"
+              onPress={() => router.push('/compose')}
+              hitSlop={8}>
+              <Icon name="plus" size={26} />
+            </Pressable>
+          }
           center={
             <Pressable
               accessibilityRole="search"
@@ -55,8 +64,12 @@ function PanelFeed() {
   const { panel, sort, status, error, retry } = useFeedSelection();
   const communities = useCommunities(panel?.id ?? '');
 
-  const communityNames = useMemo(
-    () => new Map(communities.data?.map((community) => [community.id, community.name])),
+  // Para que cada tarjeta diga de qué comunidad es (avatar y c/<slug>).
+  const communityById = useMemo(
+    () =>
+      new Map(
+        communities.data?.map(({ id, name, slug }) => [id, { id, name, slug }] as const),
+      ),
     [communities.data],
   );
 
@@ -77,8 +90,7 @@ function PanelFeed() {
       // Al cambiar de panel, la lista se monta de nuevo y vuelve arriba.
       key={panel.id}
       scope={{ panelId: panel.id }}
-      communityNames={communityNames}
-      showUniversity={panel.universityId === null}
+      communities={communityById}
       sort={sort}
     />
   );

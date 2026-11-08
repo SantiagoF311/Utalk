@@ -9,7 +9,9 @@ import { CommunityAvatar } from '@/components/communityAvatar';
 import { Icon, IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themedText';
 import { Spacing } from '@/constants/theme';
+import { useCommunities } from '@/hooks/queries';
 import { useFeedSelection } from '@/hooks/useFeedSelection';
+import { useMyPanels } from '@/hooks/useMyPanels';
 import { useRecentCommunities } from '@/hooks/useRecentCommunities';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -19,13 +21,23 @@ const SORT_ITEMS: { sort: PostSort; label: string; icon: IconName }[] = [
 ];
 
 // El sidebar, como el de Reddit: arriba el panel que estás mirando (se puede
-// cambiar), y debajo todo es de ese panel: su feed por orden y las
-// comunidades que visitaste en él.
+// cambiar), y debajo todo es de ese panel: su feed por orden, crear una
+// comunidad, las que visitaste y a las que te uniste.
 export function Sidebar({ navigation }: DrawerContentComponentProps) {
   const theme = useTheme();
   const selection = useFeedSelection();
+  const { publishable } = useMyPanels();
   const recent = useRecentCommunities(selection.panel?.id);
+  const communities = useCommunities(selection.panel?.id ?? '');
   const [choosingPanel, setChoosingPanel] = useState(false);
+
+  const canCreate = publishable.some((panel) => panel.id === selection.panel?.id);
+  const joined = communities.data?.filter((community) => community.joinedByMe) ?? [];
+
+  const openCommunity = (communityId: string) => {
+    navigation.closeDrawer();
+    router.push({ pathname: '/community/[communityId]', params: { communityId } });
+  };
 
   const showFeed = (sort: PostSort) => {
     selection.setSort(sort);
@@ -77,6 +89,19 @@ export function Sidebar({ navigation }: DrawerContentComponentProps) {
           />
         ))}
 
+        {/* Crear: solo en tu panel o el general, donde se puede publicar. */}
+        {canCreate && (
+          <SidebarItem
+            icon="plus"
+            label="Crear una comunidad"
+            active={false}
+            onPress={() => {
+              navigation.closeDrawer();
+              router.push({ pathname: '/create-community', params: { panelId: selection.panel?.id } });
+            }}
+          />
+        )}
+
         {recent.data && recent.data.length > 0 && (
           <>
             <Divider />
@@ -84,19 +109,19 @@ export function Sidebar({ navigation }: DrawerContentComponentProps) {
               VISITADAS RECIENTEMENTE
             </ThemedText>
             {recent.data.map((community) => (
-              <Pressable
-                key={community.id}
-                accessibilityRole="button"
-                onPress={() => {
-                  navigation.closeDrawer();
-                  router.push({ pathname: '/community/[communityId]', params: { communityId: community.id } });
-                }}
-                style={({ pressed }) => [styles.item, pressed && { backgroundColor: theme.backgroundElement }]}>
-                <CommunityAvatar name={community.name} />
-                <ThemedText numberOfLines={1} style={styles.flex}>
-                  c/{community.slug}
-                </ThemedText>
-              </Pressable>
+              <SidebarCommunity key={community.id} community={community} onOpen={openCommunity} />
+            ))}
+          </>
+        )}
+
+        {joined.length > 0 && (
+          <>
+            <Divider />
+            <ThemedText type="smallBold" themeColor="textSecondary" style={styles.sectionTitle}>
+              TUS COMUNIDADES
+            </ThemedText>
+            {joined.map((community) => (
+              <SidebarCommunity key={community.id} community={community} onOpen={openCommunity} />
             ))}
           </>
         )}
@@ -145,6 +170,26 @@ function PanelOptions({ panels, selectedId, myPanelId, onChoose }: PanelOptionsP
         );
       })}
     </View>
+  );
+}
+
+type SidebarCommunityProps = {
+  community: { id: string; name: string; slug: string };
+  onOpen: (communityId: string) => void;
+};
+
+function SidebarCommunity({ community, onOpen }: SidebarCommunityProps) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => onOpen(community.id)}
+      style={({ pressed }) => [styles.item, pressed && { backgroundColor: theme.backgroundElement }]}>
+      <CommunityAvatar name={community.name} />
+      <ThemedText numberOfLines={1} style={styles.flex}>
+        c/{community.slug}
+      </ThemedText>
+    </Pressable>
   );
 }
 

@@ -10,7 +10,7 @@ import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themedText';
 import { VoteBar } from '@/components/voteBar';
 import { Spacing } from '@/constants/theme';
-import { nextVote, useDeleteComment, useVoteComment } from '@/hooks/mutations';
+import { useDeleteComment, voteComment } from '@/hooks/mutations';
 import { useMyProfile } from '@/hooks/queries';
 import { useOpenProfile } from '@/hooks/useOpenProfile';
 import { useRevealedReport } from '@/hooks/useRevealedReport';
@@ -35,7 +35,6 @@ type CommentItemProps = {
 export function CommentItem({ comment, onReply, depth = 0 }: CommentItemProps) {
   const theme = useTheme();
   const openProfile = useOpenProfile();
-  const voteComment = useVoteComment();
   const [collapsed, setCollapsed] = useState(false);
   const [revealed, setRevealed] = useRevealedReport(comment.id);
   const replyCount = countReplies(comment);
@@ -96,14 +95,7 @@ export function CommentItem({ comment, onReply, depth = 0 }: CommentItemProps) {
               score={comment.score}
               myVote={comment.myVote}
               bordered={false}
-              onVote={(pressed) =>
-                voteComment.mutate({
-                  postId: comment.postId,
-                  commentId: comment.id,
-                  from: comment.myVote,
-                  to: nextVote(comment.myVote, pressed),
-                })
-              }
+              onVote={(pressed) => voteComment(comment, pressed)}
             />
             {/* A un comentario borrado no se le puede responder (el backend lo rechaza). */}
             {!comment.isDeleted && (

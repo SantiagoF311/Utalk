@@ -54,18 +54,22 @@ export function useComments(postId: string) {
   });
 }
 
-// Búsqueda paginada (mismo esquema de `nextCursor` que el feed). Con menos de
-// SEARCH_QUERY_MIN_LENGTH caracteres no se pide nada.
-export function useSearch(panelId: string, q: string, sort: SearchSort) {
+// Búsqueda paginada (mismo esquema de `nextCursor` que el feed), en un panel
+// o en una comunidad. Con menos de SEARCH_QUERY_MIN_LENGTH caracteres, o sin
+// panel todavía, no se pide nada.
+export function useSearch(scope: SearchScope, q: string, sort: SearchSort) {
+  const ready = 'communityId' in scope ? scope.communityId !== '' : scope.panelId !== '';
   return useInfiniteQuery({
-    queryKey: queryKeys.search(panelId, q, sort),
-    queryFn: ({ pageParam }) => api.search({ q, panelId, sort, cursor: pageParam }),
+    queryKey: queryKeys.search(scope, q, sort),
+    queryFn: ({ pageParam }) => api.search({ ...scope, q, sort, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     select: (data) => data.pages.flatMap((page) => page.items),
-    enabled: panelId !== '' && q.length >= SEARCH_QUERY_MIN_LENGTH,
+    enabled: ready && q.length >= SEARCH_QUERY_MIN_LENGTH,
   });
 }
+
+export type SearchScope = { panelId: string } | { communityId: string };
 
 // Feed paginado por cursor: cada página trae `nextCursor`, que se manda para
 // pedir la siguiente; `null` = no hay más.

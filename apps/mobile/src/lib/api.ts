@@ -7,7 +7,8 @@ import type {
   CreateReportInput,
   ErrorCode,
   FieldError,
-  Community,
+  CommunityView,
+  CreateCommunityInput,
   List,
   Panel,
   PostPage,
@@ -143,11 +144,24 @@ export const api = {
   },
 
   getCommunities(panelId: string) {
-    return authGet<List<Community>>(`/communities?${toQueryString({ panelId })}`);
+    return authGet<List<CommunityView>>(`/communities?${toQueryString({ panelId })}`);
   },
 
   getCommunity(communityId: string) {
-    return authGet<Community>(`/communities/${encodeURIComponent(communityId)}`);
+    return authGet<CommunityView>(`/communities/${encodeURIComponent(communityId)}`);
+  },
+
+  createCommunity(input: CreateCommunityInput) {
+    return authSend<CommunityView>('POST', '/communities', input);
+  },
+
+  // Unirse / salirse: idempotentes, devuelven la comunidad con el contador nuevo.
+  joinCommunity(communityId: string) {
+    return authSend<CommunityView>('PUT', `/communities/${encodeURIComponent(communityId)}/membership`);
+  },
+
+  leaveCommunity(communityId: string) {
+    return authSend<CommunityView>('DELETE', `/communities/${encodeURIComponent(communityId)}/membership`);
   },
 
   getFeed(params: FeedParams) {
@@ -201,8 +215,14 @@ export const api = {
     return authSend<void>('DELETE', `/votes/comments/${encodeURIComponent(commentId)}`);
   },
 
-  // Publicaciones y comentarios de un panel (nunca apodos).
-  search(params: { q: string; panelId: string; sort: SearchSort; cursor?: string }) {
+  // Publicaciones y comentarios de un panel o de una comunidad (nunca apodos).
+  search(
+    params: ({ panelId: string } | { communityId: string }) & {
+      q: string;
+      sort: SearchSort;
+      cursor?: string;
+    },
+  ) {
     return authGet<SearchPage>(`/search?${toQueryString(params)}`);
   },
 

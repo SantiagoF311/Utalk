@@ -84,11 +84,9 @@ function RootNavigator() {
 
         <Stack.Protected guard={signedIn}>
           <Stack.Screen name="(drawer)" />
+          {/* Sin cabecera nativa: la comunidad dibuja su propia barra (como Reddit). */}
+          <Stack.Screen name="community/[communityId]" />
           {/* El título lo pone cada pantalla cuando carga el nombre. */}
-          <Stack.Screen
-            name="community/[communityId]"
-            options={{ headerShown: true, title: '', headerBackTitle: 'Atrás' }}
-          />
           <Stack.Screen
             name="post/[postId]"
             options={{ headerShown: true, title: 'Publicación', headerBackTitle: 'Atrás' }}
@@ -103,6 +101,7 @@ function RootNavigator() {
           />
           <Stack.Screen name="search" />
           <Stack.Screen name="compose" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="create-community" options={{ presentation: 'modal' }} />
           <Stack.Screen name="report" options={{ presentation: 'modal' }} />
           <Stack.Screen name="complete-profile" options={{ gestureEnabled: false }} />
         </Stack.Protected>

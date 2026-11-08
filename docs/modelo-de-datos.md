@@ -16,6 +16,7 @@ notificaciones) se documentan aparte en
 universities ──< panels ──< communities ──< posts ──< comments (anidado, parent_id)
                               │           │           │
                   community_moderators (community_id, user_id) │
+                  community_members    (community_id, user_id) │
      profiles ──< (autor de communities/posts/comments)   │
                                           │           │
                               post_votes ─┘  comment_votes ─┘
@@ -74,6 +75,11 @@ correo, carnet): el correo nunca sale del backend. Lo que tampoco se
 expone a otros es el `role` — solo lo ve cada usuario en su propio perfil
 (`/auth/me`).
 
+La API siempre manda la universidad junto al autor (`authorSchema`). La
+excepción visual es el **feed de un panel** en el mobile: como en Reddit, cada
+tarjeta muestra solo la comunidad y hace cuánto (sin autor). Al abrir el
+post (y en los comentarios) se ven el apodo y la universidad.
+
 | Vista | Dónde | Qué trae |
 |---|---|---|
 | `profileSchema` | `/auth/me`, completar registro | perfil completo, incluido `role` |
@@ -114,10 +120,18 @@ Comunidades tipo subreddit, creadas por usuarios, anidadas dentro de un panel.
 |---|---|---|
 | `id` | uuid, PK | |
 | `panel_id` | uuid, FK → `panels.id`, on delete cascade | |
-| `slug` | text | único **por panel** (`unique(panel_id, slug)`), no globalmente |
+| `slug` | text | único **por panel** (`unique(panel_id, slug)`), no globalmente. Lo que va en `c/<slug>`: minúsculas, números y guion bajo, 3 a 32 (lo valida `communitySchema`) |
 | `name` | text | |
+| `description` | text, ≤ 300, default `''` | opcional al crear |
+| `topic` | text, check | tema, para explorar por tema: `academic`, `campus_life`, `marketplace`, `events`, `sports`, `venting`, `lost_and_found`, `other` (`COMMUNITY_TOPICS` en `@utalk/shared`) |
+| `member_count` | integer | contador de miembros, mantenido por trigger (ver `community_members`) |
 | `created_by` | uuid, FK → `profiles.id` | |
 | `created_at` | timestamptz | |
+
+**Por qué el tema es una lista fija**: para poder filtrar por tema (chips en
+la pestaña Comunidades). Cambiar la lista toca tres lugares: `COMMUNITY_TOPICS`,
+el `check` de la columna y los nombres en español del mobile
+(`lib/communityTopics.ts`).
 
 **Por qué único por panel y no globalmente**: una comunidad "matemáticas" puede
 existir de forma independiente tanto en el panel de una universidad como
@@ -163,6 +177,41 @@ universidad + general) y funcionan como "la plataforma"; las comunidades son
 las que crean los usuarios, y todo el contenido moderable
 (posts, comentarios) vive dentro de una. Una comunidad que se queda sin mods la
 siguen cubriendo los admins.
+
+## `community_members`
+
+Quién se unió a qué comunidad ("Unirse" / "Tus comunidades").
+
+| columna | tipo | notas |
+|---|---|---|
+| `community_id` | uuid, FK → `communities.id`, on delete cascade | |
+| `user_id` | uuid, FK → `profiles.id`, on delete cascade | índice propio, para "las comunidades de un usuario" |
+| `created_at` | timestamptz | |
+
+Clave primaria compuesta `(community_id, user_id)`.
+
+**Triggers**:
+
+- `community_members_apply_count`: suma o resta en `communities.member_count`
+  al unirse o salirse. Contador en vez de `count(*)` porque se muestra en
+  cada lista de comunidades (mismo criterio que `comment_count` en posts).
+- `communities_add_creator_as_member`: quien crea una comunidad queda unido
+  (además de moderador). Por eso, al crear, el backend relee la comunidad:
+  la fila que devuelve el insert es de antes de que el trigger sume al
+  creador.
+
+**Reglas** (en `CommunitiesService`):
+
+- **Unirse es seguir**, así que se puede en cualquier panel (leer es libre),
+  aunque publicar no.
+- **Salirse no quita la moderación**: son tablas distintas, y un moderador
+  puede dejar de seguir una comunidad sin dejar de moderarla.
+- **Unirse y salirse son idempotentes** (`PUT` / `DELETE
+  /communities/:id/membership`): unirse dos veces o salirse sin estar no son
+  errores, porque el botón de la app se puede tocar varias veces seguidas.
+
+Las vistas de comunidad traen `joinedByMe` (se calcula como `myVote`: una
+consulta con los ids de lo que se muestra).
 
 ## `posts`
 
@@ -316,7 +365,7 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | `university.ts` | `universitySchema`, `universitySummarySchema` (`id`, `slug`, `name`: lo que se muestra junto a un usuario) |
 | `profile.ts` | `profileSchema` (incluye `role`), `createProfileSchema`, `authorSchema` y `publicProfileSchema` (con la universidad, sin `role`) |
 | `panel.ts` | `panelSchema` |
-| `community.ts` | `communitySchema`, `createCommunitySchema` |
+| `community.ts` | `COMMUNITY_TOPICS`, `communitySchema`, `communityViewSchema` (con `joinedByMe`), `createCommunitySchema`, `updateCommunitySchema` |
 | `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author`, `myVote` y `reportedByMe`), `postFeedQuerySchema`, `postPageSchema` |
 | `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`, `myVote` y `reportedByMe`) |
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |

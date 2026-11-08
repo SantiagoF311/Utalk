@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { CommunityTopic } from '@utalk/shared';
 import { AppException } from '../../../common/appException.js';
 import { isUniqueViolation } from '../../../common/databaseError.js';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
@@ -14,6 +15,9 @@ interface CommunityRow {
   panel_id: string;
   slug: string;
   name: string;
+  description: string;
+  topic: CommunityTopic;
+  member_count: number;
   created_by: string;
   created_at: string;
 }
@@ -24,6 +28,9 @@ function toEntity(row: CommunityRow): CommunityEntity {
     row.panel_id,
     row.slug,
     row.name,
+    row.description,
+    row.topic,
+    row.member_count,
     row.created_by,
     new Date(row.created_at),
   );
@@ -40,6 +47,8 @@ export class SupabaseCommunityRepository implements CommunityRepository {
         panel_id: community.panelId,
         slug: community.slug,
         name: community.name,
+        description: community.description,
+        topic: community.topic,
         created_by: community.createdBy,
       })
       .select()
@@ -94,7 +103,8 @@ export class SupabaseCommunityRepository implements CommunityRepository {
   async update(id: string, changes: CommunityChanges): Promise<CommunityEntity> {
     const { data, error } = await this.supabase.client
       .from('communities')
-      .update({ name: changes.name })
+      // Los campos undefined se omiten al serializar: solo cambia lo que vino.
+      .update({ name: changes.name, description: changes.description, topic: changes.topic })
       .eq('id', id)
       .select()
       .single();

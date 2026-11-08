@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { AppException } from '../../common/appException.js';
-import { IDS, makeAuthor, makePanel } from '../../testing/fixtures.js';
+import { IDS, makeAuthor, makeCommunity, makePanel } from '../../testing/fixtures.js';
+import type { CommunitiesService } from '../communities/communities.service.js';
 import type { PanelsService } from '../panels/panels.service.js';
 import type { SearchRepository } from './domain/search.repository.js';
 import { SearchHitEntity } from './domain/searchHit.entity.js';
@@ -43,12 +44,38 @@ const postId = (n: number) => `00000000-0000-4000-8000-0000000003${String(n).pad
 describe('SearchService', () => {
   let repository: jest.Mocked<SearchRepository>;
   let panels: { findById: jest.Mock<PanelsService['findById']> };
+  let communities: { findById: jest.Mock<CommunitiesService['findById']> };
   let service: SearchService;
 
   beforeEach(() => {
     repository = { search: jest.fn<SearchRepository['search']>().mockResolvedValue([]) };
     panels = { findById: jest.fn<PanelsService['findById']>().mockResolvedValue(makePanel()) };
-    service = new SearchService(repository, panels as unknown as PanelsService);
+    communities = {
+      findById: jest.fn<CommunitiesService['findById']>().mockResolvedValue(makeCommunity()),
+    };
+    service = new SearchService(
+      repository,
+      panels as unknown as PanelsService,
+      communities as unknown as CommunitiesService,
+    );
+  });
+
+  it('dentro de una comunidad, busca en su panel filtrando por ella', async () => {
+    await service.search({ q: 'sala', communityId: IDS.community, sort: 'relevance', limit: 2 });
+
+    expect(repository.search).toHaveBeenCalledWith(
+      expect.objectContaining({ panelId: IDS.ustPanel, communityId: IDS.community }),
+    );
+    expect(panels.findById).not.toHaveBeenCalled();
+  });
+
+  it('404 explícito si la comunidad no existe', async () => {
+    communities.findById.mockRejectedValue(new AppException('COMMUNITY_NOT_FOUND', 'not found'));
+
+    await expect(
+      service.search({ q: 'sala', communityId: IDS.community, sort: 'relevance', limit: 2 }),
+    ).rejects.toMatchObject({ code: 'COMMUNITY_NOT_FOUND' });
+    expect(repository.search).not.toHaveBeenCalled();
   });
 
   const query = { q: 'sala', panelId: IDS.ustPanel, sort: 'relevance' as const, limit: 2 };
@@ -95,6 +122,7 @@ describe('SearchService', () => {
     expect(repository.search).toHaveBeenCalledWith({
       query: 'sala',
       panelId: IDS.ustPanel,
+      communityId: null,
       sort: 'relevance',
       limit: 3,
       offset: 0,

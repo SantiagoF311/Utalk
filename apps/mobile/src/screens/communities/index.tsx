@@ -1,11 +1,12 @@
-import type { Community } from '@utalk/shared';
+import type { CommunityTopic, CommunityView } from '@utalk/shared';
 import { router } from 'expo-router';
 import { ReactNode, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommunityAvatar } from '@/components/communityAvatar';
 import { Icon } from '@/components/icon';
+import { JoinButton } from '@/components/joinButton';
 import { ScreenHeader } from '@/components/screenHeader';
 import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
@@ -14,11 +15,12 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useCommunities } from '@/hooks/queries';
 import { useFeedSelection } from '@/hooks/useFeedSelection';
 import { useTheme } from '@/hooks/useTheme';
+import { COMMUNITY_TOPIC_OPTIONS, memberCountLabel } from '@/lib/communityTopics';
 import { errorMessage } from '@/lib/errorMessages';
 import { normalize } from '@/lib/text';
 
-// Comunidades: las del panel elegido en el sidebar, con un buscador. Es la
-// pestaña "Comunidades" de Reddit, en versión simple.
+// Comunidades: las del panel elegido en el sidebar, con chips por tema y un
+// buscador. Es la pestaña "Comunidades" de Reddit, en versión simple.
 export function CommunitiesScreen() {
   const { panel } = useFeedSelection();
   const [searching, setSearching] = useState(false);
@@ -63,6 +65,7 @@ type CommunityListProps = {
 
 function CommunityList({ panelId, panelName, query, children }: CommunityListProps) {
   const communities = useCommunities(panelId);
+  const [topic, setTopic] = useState<CommunityTopic | null>(null);
 
   if (communities.isPending) return <StateMessage kind="loading" />;
   if (communities.isError) {
@@ -76,12 +79,18 @@ function CommunityList({ panelId, panelName, query, children }: CommunityListPro
   }
 
   const normalized = normalize(query.trim());
-  const visible = normalized
-    ? communities.data.filter((c) => normalize(c.name).includes(normalized) || c.slug.includes(normalized))
-    : communities.data;
+  // Chips solo de los temas que tienen alguna comunidad en este panel.
+  const topics = COMMUNITY_TOPIC_OPTIONS.filter((option) =>
+    communities.data.some((c) => c.topic === option.value),
+  );
+  const visible = communities.data.filter(
+    (c) =>
+      (topic === null || c.topic === topic) &&
+      (!normalized || normalize(c.name).includes(normalized) || c.slug.includes(normalized)),
+  );
 
   return (
-    <FlatList<Community>
+    <FlatList<CommunityView>
       data={visible}
       keyExtractor={(community) => community.id}
       contentContainerStyle={styles.content}
@@ -89,14 +98,27 @@ function CommunityList({ panelId, panelName, query, children }: CommunityListPro
       ListHeaderComponent={
         <View style={styles.header}>
           {children}
+          {topics.length > 1 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.topics}>
+              <TopicChip label="Todas" selected={topic === null} onPress={() => setTopic(null)} />
+              {topics.map((option) => (
+                <TopicChip
+                  key={option.value}
+                  label={option.label}
+                  selected={topic === option.value}
+                  onPress={() => setTopic(option.value)}
+                />
+              ))}
+            </ScrollView>
+          )}
           <ThemedText type="small" themeColor="textSecondary">
             {normalized ? `Resultados en ${panelName}` : `Comunidades de ${panelName}`}
           </ThemedText>
         </View>
       }
       ListEmptyComponent={
-        normalized ? (
-          <StateMessage kind="empty" title="No hay comunidades con ese nombre" />
+        normalized || topic ? (
+          <StateMessage kind="empty" title="No hay comunidades así" />
         ) : (
           <StateMessage
             kind="empty"
@@ -111,7 +133,7 @@ function CommunityList({ panelId, panelName, query, children }: CommunityListPro
   );
 }
 
-function CommunityRow({ community }: { community: Community }) {
+function CommunityRow({ community }: { community: CommunityView }) {
   const theme = useTheme();
   return (
     <Pressable
@@ -128,10 +150,33 @@ function CommunityRow({ community }: { community: Community }) {
           {community.name}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          c/{community.slug}
+          c/{community.slug} · {memberCountLabel(community.memberCount)}
         </ThemedText>
+        {community.description !== '' && (
+          <ThemedText type="small" numberOfLines={2} style={styles.description}>
+            {community.description}
+          </ThemedText>
+        )}
       </View>
-      <Icon name="chevronRight" size={18} color="textSecondary" />
+      <JoinButton community={community} />
+    </Pressable>
+  );
+}
+
+function TopicChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[
+        styles.topicChip,
+        selected ? { backgroundColor: theme.primary, borderColor: theme.primary } : { borderColor: theme.border },
+      ]}>
+      <ThemedText type={selected ? 'smallBold' : 'small'} themeColor={selected ? 'onPrimary' : 'text'}>
+        {label}
+      </ThemedText>
     </Pressable>
   );
 }
@@ -201,6 +246,18 @@ const styles = StyleSheet.create({
   },
   name: {
     fontWeight: 700,
+  },
+  description: {
+    marginTop: Spacing.half,
+  },
+  topics: {
+    gap: Spacing.two,
+  },
+  topicChip: {
+    paddingVertical: Spacing.one + Spacing.half,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   separator: {
     height: Spacing.two,

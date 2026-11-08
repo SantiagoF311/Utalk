@@ -71,10 +71,26 @@ export function makeGeneralPanel(): PanelEntity {
 }
 
 export function makeCommunity(
-  overrides: Partial<{ id: string; panelId: string; createdBy: string }> = {},
+  overrides: Partial<{ id: string; panelId: string; createdBy: string; memberCount: number }> = {},
 ): CommunityEntity {
-  const f = { id: IDS.community, panelId: IDS.ustPanel, createdBy: IDS.ana, ...overrides };
-  return new CommunityEntity(f.id, f.panelId, 'calculo', 'Cálculo', f.createdBy, CREATED_AT);
+  const f = {
+    id: IDS.community,
+    panelId: IDS.ustPanel,
+    createdBy: IDS.ana,
+    memberCount: 1,
+    ...overrides,
+  };
+  return new CommunityEntity(
+    f.id,
+    f.panelId,
+    'calculo',
+    'Cálculo',
+    'Parciales, talleres y dudas de cálculo',
+    'academic',
+    f.memberCount,
+    f.createdBy,
+    CREATED_AT,
+  );
 }
 
 export function makePost(

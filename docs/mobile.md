@@ -28,12 +28,13 @@ app/
 │       ├── communities          Comunidades
 │       ├── chats                Chats (reservada: todavía no existen)
 │       └── profile              Perfil (con su propia barra: solo ⚙️ Ajustes)
-├── community/[communityId]      ┐
+├── community/[communityId]      ┐ con su propia barra de color (?sort= opcional)
 ├── post/[postId]                │ stack raíz, encima de todo, con botón atrás
 ├── user/[userId]                │
 ├── settings                     │
-├── search                       │ buscar: desde la barra de Inicio (?panelId=)
-├── compose                      │ publicar: modal del ✏️ o del "+" de una comunidad (?communityId=)
+├── search                       │ buscar: desde Inicio (?panelId=) o desde una comunidad (?communityId=)
+├── compose                      │ publicar: modal del "+" de Inicio o de una comunidad (?communityId=, ?title=)
+├── create-community             │ crear comunidad: modal desde el sidebar (?panelId=)
 └── report                       ┘ reportar: modal desde el "···" de lo ajeno (?postId=…[&commentId=…])
 ```
 
@@ -47,27 +48,44 @@ arriba un selector de panel: el de tu universidad, el general y el resto
   mismo.
 - **Inicio**: el feed del panel elegido. Arriba, como en Reddit, una barra
   "Buscar en <panel>" siempre visible (abre la búsqueda, ver
-  [busqueda.md](./busqueda.md)), que además dice en qué panel estás; el
-  panel se cambia desde el ☰. En el panel general, cada post dice además de
-  qué universidad es el autor.
-- **Comunidades**: las del panel elegido, con un buscador (filtra en el
-  celular, sin tildes ni mayúsculas).
-- **Visitadas recientemente** en el sidebar: las comunidades que abriste en
-  ese panel.
+  [busqueda.md](./busqueda.md)), que además dice en qué panel estás, y a su
+  lado el **"+" para publicar**; el panel se cambia desde el ☰.
+- **Comunidades**: las del panel elegido, con chips por tema y un buscador
+  (filtran en el celular; el buscador sin tildes ni mayúsculas). Cada
+  tarjeta tiene descripción, miembros y "Unirse / Te uniste".
+- **"+ Crear una comunidad"** en el sidebar: solo si el panel elegido es el
+  tuyo o el general (donde se puede publicar).
+- **Visitadas recientemente** y **Tus comunidades** (a las que te uniste) en
+  el sidebar, del panel elegido.
+
+**Tarjetas de post** (`components/postCard.tsx`), como Reddit:
+
+| Dónde | Cabecera |
+|---|---|
+| Feed de un panel (se mezclan comunidades) | avatar · `c/<comunidad>` · hace cuánto (tocar la comunidad la abre) |
+| Feed de una comunidad | `u/<apodo>` · hace cuánto |
+| Detalle del post | avatar y `c/<comunidad>` arriba; `u/<apodo>` · universidad · hace cuánto debajo |
 
 El panel elegido y su orden viven en un contexto (`hooks/useFeedSelection.tsx`),
 que el layout `(drawer)` pone alrededor del sidebar y las pestañas.
 
-**Una comunidad** tiene su propio orden (Popular, Reciente, Más votados),
-en un menú que se abre desde abajo al tocar "POPULAR ▾"
-(`components/sortMenu.tsx`), como en Reddit.
+**Una comunidad** tiene su propia barra arriba, como la de Reddit: una
+franja de color con botones redondos (← | 🔍 + ···). El 🔍 busca dentro de
+la comunidad, el + publica en ella (solo si es de un panel donde se puede) y
+el ··· tiene "Unirse / Salirse". Por eso esa ruta no usa la cabecera nativa
+del stack. Debajo, su cabecera (`c/<slug>`, miembros, tema, botón y
+descripción) y su feed, con su propio orden (Popular, Reciente, Más
+votados) en un menú que se abre desde abajo al tocar "POPULAR ▾"
+(`components/sortMenu.tsx`).
 
 **Perfiles**: tocar `u/apodo` en un post o comentario abre su perfil
 público (`GET /profiles/:id`: apodo, universidad, desde cuándo). Si es el
 tuyo, va a tu pestaña Perfil (`hooks/useOpenProfile.ts`).
 
-**Por qué la barra de abajo es propia y no las pestañas nativas**: las
-nativas no admiten un botón en el medio (el ✏️ de publicar).
+**La barra de abajo** tiene 4 pestañas (Inicio · Comunidades · Chats ·
+Perfil); publicar no va ahí sino en el "+" de arriba, como en Reddit. Es
+propia (`components/tabBar.tsx`) y no la de Expo Router porque es la que
+decide el orden visual de las pestañas (ver abajo).
 
 **El orden de las pestañas en el layout no es el visual.** Expo Router arma
 el estado inicial con las pestañas en su orden por defecto (`index`
@@ -202,7 +220,9 @@ refresco.
 
 | Acción | Qué hace con la caché |
 |---|---|
-| Votar post o comentario | **Optimista**: cambia flecha y puntaje antes de la respuesta. Si falla, deshace *ese* cambio (resta lo que sumó), no restaura una foto vieja de la caché, que pisaría otros votos hechos mientras tanto |
+| Votar post o comentario | **Optimista y "al soltar"** (ver abajo): flecha y puntaje cambian al instante en todas las copias; al servidor va solo el voto final. Si falla, se vuelve a pedir el post o el árbol |
+| Unirse / salirse de una comunidad | Igual que votar: botón y contador cambian al instante en la lista del panel y en el detalle; al confirmar el servidor se aplica el contador real |
+| Crear comunidad | Guarda la comunidad nueva en su detalle e invalida la lista del panel |
 | Publicar | Guarda el post nuevo en su detalle (se abre al instante) e invalida los feeds |
 | Comentar o responder | Invalida el árbol de comentarios y sube `commentCount` en todas las copias del post |
 | Borrar post | Lo saca de todos los feeds y borra su detalle y sus comentarios de la caché |
@@ -211,7 +231,23 @@ refresco.
 
 **Tocar la flecha que ya está marcada quita el voto** (`DELETE
 /votes/...`); la otra lo cambia (`PUT`, que reemplaza el voto anterior).
-La regla está en `nextVote`.
+La regla está en `nextVote`, y se aplica sobre lo que muestra la caché (lo
+último que se tocó), no sobre una copia vieja.
+
+**Botones que se tocan varias veces seguidas** (votar, unirse) no mandan un
+pedido por toque: las respuestas, y los pedidos mismos, pueden llegar en
+otro orden, y el botón saltaba o terminaba en un estado distinto del último
+toque. `lib/settledSync.ts` (`settleLater`) lo resuelve así:
+
+1. Cada toque cambia la caché al instante.
+2. Recién cuando pasa medio segundo sin toques se manda **un** pedido con el
+   estado final; si quedó igual a lo que confirmó el servidor (ej. dos
+   toques que se anulan), no se manda nada.
+3. Los pedidos de un mismo botón van en fila, y una respuesta solo se aplica
+   si nadie volvió a tocar mientras viajaba. Si falla, se vuelve a pedir el
+   estado real.
+
+Un botón nuevo de ese tipo (ej. seguir a alguien) debería usar lo mismo.
 
 **No confundir con la caché del backend**: esta caché vive en el celular
 de cada usuario y ahorra requests al backend. Una caché del servidor

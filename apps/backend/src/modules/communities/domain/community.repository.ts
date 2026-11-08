@@ -1,14 +1,20 @@
+import type { CommunityTopic } from '@utalk/shared';
 import { CommunityEntity } from './community.entity.js';
 
 export interface NewCommunity {
   panelId: string;
   slug: string;
   name: string;
+  description: string;
+  topic: CommunityTopic;
   createdBy: string;
 }
 
+// Solo se cambia lo que viene definido.
 export interface CommunityChanges {
-  name: string;
+  name?: string;
+  description?: string;
+  topic?: CommunityTopic;
 }
 
 export interface CommunityRepository {
