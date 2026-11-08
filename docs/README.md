@@ -18,7 +18,7 @@ alternativas se descartaron y por qué.
 - [datos-y-trending.md](./datos-y-trending.md) — Supabase/Postgres como fuente de verdad, trending (`hot`) como columna generada, contadores por trigger
 - [chat-realtime.md](./chat-realtime.md) — chats 1 a 1 con Supabase Realtime y Presence
 - [auth.md](./auth.md) — registro y login, verificación local del JWT, universidad por dominio de correo
-- [busqueda.md](./busqueda.md) — full-text search y por qué no se usa un motor dedicado
+- [busqueda.md](./busqueda.md) — full-text search + `pg_trgm`, cómo está implementada y por qué no se usa un motor dedicado
 - [observabilidad.md](./observabilidad.md) — logging, manejo de errores, monitoreo
 - [testing.md](./testing.md) — tests unitarios, fixtures, `npm run check` y CI
 - [decisiones-descartadas.md](./decisiones-descartadas.md) — tecnologías evaluadas y por qué no se usan (todavía)

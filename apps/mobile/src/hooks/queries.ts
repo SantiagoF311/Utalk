@@ -1,4 +1,5 @@
-import type { PostSort } from '@utalk/shared';
+import { SEARCH_QUERY_MIN_LENGTH } from '@utalk/shared';
+import type { PostSort, SearchSort } from '@utalk/shared';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';
@@ -50,6 +51,19 @@ export function useComments(postId: string) {
     queryKey: queryKeys.comments(postId),
     queryFn: () => api.getComments(postId),
     select: (list) => list.items,
+  });
+}
+
+// Búsqueda paginada (mismo esquema de `nextCursor` que el feed). Con menos de
+// SEARCH_QUERY_MIN_LENGTH caracteres no se pide nada.
+export function useSearch(panelId: string, q: string, sort: SearchSort) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.search(panelId, q, sort),
+    queryFn: ({ pageParam }) => api.search({ q, panelId, sort, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    select: (data) => data.pages.flatMap((page) => page.items),
+    enabled: panelId !== '' && q.length >= SEARCH_QUERY_MIN_LENGTH,
   });
 }
 

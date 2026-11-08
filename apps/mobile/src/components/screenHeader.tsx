@@ -9,39 +9,37 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
 type ScreenHeaderProps = {
-  title: string;
-  // Tocar el título también abre el sidebar (ej. el nombre del panel en
-  // Inicio, para cambiarlo).
-  titleOpensSidebar?: boolean;
+  // Un título, o algo propio en su lugar (ej. la barra de búsqueda de Inicio).
+  title?: string;
+  center?: ReactNode;
   right?: ReactNode;
 };
 
-// Cabecera de las pestañas: ☰ (abre el sidebar), título y una acción opcional
-// a la derecha.
-export function ScreenHeader({ title, titleOpensSidebar = false, right }: ScreenHeaderProps) {
+// Cabecera de las pestañas: ☰ (abre el sidebar), título (o lo que se ponga en
+// el centro) y una acción opcional a la derecha.
+export function ScreenHeader({ title, center, right }: ScreenHeaderProps) {
   const theme = useTheme();
   const navigation = useNavigation();
-  const openSidebar = () => navigation.dispatch(DrawerActions.openDrawer());
 
   return (
     <View style={[styles.container, { borderBottomColor: theme.border }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Abrir menú" onPress={openSidebar} hitSlop={8}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Abrir menú"
+        onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        hitSlop={8}>
         <Icon name="menu" />
       </Pressable>
 
-      <Pressable
-        disabled={!titleOpensSidebar}
-        onPress={openSidebar}
-        accessibilityRole={titleOpensSidebar ? 'button' : 'header'}
-        accessibilityHint={titleOpensSidebar ? 'Cambia de panel' : undefined}
-        style={styles.titleRow}>
-        <ThemedText style={styles.title} numberOfLines={1}>
-          {title}
-        </ThemedText>
-        {titleOpensSidebar && <Icon name="chevronDown" size={16} color="textSecondary" />}
-      </Pressable>
+      <View style={styles.center}>
+        {center ?? (
+          <ThemedText accessibilityRole="header" style={styles.title} numberOfLines={1}>
+            {title}
+          </ThemedText>
+        )}
+      </View>
 
-      <View style={styles.right}>{right}</View>
+      {right && <View style={styles.right}>{right}</View>}
     </View>
   );
 }
@@ -56,17 +54,13 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  titleRow: {
+  center: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
   },
   title: {
     fontSize: 20,
     lineHeight: 26,
     fontWeight: 700,
-    flexShrink: 1,
   },
   right: {
     flexDirection: 'row',

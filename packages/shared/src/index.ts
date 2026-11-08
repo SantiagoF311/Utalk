@@ -6,6 +6,7 @@ export * from './post.ts';
 export * from './comment.ts';
 export * from './vote.ts';
 export * from './report.ts';
+export * from './search.ts';
 export * from './auth.ts';
 export * from './error.ts';
 export * from './list.ts';

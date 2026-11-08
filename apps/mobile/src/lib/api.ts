@@ -16,6 +16,8 @@ import type {
   Profile,
   PublicProfile,
   Report,
+  SearchPage,
+  SearchSort,
   VoteValue,
 } from '@utalk/shared';
 
@@ -197,6 +199,11 @@ export const api = {
 
   removeCommentVote(commentId: string) {
     return authSend<void>('DELETE', `/votes/comments/${encodeURIComponent(commentId)}`);
+  },
+
+  // Publicaciones y comentarios de un panel (nunca apodos).
+  search(params: { q: string; panelId: string; sort: SearchSort; cursor?: string }) {
+    return authGet<SearchPage>(`/search?${toQueryString(params)}`);
   },
 
   // Exactamente uno de postId / commentId.

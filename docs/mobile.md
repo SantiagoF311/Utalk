@@ -32,6 +32,7 @@ app/
 ├── post/[postId]                │ stack raíz, encima de todo, con botón atrás
 ├── user/[userId]                │
 ├── settings                     │
+├── search                       │ buscar: desde la barra de Inicio (?panelId=)
 ├── compose                      │ publicar: modal del ✏️ o del "+" de una comunidad (?communityId=)
 └── report                       ┘ reportar: modal desde el "···" de lo ajeno (?postId=…[&commentId=…])
 ```
@@ -44,8 +45,10 @@ arriba un selector de panel: el de tu universidad, el general y el resto
 - **Popular / Reciente** en el sidebar: el orden del feed de Inicio. Inicio
   no tiene selector de orden propio, para no tener dos controles de lo
   mismo.
-- **Inicio**: el feed del panel elegido. Tocar el nombre del panel en la
-  cabecera abre el sidebar. En el panel general, cada post dice además de
+- **Inicio**: el feed del panel elegido. Arriba, como en Reddit, una barra
+  "Buscar en <panel>" siempre visible (abre la búsqueda, ver
+  [busqueda.md](./busqueda.md)), que además dice en qué panel estás; el
+  panel se cambia desde el ☰. En el panel general, cada post dice además de
   qué universidad es el autor.
 - **Comunidades**: las del panel elegido, con un buscador (filtra en el
   celular, sin tildes ni mayúsculas).
@@ -90,7 +93,7 @@ recordarlos.
 
 | Dato | Al cerrar sesión |
 |---|---|
-| Panel elegido, comunidades visitadas | **Se borran** (junto con la caché): otra cuenta en el mismo celular no debe ver qué visitó la anterior |
+| Panel elegido, comunidades visitadas, búsquedas recientes | **Se borran** (junto con la caché): otra cuenta en el mismo celular no debe ver qué visitó la anterior |
 | Tema (Ajustes) | Se queda: es del dispositivo, no de la cuenta |
 
 **Tema** (Ajustes, desde el ⚙️ del perfil): según el sistema, claro u

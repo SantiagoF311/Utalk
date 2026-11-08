@@ -5,11 +5,16 @@ export const StorageKeys = {
   // De la cuenta: se borran al cerrar sesión.
   selectedPanelId: 'utalk.selectedPanelId',
   recentCommunities: 'utalk.recentCommunities',
+  recentSearches: 'utalk.recentSearches',
   // Del dispositivo: sobreviven al cerrar sesión.
   themePreference: 'utalk.themePreference',
 } as const;
 
-const ACCOUNT_KEYS = [StorageKeys.selectedPanelId, StorageKeys.recentCommunities];
+const ACCOUNT_KEYS = [
+  StorageKeys.selectedPanelId,
+  StorageKeys.recentCommunities,
+  StorageKeys.recentSearches,
+];
 
 // Si el almacenamiento falla (modo privado del navegador, disco lleno), la
 // app sigue funcionando sin recordar nada: no son datos importantes.
