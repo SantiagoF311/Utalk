@@ -26,6 +26,9 @@ describe('CommentsService', () => {
         .fn<CommentRepository['findWithAuthorByPostId']>()
         .mockResolvedValue([]),
       findVotesByUser: jest.fn<CommentRepository['findVotesByUser']>().mockResolvedValue(new Map()),
+      findReportedByUser: jest
+        .fn<CommentRepository['findReportedByUser']>()
+        .mockResolvedValue(new Set()),
       update: jest.fn<CommentRepository['update']>(),
       softDelete: jest.fn<CommentRepository['softDelete']>().mockResolvedValue(undefined),
     };
@@ -42,6 +45,19 @@ describe('CommentsService', () => {
   });
 
   describe('findTreeByPostId', () => {
+    it('marca los comentarios que quien mira ya reportó, también entre las respuestas', async () => {
+      repository.findWithAuthorByPostId.mockResolvedValue([
+        withAuthor(makeComment({ id: id(1), createdAt: at(1) })),
+        withAuthor(makeComment({ id: id(2), parentId: id(1), createdAt: at(2) })),
+      ]);
+      repository.findReportedByUser.mockResolvedValue(new Set([id(2)]));
+
+      const tree = await service.findTreeByPostId(IDS.post, IDS.beto);
+
+      expect(tree[0].reportedByMe).toBe(false);
+      expect(tree[0].replies[0].reportedByMe).toBe(true);
+    });
+
     it('arma el árbol: cada respuesta dentro de su padre, en varios niveles', async () => {
       repository.findWithAuthorByPostId.mockResolvedValue([
         withAuthor(makeComment({ id: id(1), createdAt: at(1) })),

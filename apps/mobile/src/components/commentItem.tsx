@@ -1,9 +1,11 @@
 import type { CommentView } from '@utalk/shared';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { BottomSheet, SheetOption } from '@/components/bottomSheet';
 import { ConfirmSheet } from '@/components/confirmSheet';
+import { HiddenNotice, ReportedBanner } from '@/components/hiddenNotice';
 import { Icon } from '@/components/icon';
 import { ThemedText } from '@/components/themedText';
 import { VoteBar } from '@/components/voteBar';
@@ -11,6 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { nextVote, useDeleteComment, useVoteComment } from '@/hooks/mutations';
 import { useMyProfile } from '@/hooks/queries';
 import { useOpenProfile } from '@/hooks/useOpenProfile';
+import { useRevealedReport } from '@/hooks/useRevealedReport';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 import { relativeTime } from '@/lib/relativeTime';
@@ -34,8 +37,10 @@ export function CommentItem({ comment, onReply, depth = 0 }: CommentItemProps) {
   const openProfile = useOpenProfile();
   const voteComment = useVoteComment();
   const [collapsed, setCollapsed] = useState(false);
+  const [revealed, setRevealed] = useRevealedReport(comment.id);
   const replyCount = countReplies(comment);
   const author = comment.author;
+  const hidden = comment.reportedByMe && !revealed;
 
   return (
     <View style={styles.container}>
@@ -63,7 +68,19 @@ export function CommentItem({ comment, onReply, depth = 0 }: CommentItemProps) {
 
       {!collapsed && (
         <>
-          {comment.isDeleted ? (
+          {/* Lo reportaste: oculto para ti (sus respuestas se siguen viendo).
+              Si elegiste verlo, la franja permite volver a ocultarlo. */}
+          {comment.reportedByMe && revealed && (
+            <ReportedBanner label="Reportaste este comentario" onHide={() => setRevealed(false)} />
+          )}
+          {hidden ? (
+            <HiddenNotice
+              title="Comentario oculto"
+              description="Lo reportaste. Un moderador lo va a revisar."
+              onReveal={() => setRevealed(true)}
+              bordered={false}
+            />
+          ) : comment.isDeleted ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.deleted}>
               Este comentario fue eliminado.
             </ThemedText>
@@ -73,6 +90,7 @@ export function CommentItem({ comment, onReply, depth = 0 }: CommentItemProps) {
             </ThemedText>
           )}
 
+          {!hidden && (
           <View style={styles.footer}>
             <VoteBar
               score={comment.score}
@@ -105,6 +123,7 @@ export function CommentItem({ comment, onReply, depth = 0 }: CommentItemProps) {
               <CommentActions comment={comment} />
             </View>
           </View>
+          )}
 
           {comment.replies.length > 0 && (
             <View
@@ -123,14 +142,18 @@ export function CommentItem({ comment, onReply, depth = 0 }: CommentItemProps) {
   );
 }
 
-// El "···" de un comentario: por ahora solo en los tuyos, para borrarlos.
+// El "···" de un comentario: borrarlo si es tuyo, reportarlo si no (salvo que
+// ya lo hayas reportado). Un comentario borrado no tiene opciones.
 function CommentActions({ comment }: { comment: CommentView }) {
   const me = useMyProfile();
   const deleteComment = useDeleteComment(comment.postId);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Se navega a reportar recién cuando la hoja terminó de cerrarse.
+  const [reportAfterClose, setReportAfterClose] = useState(false);
 
-  if (comment.isDeleted || comment.author?.id !== me.data?.id) return null;
+  const isMine = comment.author?.id === me.data?.id;
+  if (comment.isDeleted || (!isMine && comment.reportedByMe)) return null;
 
   return (
     <>
@@ -138,17 +161,38 @@ function CommentActions({ comment }: { comment: CommentView }) {
         <Icon name="more" size={18} color="textSecondary" />
       </Pressable>
 
-      <BottomSheet visible={menuOpen} onClose={() => setMenuOpen(false)}>
-        <SheetOption
-          icon="trash"
-          label="Borrar comentario"
-          destructive
-          onPress={() => {
-            setMenuOpen(false);
-            deleteComment.reset();
-            setConfirming(true);
-          }}
-        />
+      <BottomSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onClosed={() => {
+          if (!reportAfterClose) return;
+          setReportAfterClose(false);
+          router.push({
+            pathname: '/report',
+            params: { postId: comment.postId, commentId: comment.id, author: comment.author?.username },
+          });
+        }}>
+        {isMine ? (
+          <SheetOption
+            icon="trash"
+            label="Borrar comentario"
+            destructive
+            onPress={() => {
+              setMenuOpen(false);
+              deleteComment.reset();
+              setConfirming(true);
+            }}
+          />
+        ) : (
+          <SheetOption
+            icon="flag"
+            label="Reportar un problema"
+            onPress={() => {
+              setReportAfterClose(true);
+              setMenuOpen(false);
+            }}
+          />
+        )}
       </BottomSheet>
 
       <ConfirmSheet

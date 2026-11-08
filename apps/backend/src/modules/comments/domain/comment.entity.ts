@@ -24,7 +24,11 @@ export class CommentEntity {
     return this.deletedAt !== null;
   }
 
+  isAuthoredBy(userId: string): boolean {
+    return this.authorId === userId;
+  }
+
   isEditableBy(userId: string): boolean {
-    return !this.isDeleted() && this.authorId === userId;
+    return !this.isDeleted() && this.isAuthoredBy(userId);
   }
 }

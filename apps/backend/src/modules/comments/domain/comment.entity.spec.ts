@@ -12,6 +12,12 @@ describe('CommentEntity', () => {
     expect(makeComment().belongsToPost('00000000-0000-4000-8000-000000000000')).toBe(false);
   });
 
+  it('sabe quién es su autor, aunque esté borrado', () => {
+    expect(makeComment().isAuthoredBy(IDS.ana)).toBe(true);
+    expect(makeComment().isAuthoredBy(IDS.beto)).toBe(false);
+    expect(makeComment({ deletedAt: new Date() }).isAuthoredBy(IDS.ana)).toBe(true);
+  });
+
   describe('isEditableBy', () => {
     it('lo puede editar su autor', () => {
       expect(makeComment().isEditableBy(IDS.ana)).toBe(true);

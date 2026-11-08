@@ -4,6 +4,7 @@ import type {
   CommentView,
   CreateCommentInput,
   CreatePostInput,
+  CreateReportInput,
   ErrorCode,
   FieldError,
   Community,
@@ -14,6 +15,7 @@ import type {
   PostView,
   Profile,
   PublicProfile,
+  Report,
   VoteValue,
 } from '@utalk/shared';
 
@@ -195,5 +197,10 @@ export const api = {
 
   removeCommentVote(commentId: string) {
     return authSend<void>('DELETE', `/votes/comments/${encodeURIComponent(commentId)}`);
+  },
+
+  // Exactamente uno de postId / commentId.
+  createReport(input: CreateReportInput) {
+    return authSend<Report>('POST', '/reports', input);
   },
 };

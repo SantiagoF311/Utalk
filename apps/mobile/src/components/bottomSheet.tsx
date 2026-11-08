@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ReactNode, useEffect, useRef } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon, IconName } from '@/components/icon';
@@ -12,16 +12,33 @@ type BottomSheetProps = {
   onClose: () => void;
   title?: string;
   description?: string;
+  // Cuando la hoja terminó de cerrarse. Para navegar a otra pantalla desde
+  // una opción: en iOS, abrir un modal mientras la hoja todavía se está
+  // cerrando puede fallar, así que hay que esperar a esto.
+  onClosed?: () => void;
   children: ReactNode;
 };
 
 // Hoja que sube desde abajo sobre un fondo oscuro (menús de "···", orden,
 // confirmaciones). Se cierra tocando el fondo, la ✕ o el botón atrás.
-export function BottomSheet({ visible, onClose, title, description, children }: BottomSheetProps) {
+export function BottomSheet({ visible, onClose, title, description, onClosed, children }: BottomSheetProps) {
   const theme = useTheme();
+  const wasVisible = useRef(visible);
+
+  // En iOS lo avisa `onDismiss` del Modal; en Android y web no existe, y el
+  // cierre se da por hecho apenas `visible` pasa a false.
+  useEffect(() => {
+    if (Platform.OS !== 'ios' && wasVisible.current && !visible) onClosed?.();
+    wasVisible.current = visible;
+  }, [visible, onClosed]);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      onDismiss={Platform.OS === 'ios' ? onClosed : undefined}>
       <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" style={styles.backdrop} onPress={onClose} />
       <SafeAreaView edges={['bottom']} style={[styles.sheet, { backgroundColor: theme.background }]}>
         {title && (

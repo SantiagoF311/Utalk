@@ -7,6 +7,7 @@ export function toReportView(report: ReportEntity): Report {
     postId: report.postId,
     commentId: report.commentId,
     reportedBy: report.reportedBy,
+    category: report.category,
     reason: report.reason,
     createdAt: report.createdAt.toISOString(),
   };

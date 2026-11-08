@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CreateReportInput } from '@utalk/shared';
 import { AppException } from '../../common/appException.js';
 import { CommentsService } from '../comments/comments.service.js';
+import type { CommentEntity } from '../comments/domain/comment.entity.js';
+import type { PostEntity } from '../posts/domain/post.entity.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { ReportEntity } from './domain/report.entity.js';
@@ -19,11 +21,24 @@ export class ReportsService {
 
   async create(input: CreateReportInput, reportedBy: string): Promise<ReportEntity> {
     await this.profilesService.findById(reportedBy);
-    const target = await this.resolveTarget(input);
+    const { target, content } = await this.resolveTarget(input);
+
+    // Reportar lo propio no tiene sentido (para eso está borrarlo) y solo
+    // llenaría la cola de moderación.
+    if (content.isAuthoredBy(reportedBy)) {
+      throw new AppException('CANNOT_REPORT_OWN_CONTENT', 'You cannot report your own content');
+    }
+    // Uno por persona y contenido: reportar diez veces no lo vuelve más
+    // urgente. La base también lo frena (índices únicos), por si dos llegan
+    // al mismo tiempo.
+    if (await this.reportRepository.existsByReporter(target, reportedBy)) {
+      throw new AppException('ALREADY_REPORTED', 'You already reported this content');
+    }
 
     return this.reportRepository.create({
       ...target,
       reportedBy,
+      category: input.category,
       reason: input.reason,
     });
   }
@@ -46,15 +61,18 @@ export class ReportsService {
   }
 
   // Convierte el input (dos campos nullable, validados con .refine()) en un
-  // ReportTarget con exactamente un target, verificando que exista.
-  private async resolveTarget(input: CreateReportInput): Promise<ReportTarget> {
+  // ReportTarget con exactamente un target, verificando que exista. Devuelve
+  // también el post o comentario, para no dejar reportar lo propio.
+  private async resolveTarget(
+    input: CreateReportInput,
+  ): Promise<{ target: ReportTarget; content: PostEntity | CommentEntity }> {
     if (input.postId !== null && input.commentId === null) {
-      await this.postsService.findById(input.postId);
-      return { postId: input.postId, commentId: null };
+      const post = await this.postsService.findById(input.postId);
+      return { target: { postId: input.postId, commentId: null }, content: post };
     }
     if (input.commentId !== null && input.postId === null) {
-      await this.commentsService.findById(input.commentId);
-      return { postId: null, commentId: input.commentId };
+      const comment = await this.commentsService.findById(input.commentId);
+      return { target: { postId: null, commentId: input.commentId }, content: comment };
     }
     throw new AppException('VALIDATION_FAILED', 'Exactly one of postId or commentId must be set');
   }

@@ -50,6 +50,8 @@ export const ERROR_CODES = [
 
   // Reportes
   'REPORT_NOT_FOUND',
+  'ALREADY_REPORTED',
+  'CANNOT_REPORT_OWN_CONTENT',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

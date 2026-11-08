@@ -260,19 +260,50 @@ Reporte de moderación sobre un post **o** un comentario (nunca ambos).
 | `post_id` | uuid, FK → `posts.id`, nullable, on delete cascade | |
 | `comment_id` | uuid, FK → `comments.id`, nullable, on delete cascade | |
 | `reported_by` | uuid, FK → `profiles.id` | |
-| `reason` | text | |
+| `category` | text, check | motivo: `exposes_person`, `threat`, `harassment`, `spam`, `other` (`REPORT_CATEGORIES` en `@utalk/shared`) |
+| `reason` | text, nullable | detalle opcional que escribe quien reporta (hasta 500 caracteres) |
 | `created_at` | timestamptz | |
 
 Constraint `reports_exactly_one_target`: exige que **exactamente uno** de
 `post_id`/`comment_id` esté presente (XOR a nivel de base de datos).
 
-**Por qué polimórfico simple acá, a diferencia de los votos**: a
-diferencia de los votos (que necesitan una constraint `unique` estricta
-por usuario+target para evitar duplicados, y alto volumen de escritura),
-los reportes son de bajo volumen y no requieren esa garantía de
-unicidad — dos columnas nullable + un `check` constraint es más simple
-que mantener dos tablas (`post_reports`, `comment_reports`) para este
-caso.
+**Por qué el motivo es una lista fija y no texto libre**: para que la
+moderación pueda filtrar y priorizar. Una amenaza o un post que expone a
+alguien (nombre, salón, horario) no deberían esperar en la misma fila que
+el spam; con texto libre no hay forma de distinguirlos sin leer cada uno.
+El texto libre queda como detalle opcional.
+
+**Reglas** (en `ReportsService`):
+
+- **Un reporte por persona y contenido** (`ALREADY_REPORTED`, 409):
+  reportar diez veces lo mismo no lo vuelve más urgente y llenaría la cola.
+  El service lo revisa antes de insertar, y dos índices únicos parciales lo
+  garantizan si llegan dos reportes al mismo tiempo:
+  `reports_one_per_post_and_reporter` (`reported_by, post_id` donde
+  `post_id` no es null) y `reports_one_per_comment_and_reporter` (igual con
+  `comment_id`). Son parciales porque en cada fila uno de los dos targets es
+  null.
+- **No se reporta lo propio** (`CANNOT_REPORT_OWN_CONTENT`, 403): para eso
+  está borrarlo. La regla vive en `isAuthoredBy` de las entidades de post y
+  comentario.
+
+**Oculto para quien reportó**: las vistas de post y comentario traen
+`reportedByMe` (se calcula como `myVote`: una consulta por página con los ids
+de lo que se muestra). La app muestra ese contenido oculto, con "Ver igual";
+para el resto no cambia nada.
+
+**Por qué polimórfico simple acá, a diferencia de los votos**: los votos
+tienen alto volumen de escritura y su lógica es la mitad del producto; los
+reportes son de bajo volumen. Dos columnas nullable + un `check` constraint
+(y los dos índices únicos parciales) es más simple que mantener dos tablas
+(`post_reports`, `comment_reports`) para este caso.
+
+**Pendiente para la rama de moderación**: número de caso y estado del
+reporte ("en revisión", "se eliminó", "quedó sin acción"). Hoy resolver un
+reporte **lo borra** (`DELETE /reports/:id`), así que no hay dónde guardar
+cómo quedó ni a quién avisarle; eso requiere un `status` en vez de borrar,
+quién lo resolvió y las notificaciones. Hasta entonces la app no muestra
+número de caso, para no prometer un seguimiento que no existe.
 
 ## Schemas compartidos (`packages/shared`)
 
@@ -286,10 +317,10 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | `profile.ts` | `profileSchema` (incluye `role`), `createProfileSchema`, `authorSchema` y `publicProfileSchema` (con la universidad, sin `role`) |
 | `panel.ts` | `panelSchema` |
 | `community.ts` | `communitySchema`, `createCommunitySchema` |
-| `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author` y `myVote`), `postFeedQuerySchema`, `postPageSchema` |
-| `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`) |
+| `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author`, `myVote` y `reportedByMe`), `postFeedQuerySchema`, `postPageSchema` |
+| `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`, `myVote` y `reportedByMe`) |
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |
-| `report.ts` | `reportSchema`, `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL) |
+| `report.ts` | `REPORT_CATEGORIES`, `reportSchema`, `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL; un detalle vacío se guarda como null) |
 
 **Convención seguida**: cada dominio tiene un schema de la fila completa
 (ej. `profileSchema`, representa la tabla tal cual) y, cuando aplica, un

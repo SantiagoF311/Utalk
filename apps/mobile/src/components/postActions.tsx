@@ -1,4 +1,5 @@
 import type { PostView } from '@utalk/shared';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -18,16 +19,19 @@ type PostActionsProps = {
   onDeleted?: () => void;
 };
 
-// El "···" de un post. Por ahora solo en los tuyos, para borrarlos (reportar
-// llega en la rama siguiente).
+// El "···" de un post: borrarlo si es tuyo, reportarlo si no (y si ya lo
+// reportaste, no hay nada que hacer: no aparece).
 export function PostActions({ post, onDeleted }: PostActionsProps) {
   const theme = useTheme();
   const me = useMyProfile();
   const deletePost = useDeletePost();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Se navega a reportar recién cuando la hoja terminó de cerrarse.
+  const [reportAfterClose, setReportAfterClose] = useState(false);
 
-  if (post.author.id !== me.data?.id) return null;
+  const isMine = post.author.id === me.data?.id;
+  if (!isMine && post.reportedByMe) return null;
 
   const comments =
     post.commentCount === 1 ? 'El comentario se va con ella.' : `Los ${post.commentCount} comentarios se van con ella.`;
@@ -42,17 +46,35 @@ export function PostActions({ post, onDeleted }: PostActionsProps) {
         <Icon name="more" size={20} color="textSecondary" />
       </Pressable>
 
-      <BottomSheet visible={menuOpen} onClose={() => setMenuOpen(false)}>
-        <SheetOption
-          icon="trash"
-          label="Borrar publicación"
-          destructive
-          onPress={() => {
-            setMenuOpen(false);
-            deletePost.reset();
-            setConfirming(true);
-          }}
-        />
+      <BottomSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onClosed={() => {
+          if (!reportAfterClose) return;
+          setReportAfterClose(false);
+          router.push({ pathname: '/report', params: { postId: post.id, author: post.author.username } });
+        }}>
+        {isMine ? (
+          <SheetOption
+            icon="trash"
+            label="Borrar publicación"
+            destructive
+            onPress={() => {
+              setMenuOpen(false);
+              deletePost.reset();
+              setConfirming(true);
+            }}
+          />
+        ) : (
+          <SheetOption
+            icon="flag"
+            label="Reportar un problema"
+            onPress={() => {
+              setReportAfterClose(true);
+              setMenuOpen(false);
+            }}
+          />
+        )}
       </BottomSheet>
 
       <ConfirmSheet

@@ -120,6 +120,21 @@ export class SupabaseCommentRepository implements CommentRepository {
     );
   }
 
+  async findReportedByUser(commentIds: string[], userId: string): Promise<Set<string>> {
+    if (commentIds.length === 0) {
+      return new Set();
+    }
+
+    const { data, error } = await this.supabase.client
+      .from('reports')
+      .select('comment_id')
+      .eq('reported_by', userId)
+      .in('comment_id', commentIds);
+
+    if (error) throw new Error(error.message);
+    return new Set((data as { comment_id: string }[]).map((report) => report.comment_id));
+  }
+
   async update(id: string, changes: CommentChanges): Promise<CommentEntity> {
     const { data, error } = await this.supabase.client
       .from('comments')

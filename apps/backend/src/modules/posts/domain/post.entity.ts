@@ -10,7 +10,11 @@ export class PostEntity {
     readonly createdAt: Date,
   ) {}
 
-  isEditableBy(userId: string): boolean {
+  isAuthoredBy(userId: string): boolean {
     return this.authorId === userId;
+  }
+
+  isEditableBy(userId: string): boolean {
+    return this.isAuthoredBy(userId);
   }
 }

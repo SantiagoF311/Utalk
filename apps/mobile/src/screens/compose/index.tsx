@@ -96,6 +96,7 @@ export function ComposeScreen({ communityId: initialCommunityId }: { communityId
           commentCount: 0,
           createdAt: new Date().toISOString(),
           myVote: null,
+          reportedByMe: false,
           author: {
             id: me.data.id,
             username: me.data.username,

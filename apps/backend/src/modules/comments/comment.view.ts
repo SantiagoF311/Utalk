@@ -2,10 +2,12 @@ import type { CommentView, VoteValue } from '@utalk/shared';
 import type { CommentWithAuthor } from './domain/comment.repository.js';
 
 // Un comentario borrado se devuelve sin autor ni texto: la app lo muestra
-// como "[eliminado]" y conserva sus respuestas.
+// como "[eliminado]" y conserva sus respuestas. `myVote` y `reportedByMe`
+// dependen de quien mira, no del comentario.
 export function toCommentView(
   { comment, author }: CommentWithAuthor,
   myVote: VoteValue | null,
+  reportedByMe: boolean,
 ): CommentView {
   const isDeleted = comment.isDeleted();
   return {
@@ -17,6 +19,7 @@ export function toCommentView(
     isDeleted,
     score: comment.score,
     myVote,
+    reportedByMe,
     createdAt: comment.createdAt.toISOString(),
     replies: [],
   };

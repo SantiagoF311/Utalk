@@ -26,6 +26,8 @@ export interface CommentRepository {
   findWithAuthorByPostId(postId: string): Promise<CommentWithAuthor[]>;
   // Voto del usuario en cada uno de esos comentarios; los que no votó no aparecen.
   findVotesByUser(commentIds: string[], userId: string): Promise<Map<string, VoteValue>>;
+  // Cuáles de esos comentarios reportó el usuario (la app los muestra ocultos).
+  findReportedByUser(commentIds: string[], userId: string): Promise<Set<string>>;
   update(id: string, changes: CommentChanges): Promise<CommentEntity>;
   softDelete(id: string): Promise<void>;
 }

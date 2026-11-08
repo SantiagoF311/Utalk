@@ -57,6 +57,11 @@ export const ERROR_CATALOG = {
   },
 
   REPORT_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Report not found' },
+  ALREADY_REPORTED: { status: HttpStatus.CONFLICT, title: 'Already reported' },
+  CANNOT_REPORT_OWN_CONTENT: {
+    status: HttpStatus.FORBIDDEN,
+    title: 'Cannot report your own content',
+  },
 } satisfies Record<ErrorCode, ErrorDefinition>;
 
 // Para las excepciones de Nest que no son AppException (ParseUUIDPipe,
