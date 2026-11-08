@@ -2,9 +2,11 @@ import type { PostView } from '@utalk/shared';
 import { StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icon';
+import { PostActions } from '@/components/postActions';
 import { ThemedText } from '@/components/themedText';
 import { VoteBar } from '@/components/voteBar';
 import { Spacing } from '@/constants/theme';
+import { nextVote, useVotePost } from '@/hooks/mutations';
 import { useOpenProfile } from '@/hooks/useOpenProfile';
 import { useTheme } from '@/hooks/useTheme';
 import { relativeTime } from '@/lib/relativeTime';
@@ -20,11 +22,24 @@ type PostCardProps = {
   // En el detalle del post se muestra todo el texto, sin tarjeta; en el
   // feed, recortado.
   full?: boolean;
+  // Después de borrarla desde su "···" (ej. el detalle vuelve atrás).
+  onDeleted?: () => void;
+  // Vista previa antes de publicar: se ve igual, pero no se puede votar,
+  // abrir el perfil ni usar el "···".
+  readOnly?: boolean;
 };
 
-export function PostCard({ post, communityName, showUniversity = false, full = false }: PostCardProps) {
+export function PostCard({
+  post,
+  communityName,
+  showUniversity = false,
+  full = false,
+  onDeleted,
+  readOnly = false,
+}: PostCardProps) {
   const theme = useTheme();
   const openProfile = useOpenProfile();
+  const votePost = useVotePost();
 
   return (
     <View
@@ -46,7 +61,7 @@ export function PostCard({ post, communityName, showUniversity = false, full = f
             type="smallBold"
             themeColor="text"
             style={styles.metaText}
-            onPress={() => openProfile(post.author.id)}
+            onPress={readOnly ? undefined : () => openProfile(post.author.id)}
             accessibilityRole="link">
             u/{post.author.username}
           </ThemedText>
@@ -65,12 +80,22 @@ export function PostCard({ post, communityName, showUniversity = false, full = f
       </ThemedText>
 
       <View style={styles.footer}>
-        <VoteBar score={post.score} myVote={post.myVote} />
+        <VoteBar
+          score={post.score}
+          myVote={post.myVote}
+          onVote={(pressed) => {
+            if (readOnly) return;
+            votePost.mutate({ postId: post.id, from: post.myVote, to: nextVote(post.myVote, pressed) });
+          }}
+        />
         <View style={styles.comments}>
           <Icon name="comment" size={16} color="textSecondary" />
           <ThemedText type="small" themeColor="textSecondary">
             {post.commentCount}
           </ThemedText>
+        </View>
+        <View style={styles.actions}>
+          {!readOnly && <PostActions post={post} onDeleted={onDeleted} />}
         </View>
       </View>
     </View>
@@ -124,5 +149,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,
+  },
+  actions: {
+    marginLeft: 'auto',
   },
 });

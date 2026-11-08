@@ -10,7 +10,13 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   TOO_MANY_REQUESTS: 'Vas muy rápido. Espera un momento y vuelve a intentar.',
   PANEL_NOT_FOUND: 'Este panel ya no existe.',
   COMMUNITY_NOT_FOUND: 'Esta comunidad ya no existe.',
-  POST_NOT_FOUND: 'Este post ya no existe.',
+  POST_NOT_FOUND: 'Esta publicación ya no existe.',
+  CANNOT_PUBLISH_IN_PANEL: 'Solo puedes publicar en el panel de tu universidad o en el general.',
+  NOT_POST_AUTHOR: 'Solo quien la publicó puede hacer eso.',
+  COMMENT_NOT_FOUND: 'Este comentario ya no existe.',
+  COMMENT_DELETED: 'Ese comentario fue eliminado.',
+  NOT_COMMENT_AUTHOR: 'Solo quien lo escribió puede hacer eso.',
+  VALIDATION_FAILED: 'Revisa lo que escribiste: algo no es válido.',
 };
 
 export function errorMessage(error: unknown): string {
