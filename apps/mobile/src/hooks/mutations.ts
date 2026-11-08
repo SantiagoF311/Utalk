@@ -7,7 +7,11 @@ import type {
   List,
   PostPage,
   PostView,
+  ProfileComment,
+  ProfileCommentPage,
+  PublicProfile,
   ReportCategory,
+  UpdateMyProfileInput,
   VoteValue,
 } from '@utalk/shared';
 import { InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -73,6 +77,31 @@ function updateCommentInTree(postId: string, commentId: string, update: (comment
   );
 }
 
+// Un comentario también vive en la lista de comentarios del perfil de su
+// autor (otra caché, paginada): se actualiza ahí igual.
+function updateAuthorComment(commentId: string, update: (comment: ProfileComment) => ProfileComment) {
+  queryClient.setQueriesData<InfiniteData<ProfileCommentPage>>({ queryKey: ['authorComments'] }, (data) =>
+    data
+      ? {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            items: page.items.map((c) => (c.id === commentId ? update(c) : c)),
+          })),
+        }
+      : data,
+  );
+}
+
+// Los votos recibidos del perfil del autor suben o bajan con cada voto a algo
+// suyo (si su perfil está en caché y se ven sus contadores).
+function adjustKarma(authorId: string, delta: number) {
+  if (delta === 0) return;
+  queryClient.setQueryData<PublicProfile>(queryKeys.profile(authorId), (profile) =>
+    profile?.stats ? { ...profile, stats: { ...profile.stats, karma: profile.stats.karma + delta } } : profile,
+  );
+}
+
 // El voto que muestra la caché ahora (lo último que se tocó): del detalle, o
 // del primer feed donde aparezca.
 function currentPostVote(postId: string): VoteValue | null | undefined {
@@ -104,7 +133,10 @@ function currentCommentVote(postId: string, commentId: string): VoteValue | null
 export function votePost(post: PostView, pressed: VoteValue) {
   const from = currentPostVote(post.id) ?? post.myVote;
   const to = nextVote(from, pressed);
-  updatePostEverywhere(post.id, (p) => ({ ...p, myVote: to, score: p.score + scoreDelta({ from, to }) }));
+  const delta = scoreDelta({ from, to });
+  // Los feeds incluyen el del perfil del autor (['feed', { authorId }, …]).
+  updatePostEverywhere(post.id, (p) => ({ ...p, myVote: to, score: p.score + delta }));
+  adjustKarma(post.author.id, delta);
 
   settleLater(`post-vote:${post.id}`, {
     before: from,
@@ -117,6 +149,7 @@ export function votePost(post: PostView, pressed: VoteValue) {
     onError: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.post(post.id) });
       void queryClient.invalidateQueries({ queryKey: ['feed'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.profile(post.author.id) });
     },
   });
 }
@@ -125,7 +158,10 @@ export function voteComment(comment: CommentView, pressed: VoteValue) {
   const { postId, id } = comment;
   const from = currentCommentVote(postId, id) ?? comment.myVote;
   const to = nextVote(from, pressed);
-  updateCommentInTree(postId, id, (c) => ({ ...c, myVote: to, score: c.score + scoreDelta({ from, to }) }));
+  const delta = scoreDelta({ from, to });
+  updateCommentInTree(postId, id, (c) => ({ ...c, myVote: to, score: c.score + delta }));
+  updateAuthorComment(id, (c) => ({ ...c, score: c.score + delta }));
+  if (comment.author) adjustKarma(comment.author.id, delta);
 
   settleLater(`comment-vote:${id}`, {
     before: from,
@@ -135,7 +171,11 @@ export function voteComment(comment: CommentView, pressed: VoteValue) {
       else await api.voteComment(id, desired);
       return desired;
     },
-    onError: () => void queryClient.invalidateQueries({ queryKey: queryKeys.comments(postId) }),
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(postId) });
+      void queryClient.invalidateQueries({ queryKey: ['authorComments'] });
+      if (comment.author) void queryClient.invalidateQueries({ queryKey: queryKeys.profile(comment.author.id) });
+    },
   });
 }
 
@@ -221,6 +261,25 @@ export function toggleMembership(community: CommunityView) {
     onError: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.community(id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.communities(panelId) });
+    },
+  });
+}
+
+// Cambiar el apodo y/o la privacidad del perfil propio.
+export function useUpdateMyProfile() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateMyProfileInput) => api.updateMyProfile(input),
+    onSuccess: (profile, input) => {
+      client.setQueryData(queryKeys.me, profile);
+      void client.invalidateQueries({ queryKey: queryKeys.profile(profile.id) });
+      // El apodo aparece en todo lo que publicó: se vuelve a pedir lo que lo
+      // muestra (feeds, posts, comentarios, búsquedas).
+      if (input.username !== undefined) {
+        for (const key of ['feed', 'post', 'comments', 'authorComments', 'search']) {
+          void client.invalidateQueries({ queryKey: [key] });
+        }
+      }
     },
   });
 }

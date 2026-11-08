@@ -15,8 +15,10 @@ import type {
   PostSort,
   PostView,
   Profile,
+  ProfileCommentPage,
   PublicProfile,
   Report,
+  UpdateMyProfileInput,
   SearchPage,
   SearchSort,
   VoteValue,
@@ -79,7 +81,11 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 // Feed de una comunidad o de un panel (exactamente uno de los dos), paginado por
 // cursor: `cursor` es el `nextCursor` de la página anterior.
-export type FeedParams = ({ communityId: string } | { panelId: string }) & {
+// De qué es un feed: una comunidad, un panel (todas sus comunidades) o un
+// autor (su perfil).
+export type FeedScope = { communityId: string } | { panelId: string } | { authorId: string };
+
+export type FeedParams = FeedScope & {
   sort: PostSort;
   cursor?: string;
 };
@@ -95,8 +101,12 @@ async function authGet<T>(path: string): Promise<T> {
   return request<T>(path, { method: 'GET', headers: await authHeaders() });
 }
 
-// POST / PUT / DELETE con sesión; `body` se manda como JSON si viene.
-async function authSend<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
+// POST / PUT / PATCH / DELETE con sesión; `body` se manda como JSON si viene.
+async function authSend<T>(
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  body?: unknown,
+): Promise<T> {
   return request<T>(path, {
     method,
     headers: await authHeaders(),
@@ -138,9 +148,22 @@ export const api = {
     return authGet<List<Panel>>('/panels');
   },
 
-  // Perfil de otra persona: apodo, universidad y desde cuándo está.
+  // Perfil de alguien (o el propio): apodo, universidad, desde cuándo está y
+  // contadores (null si es privado y no es el propio).
   getProfile(userId: string) {
     return authGet<PublicProfile>(`/profiles/${encodeURIComponent(userId)}`);
+  },
+
+  // Cambiar el apodo y/o la privacidad del perfil propio.
+  updateMyProfile(input: UpdateMyProfileInput) {
+    return authSend<Profile>('PATCH', '/profiles/me', input);
+  },
+
+  // Comentarios de alguien para su perfil, del más nuevo al más viejo.
+  getAuthorComments(authorId: string, cursor?: string) {
+    return authGet<ProfileCommentPage>(
+      `/comments/by-author/${encodeURIComponent(authorId)}?${toQueryString({ cursor })}`,
+    );
   },
 
   getCommunities(panelId: string) {
@@ -165,7 +188,12 @@ export const api = {
   },
 
   getFeed(params: FeedParams) {
-    const scope = 'communityId' in params ? { communityId: params.communityId } : { panelId: params.panelId };
+    const scope =
+      'communityId' in params
+        ? { communityId: params.communityId }
+        : 'panelId' in params
+          ? { panelId: params.panelId }
+          : { authorId: params.authorId };
     return authGet<PostPage>(
       `/posts?${toQueryString({ ...scope, sort: params.sort, cursor: params.cursor })}`,
     );

@@ -24,6 +24,11 @@ export const ERROR_CATALOG = {
   USERNAME_TAKEN: { status: HttpStatus.CONFLICT, title: 'Username already taken' },
   PROFILE_ALREADY_EXISTS: { status: HttpStatus.CONFLICT, title: 'Profile already exists' },
   PROFILE_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Profile not found' },
+  PROFILE_PRIVATE: { status: HttpStatus.FORBIDDEN, title: 'This profile is private' },
+  USERNAME_CHANGE_TOO_SOON: {
+    status: HttpStatus.CONFLICT,
+    title: 'Username was changed too recently',
+  },
   ADMIN_ONLY: { status: HttpStatus.FORBIDDEN, title: 'Admin only' },
 
   UNIVERSITY_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'University not found' },

@@ -18,10 +18,11 @@ export interface PostWithAuthor {
   author: Author;
 }
 
-// Exactamente uno de communityId/panelId (lo garantiza postFeedQuerySchema).
+// Exactamente uno de communityId/panelId/authorId (lo garantiza postFeedQuerySchema).
 export interface PostPageQuery {
   communityId?: string;
   panelId?: string;
+  authorId?: string;
   sort: PostSort;
   cursor?: string;
   limit: number;

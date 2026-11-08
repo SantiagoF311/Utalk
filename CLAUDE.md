@@ -1,7 +1,7 @@
 # UTalk
 
 Red social anónima interuniversitaria: paneles por universidad + uno
-general, apodo fijo tipo Reddit, votos, comentarios anidados, chats,
+general, apodo tipo Reddit (cambiable cada 30 días), votos, comentarios anidados, chats,
 reportes/moderación.
 
 ## Arquitectura
@@ -108,12 +108,15 @@ es el punto central de control de acceso para la mayoría de las tablas.
 El cliente mobile solo habla directo con Supabase (vía `anon key`) para
 **Realtime** — por ahora eso es exclusivamente el dominio de chat.
 
-**RLS debe estar activo** en cualquier tabla que el cliente mobile
-suscriba/lea directo vía Realtime (`messages`, `conversations`,
-`notifications` si se implementa vía suscripción directa). El resto de las
-tablas (`posts`, `comments`, `votes`, `reports`, tablas internas de jobs)
-no necesitan RLS mientras el mobile siga accediendo a ellas únicamente a
-través de la API de NestJS, no directo. Ver
-[docs/observabilidad.md](docs/observabilidad.md) y
+**Toda tabla nueva lleva RLS activo.** Las que el mobile solo usa a través
+de la API de NestJS (`posts`, `comments`, `votes`, `reports`, tablas
+internas de jobs…) van con RLS **sin políticas**: el backend (service role)
+se lo salta, y si algún día `anon` / `authenticated` recibieran permisos por
+error, igual no verían nada. Esos roles tampoco tienen permisos sobre esas
+tablas, y a cada función SQL nueva hay que quitarle el `EXECUTE` de `PUBLIC`.
+Las tablas que el cliente mobile suscriba/lea directo vía Realtime
+(`messages`, `conversations`, `notifications` si se implementa vía
+suscripción directa) necesitan RLS **con políticas**. Ver
+[docs/modelo-de-datos.md](docs/modelo-de-datos.md) (sección de acceso) y
 [docs/chat-realtime.md](docs/chat-realtime.md) para el razonamiento
 completo.

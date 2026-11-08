@@ -29,6 +29,9 @@ type PostCardProps = {
   // cuál es (como Reddit). En el feed de una comunidad se omite, y en su
   // lugar va quién lo publicó.
   community?: PostCommunity;
+  // Sin `community` a mano (ej. el perfil, que mezcla comunidades de varios
+  // paneles): la tarjeta la pide para mostrar igual de cuál es.
+  lookupCommunity?: boolean;
   // En el detalle del post se muestra todo el texto, sin tarjeta; en el
   // feed, recortado.
   full?: boolean;
@@ -42,6 +45,7 @@ type PostCardProps = {
 export function PostCard({
   post,
   community,
+  lookupCommunity = false,
   full = false,
   onDeleted,
   readOnly = false,
@@ -75,29 +79,9 @@ export function PostCard({
       {full ? (
         <DetailMeta post={post} />
       ) : community ? (
-        // Feed de un panel: avatar, c/<comunidad> y hace cuánto (tocar la
-        // comunidad la abre; gana sobre el toque de la tarjeta).
-        <View style={styles.meta}>
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel={`Abrir c/${community.slug}`}
-            disabled={readOnly}
-            onPress={() => openCommunity(community.id)}
-            hitSlop={4}>
-            <CommunityAvatar name={community.name} size={22} />
-          </Pressable>
-          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.metaText}>
-            <ThemedText
-              type="smallBold"
-              themeColor="text"
-              style={styles.metaText}
-              onPress={readOnly ? undefined : () => openCommunity(community.id)}
-              accessibilityRole="link">
-              c/{community.slug}
-            </ThemedText>
-            {` · ${relativeTime(post.createdAt)}`}
-          </ThemedText>
-        </View>
+        <CommunityMeta community={community} createdAt={post.createdAt} readOnly={readOnly} />
+      ) : lookupCommunity ? (
+        <LookupCommunityMeta post={post} />
       ) : (
         // Feed de una comunidad: quién lo publicó y hace cuánto.
         <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.metaText}>
@@ -145,6 +129,53 @@ export function PostCard({
       </View>
     </View>
   );
+}
+
+type CommunityMetaProps = { community: PostCommunity; createdAt: string; readOnly?: boolean };
+
+// Cabecera de la tarjeta cuando se mezclan comunidades: avatar, c/<comunidad>
+// y hace cuánto (tocar la comunidad la abre; gana sobre el toque de la
+// tarjeta).
+function CommunityMeta({ community, createdAt, readOnly = false }: CommunityMetaProps) {
+  return (
+    <View style={styles.meta}>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Abrir c/${community.slug}`}
+        disabled={readOnly}
+        onPress={() => openCommunity(community.id)}
+        hitSlop={4}>
+        <CommunityAvatar name={community.name} size={22} />
+      </Pressable>
+      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.metaText}>
+        <ThemedText
+          type="smallBold"
+          themeColor="text"
+          style={styles.metaText}
+          onPress={readOnly ? undefined : () => openCommunity(community.id)}
+          accessibilityRole="link">
+          c/{community.slug}
+        </ThemedText>
+        {` · ${relativeTime(createdAt)}`}
+      </ThemedText>
+    </View>
+  );
+}
+
+// Igual, pero pidiendo la comunidad (en un perfil los posts son de
+// comunidades y paneles distintos, y no hay una lista a mano). Mientras
+// llega, va solo la fecha.
+function LookupCommunityMeta({ post }: { post: PostView }) {
+  const community = useCommunity(post.communityId);
+  if (!community.data) {
+    return (
+      <ThemedText type="small" themeColor="textSecondary" style={styles.metaText}>
+        {relativeTime(post.createdAt)}
+      </ThemedText>
+    );
+  }
+  const { id, name, slug } = community.data;
+  return <CommunityMeta community={{ id, name, slug }} createdAt={post.createdAt} />;
 }
 
 // Cabecera del post en su detalle, como en Reddit: la comunidad arriba (con

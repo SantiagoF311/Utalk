@@ -50,3 +50,31 @@ export const commentViewSchema = z.object({
 });
 
 export type CommentView = z.infer<typeof commentViewSchema>;
+
+// Un comentario en el perfil de su autor: con el título de su publicación
+// ("en «…»"), sin respuestas. Los borrados no aparecen.
+export const profileCommentSchema = z.object({
+  id: z.uuid(),
+  postId: z.uuid(),
+  postTitle: z.string(),
+  body: z.string(),
+  score: z.number().int(),
+  createdAt: z.iso.datetime(),
+});
+
+export type ProfileComment = z.infer<typeof profileCommentSchema>;
+
+// GET /comments/by-author/:authorId?cursor=…&limit=…, del más nuevo al más viejo.
+export const authorCommentsQuerySchema = z.object({
+  cursor: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export type AuthorCommentsQuery = z.infer<typeof authorCommentsQuerySchema>;
+
+export const profileCommentPageSchema = z.object({
+  items: z.array(profileCommentSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export type ProfileCommentPage = z.infer<typeof profileCommentPageSchema>;

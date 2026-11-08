@@ -28,8 +28,27 @@ export interface CommentRepository {
   findVotesByUser(commentIds: string[], userId: string): Promise<Map<string, VoteValue>>;
   // Cuáles de esos comentarios reportó el usuario (la app los muestra ocultos).
   findReportedByUser(commentIds: string[], userId: string): Promise<Set<string>>;
+  // Comentarios (no borrados) de un autor, del más nuevo al más viejo, con el
+  // título de su publicación. Paginado por cursor.
+  findPageByAuthor(query: AuthorCommentPageQuery): Promise<AuthorCommentPage>;
   update(id: string, changes: CommentChanges): Promise<CommentEntity>;
   softDelete(id: string): Promise<void>;
+}
+
+export interface AuthorCommentPageQuery {
+  authorId: string;
+  cursor?: string;
+  limit: number;
+}
+
+export interface CommentWithPostTitle {
+  comment: CommentEntity;
+  postTitle: string;
+}
+
+export interface AuthorCommentPage {
+  items: CommentWithPostTitle[];
+  nextCursor: string | null;
 }
 
 export const COMMENT_REPOSITORY = Symbol('COMMENT_REPOSITORY');

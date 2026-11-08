@@ -16,11 +16,12 @@ import { StateMessage } from '@/components/stateMessage';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFeed } from '@/hooks/queries';
 import { useTheme } from '@/hooks/useTheme';
+import type { FeedScope } from '@/lib/api';
 import { errorMessage } from '@/lib/errorMessages';
 import { queryKeys } from '@/lib/queryKeys';
 
 type FeedListProps = {
-  scope: { communityId: string } | { panelId: string };
+  scope: FeedScope;
   // Lo que va arriba de los posts (ej. la cabecera de la comunidad y su orden).
   header?: ReactElement;
   // communityId → comunidad, para mostrar de cuál es cada post en el feed de
@@ -29,11 +30,16 @@ type FeedListProps = {
   // El orden lo elige quien usa la lista: en Inicio, el sidebar (Popular /
   // Reciente); en una comunidad, su menú de orden.
   sort: PostSort;
+  // Texto si no hay publicaciones (ej. en un perfil).
+  empty?: { title: string; description?: string };
+  // Algo más para refrescar al tirar hacia abajo, además del feed (ej. la
+  // cabecera de un perfil con sus contadores).
+  onRefresh?: () => void;
 };
 
 // Feed paginado por cursor con scroll infinito: al acercarse al final pide la
 // página siguiente. Tirar hacia abajo lo refresca.
-export function FeedList({ scope, header, communities, sort }: FeedListProps) {
+export function FeedList({ scope, header, communities, sort, empty, onRefresh }: FeedListProps) {
   const theme = useTheme();
   const feed = useFeed(scope, sort);
   const queryClient = useQueryClient();
@@ -52,8 +58,8 @@ export function FeedList({ scope, header, communities, sort }: FeedListProps) {
   ) : (
     <StateMessage
       kind="empty"
-      title="Todavía no hay publicaciones"
-      description="Cuando alguien publique algo, va a aparecer acá."
+      title={empty?.title ?? 'Todavía no hay publicaciones'}
+      description={empty?.description ?? 'Cuando alguien publique algo, va a aparecer acá.'}
     />
   );
 
@@ -67,7 +73,12 @@ export function FeedList({ scope, header, communities, sort }: FeedListProps) {
           accessibilityLabel={item.title}
           onPress={() => openPost(item)}
           style={({ pressed }) => pressed && styles.pressed}>
-          <PostCard post={item} community={communities?.get(item.communityId)} />
+          <PostCard
+            post={item}
+            community={communities?.get(item.communityId)}
+            // En un perfil se mezclan comunidades de varios paneles.
+            lookupCommunity={'authorId' in scope}
+          />
         </Pressable>
       )}
       ListHeaderComponent={header ? <View style={styles.header}>{header}</View> : undefined}
@@ -84,7 +95,10 @@ export function FeedList({ scope, header, communities, sort }: FeedListProps) {
       refreshControl={
         <RefreshControl
           refreshing={feed.isRefetching && !feed.isFetchingNextPage}
-          onRefresh={() => void feed.refetch()}
+          onRefresh={() => {
+            void feed.refetch();
+            onRefresh?.();
+          }}
           tintColor={theme.textSecondary}
         />
       }

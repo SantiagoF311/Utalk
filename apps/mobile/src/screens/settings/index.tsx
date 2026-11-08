@@ -1,6 +1,8 @@
+import { USERNAME_CHANGE_COOLDOWN_DAYS } from '@utalk/shared';
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import { ReactNode, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -8,6 +10,7 @@ import { Icon, IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useUpdateMyProfile } from '@/hooks/mutations';
 import { useMyProfile } from '@/hooks/queries';
 import { useSession } from '@/hooks/useSession';
 import { ThemePreference, useThemePreference } from '@/hooks/useThemePreference';
@@ -20,16 +23,18 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: IconName }[]
   { value: 'dark', label: 'Oscuro', icon: 'themeDark' },
 ];
 
-// Ajustes (desde el ⚙️ de tu perfil): tu apodo, tu cuenta, el tema y cerrar
-// sesión. Cambiar el apodo o la contraseña, el teléfono, los avisos y
+// Ajustes (desde el ⚙️ de tu perfil): tu apodo, la privacidad, tu cuenta, el
+// tema y cerrar sesión. Cambiar la contraseña, el teléfono, los avisos y
 // eliminar la cuenta todavía no existen en el backend.
 export function SettingsScreen() {
   const theme = useTheme();
   const me = useMyProfile();
   const session = useSession();
+  const updateProfile = useUpdateMyProfile();
   const { preference, setPreference } = useThemePreference();
   const [signingOut, setSigningOut] = useState(false);
   const email = session?.user.email;
+  const nextChange = me.data ? nextUsernameChange(me.data.usernameChangedAt) : null;
 
   // La app vuelve sola a la bienvenida al perder la sesión (rutas
   // protegidas en app/_layout.tsx).
@@ -46,12 +51,45 @@ export function SettingsScreen() {
             <Row
               icon="at"
               title={me.data ? `u/${me.data.username}` : '…'}
-              subtitle="Se puede cambiar cada 30 días"
+              subtitle={
+                nextChange
+                  ? `Podrás cambiarlo de nuevo el ${formatDate(nextChange)}`
+                  : `Se puede cambiar una vez cada ${USERNAME_CHANGE_COOLDOWN_DAYS} días`
+              }
+              right={
+                me.data && !nextChange ? (
+                  <Pressable accessibilityRole="button" onPress={() => router.push('/change-username')} hitSlop={8}>
+                    <ThemedText type="smallBold" themeColor="primary">
+                      Cambiar
+                    </ThemedText>
+                  </Pressable>
+                ) : undefined
+              }
             />
           </Section>
           <Hint>
             Evita tu nombre, tu carrera y tu semestre juntos: eso te vuelve fácil de reconocer. Al
             cambiarlo, tus publicaciones viejas pasan al apodo nuevo.
+          </Hint>
+
+          <Section title="PRIVACIDAD">
+            <Row
+              icon="lock"
+              title="Perfil privado"
+              subtitle="Los demás no ven tus publicaciones, comentarios ni contadores en tu perfil"
+              right={
+                <Switch
+                  value={me.data?.isPrivate ?? false}
+                  disabled={!me.data || updateProfile.isPending}
+                  onValueChange={(isPrivate) => updateProfile.mutate({ isPrivate })}
+                  trackColor={{ true: theme.primary }}
+                />
+              }
+            />
+          </Section>
+          <Hint>
+            Lo que publicas se sigue viendo en cada comunidad: privado esconde la lista en tu perfil, no
+            tus publicaciones.
           </Hint>
 
           <Section title="CUENTA">
@@ -105,6 +143,20 @@ export function SettingsScreen() {
       </SafeAreaView>
     </ThemedView>
   );
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Cuándo se puede volver a cambiar el apodo, o null si ya se puede (la regla
+// la aplica el backend; esto es solo para mostrarla).
+function nextUsernameChange(changedAt: string | null): Date | null {
+  if (!changedAt) return null;
+  const next = new Date(new Date(changedAt).getTime() + USERNAME_CHANGE_COOLDOWN_DAYS * DAY_MS);
+  return next > new Date() ? next : null;
+}
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
 }
 
 // "juan.perez@correounivalle.edu.co" → "j****@correounivalle.edu.co": se

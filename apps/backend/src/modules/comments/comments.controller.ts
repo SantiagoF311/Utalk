@@ -11,8 +11,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { createCommentSchema, updateCommentSchema } from '@utalk/shared';
-import type { CommentView, List } from '@utalk/shared';
+import { authorCommentsQuerySchema, createCommentSchema, updateCommentSchema } from '@utalk/shared';
+import type { CommentView, List, ProfileCommentPage } from '@utalk/shared';
 import { STRICT_RATE_LIMITS } from '../../common/rateLimits.js';
 import { CurrentUserId } from '../auth/auth.guard.js';
 import { CommentsService } from './comments.service.js';
@@ -35,6 +35,18 @@ export class CommentsController {
     @CurrentUserId() userId: string,
   ): Promise<List<CommentView>> {
     return { items: await this.commentsService.findTreeByPostId(postId, userId) };
+  }
+
+  // Comentarios de un autor para su perfil, del más nuevo al más viejo
+  // (PROFILE_PRIVATE si es privado y no es el propio).
+  @Get('by-author/:authorId')
+  async findByAuthor(
+    @Param('authorId', ParseUUIDPipe) authorId: string,
+    @Query() rawQuery: unknown,
+    @CurrentUserId() userId: string,
+  ): Promise<ProfileCommentPage> {
+    const query = authorCommentsQuerySchema.parse(rawQuery);
+    return this.commentsService.findPageByAuthor(authorId, query, userId);
   }
 
   @Get(':id')

@@ -18,6 +18,9 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   COMMENT_DELETED: 'Ese comentario fue eliminado.',
   NOT_COMMENT_AUTHOR: 'Solo quien lo escribió puede hacer eso.',
   VALIDATION_FAILED: 'Revisa lo que escribiste: algo no es válido.',
+  PROFILE_PRIVATE: 'Este perfil es privado.',
+  USERNAME_TAKEN: 'Ese apodo ya lo usa alguien (o lo dejó hace poco). Prueba otro.',
+  USERNAME_CHANGE_TOO_SOON: 'Cambiaste tu apodo hace menos de 30 días. Vas a poder cambiarlo después.',
   ALREADY_REPORTED: 'Ya lo habías reportado. Un moderador lo va a revisar.',
   CANNOT_REPORT_OWN_CONTENT: 'No puedes reportar lo que escribiste tú. Si quieres, bórralo.',
 };
