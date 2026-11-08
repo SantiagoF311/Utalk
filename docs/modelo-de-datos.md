@@ -4,11 +4,25 @@ Documenta el schema real de Postgres (Supabase) y los schemas Zod
 compartidos en `packages/shared` que lo espejan del lado de TypeScript.
 Fuente de verdad del SQL: [supabase/migrations/](../supabase/migrations/).
 
-Ninguna tabla de este documento tiene RLS activo — todas se leen/escriben
-exclusivamente a través del backend NestJS (service role). Las tablas que
-sí necesitan RLS (por acceso directo del cliente vía Realtime — chat,
-notificaciones) se documentan aparte en
-[chat-realtime.md](./chat-realtime.md), no acá.
+**Acceso**: todas las tablas de este documento se leen y escriben
+exclusivamente a través del backend NestJS (service role). El mobile (anon
+key: roles `anon` / `authenticated`) no las toca directo, salvo
+`universities` (solo lectura, para el registro). Eso se asegura con dos
+capas (migración `harden_public_tables`):
+
+1. **Permisos**: `anon` / `authenticated` no tienen ningún permiso sobre las
+   tablas del backend, ni siquiera `TRUNCATE` / `TRIGGER` / `REFERENCES`, que
+   Supabase da por defecto (y `TRUNCATE` no lo frena RLS). Tampoco pueden
+   ejecutar las funciones (`search_content`, `profile_stats`): cada migración
+   que crea una le quita el permiso a `PUBLIC`.
+2. **RLS activo sin políticas** en todas: si algún día se les diera permiso
+   por error, igual no verían ninguna fila. `service_role` se salta RLS, así
+   que para el backend (y sus triggers y funciones) no cambia nada.
+
+Al crear una tabla nueva del backend: activarle RLS (sin políticas) en su
+migración. Las tablas que el cliente sí lea directo (vía Realtime — chat,
+notificaciones) necesitan RLS **con políticas**, y se documentan en
+[chat-realtime.md](./chat-realtime.md).
 
 ## Diagrama de relaciones
 
@@ -52,10 +66,51 @@ gestiona internamente — ahí vive el email/credenciales, no acá).
 | columna | tipo | notas |
 |---|---|---|
 | `id` | uuid, PK | mismo valor que `auth.users.id` |
-| `username` | text, unique | único **globalmente**, no por universidad — apodo fijo tipo Reddit |
+| `username` | text, unique | único **globalmente**, no por universidad — apodo tipo Reddit; se puede cambiar una vez cada 30 días (ver abajo) |
 | `university_id` | uuid, FK → `universities.id` | |
 | `role` | text, default `'user'` | `check (role in ('user', 'admin'))` — rol **global** de plataforma |
+| `is_private` | boolean, default `false` | perfil privado (ver abajo) |
+| `username_changed_at` | timestamptz, nullable | último cambio de apodo (null = nunca) |
 | `created_at` | timestamptz | |
+
+**Perfil público por defecto, privado si se elige** (como Reddit).
+Público: cualquiera ve en el perfil sus publicaciones, comentarios y
+contadores. Privado: los demás ven solo apodo, universidad y antigüedad; el
+historial y los contadores solo los ve él mismo (`historyVisibleTo` en
+`ProfileEntity`). Privado esconde la **lista** en el perfil, no lo publicado:
+cada post se sigue viendo en su comunidad. Pedir el historial de un perfil
+privado ajeno (`GET /posts?authorId=…`, `GET /comments/by-author/:id`) da
+`PROFILE_PRIVATE` (403). El buscador sigue sin buscar por apodo: al historial
+de alguien se llega desde un post o comentario suyo.
+
+**Cambio de apodo** (`PATCH /profiles/me`):
+
+- **Una vez cada 30 días** (`USERNAME_CHANGE_COOLDOWN_DAYS`; antes,
+  `USERNAME_CHANGE_TOO_SOON`). Por qué un límite: que el apodo no sirva para
+  escapar de lo que uno hizo (los reportes y la moderación igual van atados
+  a la cuenta, no al apodo) ni para suplantar a otros cambiándose seguido.
+  Por qué no fijo (como Reddit): en una app anónima tiene que haber una
+  salida si alguien descubre quién está detrás de un apodo. 30 días es la
+  regla de TikTok: alcanza como salida de seguridad y es lento para abusar.
+- **El apodo viejo queda reservado 30 días** (tabla `reserved_usernames`):
+  nadie lo puede tomar en ese tiempo, ni al cambiar el suyo ni al
+  registrarse, para que no aparezca otro con tu nombre de antes. Es solo
+  contra la suplantación: no hay excepción para quien lo dejó, porque la
+  reserva dura lo mismo que la espera para volver a cambiar el apodo (nunca
+  podría aprovecharla). Por lo mismo, la app no se lo menciona al usuario.
+- **No se muestra "antes conocido como"**: rompería justamente la salida de
+  seguridad.
+- Las publicaciones y comentarios **pasan solos al apodo nuevo**: guardan el
+  id del autor, no el apodo.
+
+La disponibilidad se consulta con `GET /profiles/check-username/:u`
+(público), tanto al registrarse como al cambiar el apodo: un apodo en uso o
+reservado cuenta como tomado.
+
+**Contadores del perfil** (votos recibidos, publicaciones, comentarios sin
+los borrados): los calcula la función SQL `profile_stats` al pedir el
+perfil, sin contadores mantenidos por triggers, porque el perfil se abre
+poco comparado con el feed.
 
 **Sobre `role`**: solo distingue usuarios de admins (pueden todo: crear
 paneles, ver/resolver todos los reportes, moderar cualquier comunidad). Se
@@ -82,12 +137,22 @@ post (y en los comentarios) se ven el apodo y la universidad.
 
 | Vista | Dónde | Qué trae |
 |---|---|---|
-| `profileSchema` | `/auth/me`, completar registro | perfil completo, incluido `role` |
-| `publicProfileSchema` | `GET /profiles/:id` | `id`, `username`, `university`, `createdAt` — sin `role` |
+| `profileSchema` | `/auth/me`, completar registro, `PATCH /profiles/me` | perfil completo, incluidos `role`, `isPrivate` y `usernameChangedAt` |
+| `publicProfileSchema` | `GET /profiles/:id` (propio o ajeno) | `id`, `username`, `university`, `isPrivate`, `stats` (null si es privado y ajeno), `createdAt` — sin `role` |
 | `authorSchema` | `author` de posts y comentarios | `id`, `username`, `university` |
 
 `university` es `universitySummarySchema`: `id`, `slug`, `name` (sin el
 dominio de correo).
+
+## `reserved_usernames`
+
+Apodos que alguien dejó al cambiar el suyo (ver `profiles`).
+
+| columna | tipo | notas |
+|---|---|---|
+| `username` | text, PK | |
+| `user_id` | uuid, FK → `profiles.id`, on delete cascade | de quién era (para moderación; nadie lo puede tomar mientras dure la reserva, ni siquiera él) |
+| `reserved_until` | timestamptz | vencida la fecha, el apodo vuelve a estar libre (no hace falta borrar la fila) |
 
 ## `panels`
 
@@ -363,11 +428,11 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | Archivo | Exporta |
 |---|---|
 | `university.ts` | `universitySchema`, `universitySummarySchema` (`id`, `slug`, `name`: lo que se muestra junto a un usuario) |
-| `profile.ts` | `profileSchema` (incluye `role`), `createProfileSchema`, `authorSchema` y `publicProfileSchema` (con la universidad, sin `role`) |
+| `profile.ts` | `profileSchema` (incluye `role`, `isPrivate`, `usernameChangedAt`), `createProfileSchema`, `updateMyProfileSchema`, `authorSchema`, `profileStatsSchema` y `publicProfileSchema` (con la universidad y los contadores, sin `role`); `USERNAME_CHANGE_COOLDOWN_DAYS` |
 | `panel.ts` | `panelSchema` |
 | `community.ts` | `COMMUNITY_TOPICS`, `communitySchema`, `communityViewSchema` (con `joinedByMe`), `createCommunitySchema`, `updateCommunitySchema` |
-| `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author`, `myVote` y `reportedByMe`), `postFeedQuerySchema`, `postPageSchema` |
-| `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`, `myVote` y `reportedByMe`) |
+| `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author`, `myVote` y `reportedByMe`), `postFeedQuerySchema` (por comunidad, panel o autor), `postPageSchema` |
+| `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`, `myVote` y `reportedByMe`), `profileCommentSchema` y `profileCommentPageSchema` (comentarios de un autor, con el título de su post) |
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |
 | `report.ts` | `REPORT_CATEGORIES`, `reportSchema`, `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL; un detalle vacío se guarda como null) |
 

@@ -54,20 +54,25 @@ export const postSortSchema = z.enum(POST_SORTS);
 
 export type PostSort = z.infer<typeof postSortSchema>;
 
-// Feed de una comunidad o de un panel (posts de todas sus comunidades), paginado por
-// cursor: `nextCursor` de una página se manda como `cursor` para pedir la
-// siguiente; es opaco para el cliente.
+// Feed de una comunidad, de un panel (posts de todas sus comunidades) o de un
+// autor (su perfil), exactamente uno de los tres. Paginado por cursor:
+// `nextCursor` de una página se manda como `cursor` para pedir la siguiente;
+// es opaco para el cliente.
 export const postFeedQuerySchema = z
   .object({
     communityId: z.uuid().optional(),
     panelId: z.uuid().optional(),
+    authorId: z.uuid().optional(),
     sort: postSortSchema.default('hot'),
     cursor: z.string().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
   })
-  .refine((query) => (query.communityId === undefined) !== (query.panelId === undefined), {
-    message: 'Exactly one of communityId or panelId must be set',
-  });
+  .refine(
+    (query) =>
+      [query.communityId, query.panelId, query.authorId].filter((id) => id !== undefined)
+        .length === 1,
+    { message: 'Exactly one of communityId, panelId or authorId must be set' },
+  );
 
 export type PostFeedQuery = z.infer<typeof postFeedQuerySchema>;
 

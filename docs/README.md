@@ -1,7 +1,7 @@
 # UTalk — Documentación de arquitectura
 
 UTalk es una red social anónima interuniversitaria: paneles por universidad
-más uno general, apodo fijo tipo Reddit, votos, comentarios anidados, chats
+más uno general, apodo tipo Reddit (se cambia cada 30 días como máximo), votos, comentarios anidados, chats
 directos, y reportes/moderación de contenido.
 
 Esta carpeta documenta las decisiones de **system design** tomadas para el

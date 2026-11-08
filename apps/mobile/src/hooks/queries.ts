@@ -2,7 +2,7 @@ import { SEARCH_QUERY_MIN_LENGTH } from '@utalk/shared';
 import type { PostSort, SearchSort } from '@utalk/shared';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
-import { api } from '@/lib/api';
+import { api, FeedScope } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 
 export function useMyProfile() {
@@ -73,10 +73,21 @@ export type SearchScope = { panelId: string } | { communityId: string };
 
 // Feed paginado por cursor: cada página trae `nextCursor`, que se manda para
 // pedir la siguiente; `null` = no hay más.
-export function useFeed(scope: { communityId: string } | { panelId: string }, sort: PostSort) {
+export function useFeed(scope: FeedScope, sort: PostSort) {
   return useInfiniteQuery({
     queryKey: queryKeys.feed(scope, sort),
     queryFn: ({ pageParam }) => api.getFeed({ ...scope, sort, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    select: (data) => data.pages.flatMap((page) => page.items),
+  });
+}
+
+// Comentarios de alguien para su perfil, paginados igual que el feed.
+export function useAuthorComments(authorId: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.authorComments(authorId),
+    queryFn: ({ pageParam }) => api.getAuthorComments(authorId, pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     select: (data) => data.pages.flatMap((page) => page.items),

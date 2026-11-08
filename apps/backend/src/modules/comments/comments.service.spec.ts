@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { AppException } from '../../common/appException.js';
 import { IDS, makeAuthor, makeComment, makePost, makeProfile } from '../../testing/fixtures.js';
 import type { PostsService } from '../posts/posts.service.js';
 import type { ProfilesService } from '../profiles/profiles.service.js';
@@ -15,6 +16,10 @@ const withAuthor = (comment: CommentEntity): CommentWithAuthor => ({
 
 describe('CommentsService', () => {
   let repository: jest.Mocked<CommentRepository>;
+  let profiles: {
+    findById: jest.Mock<ProfilesService['findById']>;
+    assertHistoryVisible: jest.Mock<ProfilesService['assertHistoryVisible']>;
+  };
   let service: CommentsService;
 
   beforeEach(() => {
@@ -29,12 +34,18 @@ describe('CommentsService', () => {
       findReportedByUser: jest
         .fn<CommentRepository['findReportedByUser']>()
         .mockResolvedValue(new Set()),
+      findPageByAuthor: jest
+        .fn<CommentRepository['findPageByAuthor']>()
+        .mockResolvedValue({ items: [], nextCursor: null }),
       update: jest.fn<CommentRepository['update']>(),
       softDelete: jest.fn<CommentRepository['softDelete']>().mockResolvedValue(undefined),
     };
     const posts = { findById: jest.fn<PostsService['findById']>().mockResolvedValue(makePost()) };
-    const profiles = {
+    profiles = {
       findById: jest.fn<ProfilesService['findById']>().mockResolvedValue(makeProfile()),
+      assertHistoryVisible: jest
+        .fn<ProfilesService['assertHistoryVisible']>()
+        .mockResolvedValue(undefined),
     };
 
     service = new CommentsService(
@@ -42,6 +53,32 @@ describe('CommentsService', () => {
       posts as unknown as PostsService,
       profiles as unknown as ProfilesService,
     );
+  });
+
+  describe('findPageByAuthor', () => {
+    it('devuelve los comentarios del autor con el título de su publicación', async () => {
+      repository.findPageByAuthor.mockResolvedValue({
+        items: [{ comment: makeComment(), postTitle: 'Sala de estudio' }],
+        nextCursor: 'abc',
+      });
+
+      const page = await service.findPageByAuthor(IDS.ana, { limit: 20 }, IDS.beto);
+
+      expect(page.items[0]).toMatchObject({ postId: IDS.post, postTitle: 'Sala de estudio' });
+      expect(page.nextCursor).toBe('abc');
+      expect(profiles.assertHistoryVisible).toHaveBeenCalledWith(IDS.ana, IDS.beto);
+    });
+
+    it('no los lista si el perfil es privado', async () => {
+      profiles.assertHistoryVisible.mockRejectedValue(
+        new AppException('PROFILE_PRIVATE', 'private'),
+      );
+
+      await expect(
+        service.findPageByAuthor(IDS.ana, { limit: 20 }, IDS.beto),
+      ).rejects.toMatchObject({ code: 'PROFILE_PRIVATE' });
+      expect(repository.findPageByAuthor).not.toHaveBeenCalled();
+    });
   });
 
   describe('findTreeByPostId', () => {

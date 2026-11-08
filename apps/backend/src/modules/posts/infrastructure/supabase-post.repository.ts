@@ -144,9 +144,13 @@ export class SupabasePostRepository implements PostRepository {
       .from('posts')
       .select(query.panelId ? `${WITH_AUTHOR}, communities!inner(panel_id)` : WITH_AUTHOR);
 
-    request = query.panelId
-      ? request.eq('communities.panel_id', query.panelId)
-      : request.eq('community_id', query.communityId!);
+    if (query.panelId) {
+      request = request.eq('communities.panel_id', query.panelId);
+    } else if (query.authorId) {
+      request = request.eq('author_id', query.authorId);
+    } else {
+      request = request.eq('community_id', query.communityId!);
+    }
 
     const column = sortColumn[query.sort];
 

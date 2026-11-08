@@ -1,12 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { CommentView, CreateCommentInput, UpdateCommentInput } from '@utalk/shared';
+import type {
+  AuthorCommentsQuery,
+  CommentView,
+  CreateCommentInput,
+  ProfileCommentPage,
+  UpdateCommentInput,
+} from '@utalk/shared';
 import { AppException } from '../../common/appException.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { CommentEntity } from './domain/comment.entity.js';
 import { COMMENT_REPOSITORY } from './domain/comment.repository.js';
 import type { CommentRepository } from './domain/comment.repository.js';
-import { toCommentView } from './comment.view.js';
+import { toCommentView, toProfileCommentView } from './comment.view.js';
 
 // Más votados primero; a igual score, el más antiguo primero (como el
 // "mejores" de Reddit, simplificado).
@@ -100,6 +106,22 @@ export class CommentsService {
       throw new AppException('COMMENT_NOT_FOUND', `Comment ${id} not found`);
     }
     return toCommentView(item, myVotes.get(id) ?? null, reported.has(id));
+  }
+
+  // Comentarios de un autor para su perfil (no si es privado y no es el de
+  // quien mira).
+  async findPageByAuthor(
+    authorId: string,
+    query: AuthorCommentsQuery,
+    viewerId: string,
+  ): Promise<ProfileCommentPage> {
+    await this.profilesService.assertHistoryVisible(authorId, viewerId);
+    const page = await this.commentRepository.findPageByAuthor({
+      authorId,
+      cursor: query.cursor,
+      limit: query.limit,
+    });
+    return { items: page.items.map(toProfileCommentView), nextCursor: page.nextCursor };
   }
 
   // Para otros módulos (votos, reportes) que solo necesitan el comentario crudo.

@@ -99,6 +99,10 @@ function RootNavigator() {
             name="settings"
             options={{ headerShown: true, title: 'Ajustes', headerBackTitle: 'Atrás' }}
           />
+          <Stack.Screen
+            name="change-username"
+            options={{ headerShown: true, title: 'Cambiar apodo', headerBackTitle: 'Atrás' }}
+          />
           <Stack.Screen name="search" />
           <Stack.Screen name="compose" options={{ presentation: 'modal' }} />
           <Stack.Screen name="create-community" options={{ presentation: 'modal' }} />

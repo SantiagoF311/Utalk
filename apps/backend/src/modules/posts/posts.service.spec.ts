@@ -20,7 +20,10 @@ const notFound = (code: 'PROFILE_NOT_FOUND' | 'COMMUNITY_NOT_FOUND' | 'PANEL_NOT
 
 describe('PostsService', () => {
   let repository: jest.Mocked<PostRepository>;
-  let profiles: { findById: jest.Mock<ProfilesService['findById']> };
+  let profiles: {
+    findById: jest.Mock<ProfilesService['findById']>;
+    assertHistoryVisible: jest.Mock<ProfilesService['assertHistoryVisible']>;
+  };
   let communities: { findById: jest.Mock<CommunitiesService['findById']> };
   let panels: { findById: jest.Mock<PanelsService['findById']> };
   let service: PostsService;
@@ -43,6 +46,9 @@ describe('PostsService', () => {
     };
     profiles = {
       findById: jest.fn<ProfilesService['findById']>().mockResolvedValue(makeProfile()),
+      assertHistoryVisible: jest
+        .fn<ProfilesService['assertHistoryVisible']>()
+        .mockResolvedValue(undefined),
     };
     communities = {
       findById: jest.fn<CommunitiesService['findById']>().mockResolvedValue(makeCommunity()),
@@ -185,6 +191,30 @@ describe('PostsService', () => {
       ).rejects.toMatchObject({
         code: 'COMMUNITY_NOT_FOUND',
       });
+      expect(repository.findPage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findFeed por autor', () => {
+    it('lista las publicaciones del autor si puede verse su historial', async () => {
+      repository.findPage.mockResolvedValue({ items: [], nextCursor: null });
+
+      await service.findFeed({ authorId: IDS.ana, sort: 'new', limit: 20 }, IDS.beto);
+
+      expect(profiles.assertHistoryVisible).toHaveBeenCalledWith(IDS.ana, IDS.beto);
+      expect(repository.findPage).toHaveBeenCalledWith(
+        expect.objectContaining({ authorId: IDS.ana }),
+      );
+    });
+
+    it('no las lista si el perfil es privado', async () => {
+      profiles.assertHistoryVisible.mockRejectedValue(
+        new AppException('PROFILE_PRIVATE', 'private'),
+      );
+
+      await expect(
+        service.findFeed({ authorId: IDS.ana, sort: 'new', limit: 20 }, IDS.beto),
+      ).rejects.toMatchObject({ code: 'PROFILE_PRIVATE' });
       expect(repository.findPage).not.toHaveBeenCalled();
     });
   });

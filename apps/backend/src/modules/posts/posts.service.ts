@@ -52,11 +52,15 @@ export class PostsService {
   }
 
   async findFeed(query: PostFeedQuery, viewerId: string): Promise<PostPage> {
-    // 404 explícito si la comunidad/panel no existe, en vez de una página vacía.
+    // 404 explícito si la comunidad/panel/autor no existe, en vez de una página
+    // vacía. Las publicaciones de alguien no se listan si su perfil es privado
+    // (salvo para él mismo).
     if (query.communityId) {
       await this.communitiesService.findById(query.communityId);
     } else if (query.panelId) {
       await this.panelsService.findById(query.panelId);
+    } else if (query.authorId) {
+      await this.profilesService.assertHistoryVisible(query.authorId, viewerId);
     }
 
     const page = await this.postRepository.findPage(query);

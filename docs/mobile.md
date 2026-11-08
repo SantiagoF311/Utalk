@@ -32,6 +32,7 @@ app/
 ├── post/[postId]                │ stack raíz, encima de todo, con botón atrás
 ├── user/[userId]                │
 ├── settings                     │
+├── change-username              │ desde Ajustes
 ├── search                       │ buscar: desde Inicio (?panelId=) o desde una comunidad (?communityId=)
 ├── compose                      │ publicar: modal del "+" de Inicio o de una comunidad (?communityId=, ?title=)
 ├── create-community             │ crear comunidad: modal desde el sidebar (?panelId=)
@@ -78,9 +79,23 @@ descripción) y su feed, con su propio orden (Popular, Reciente, Más
 votados) en un menú que se abre desde abajo al tocar "POPULAR ▾"
 (`components/sortMenu.tsx`).
 
-**Perfiles**: tocar `u/apodo` en un post o comentario abre su perfil
-público (`GET /profiles/:id`: apodo, universidad, desde cuándo). Si es el
-tuyo, va a tu pestaña Perfil (`hooks/useOpenProfile.ts`).
+**Perfiles**: tocar `u/apodo` en un post o comentario abre su perfil (si es
+el tuyo, tu pestaña Perfil; `hooks/useOpenProfile.ts`). El propio y el ajeno
+son el mismo componente (`components/profileView.tsx`, diseño 4a): apodo,
+universidad, antigüedad, contadores (votos · publicaciones · comentarios) y
+pestañas con sus publicaciones (el feed por autor; cada tarjeta pide su
+comunidad, porque en un perfil se mezclan comunidades de varios paneles) y
+sus comentarios ("en «título»", abren el post). Si el perfil es privado y no
+es el tuyo, solo la cabecera y "Este perfil es privado" (el backend no manda
+contadores ni deja pedir el historial; ver
+[modelo-de-datos.md](./modelo-de-datos.md)).
+
+**Ajustes** (⚙️ del perfil): tu apodo con "Cambiar" (o desde cuándo se
+puede, si lo cambiaste hace menos de 30 días), el interruptor "Perfil
+privado", la cuenta, el tema y cerrar sesión. "Cambiar apodo" valida
+mientras se escribe con el mismo chequeo que el registro. Al cambiarlo se
+vuelven a pedir los feeds, posts y comentarios, porque todos muestran el
+apodo.
 
 **La barra de abajo** tiene 4 pestañas (Inicio · Comunidades · Chats ·
 Perfil); publicar no va ahí sino en el "+" de arriba, como en Reddit. Es
@@ -220,7 +235,7 @@ refresco.
 
 | Acción | Qué hace con la caché |
 |---|---|
-| Votar post o comentario | **Optimista y "al soltar"** (ver abajo): flecha y puntaje cambian al instante en todas las copias; al servidor va solo el voto final. Si falla, se vuelve a pedir el post o el árbol |
+| Votar post o comentario | **Optimista y "al soltar"** (ver abajo): flecha y puntaje cambian al instante en todas las copias (feeds —incluido el del perfil del autor—, detalle, árbol, lista de comentarios del perfil) y en los votos recibidos del perfil del autor; al servidor va solo el voto final. Si falla, se vuelve a pedir todo eso |
 | Unirse / salirse de una comunidad | Igual que votar: botón y contador cambian al instante en la lista del panel y en el detalle; al confirmar el servidor se aplica el contador real |
 | Crear comunidad | Guarda la comunidad nueva en su detalle e invalida la lista del panel |
 | Publicar | Guarda el post nuevo en su detalle (se abre al instante) e invalida los feeds |

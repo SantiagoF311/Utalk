@@ -42,6 +42,8 @@ export function makeProfile(
     username: string;
     universityId: string;
     role: ProfileRole;
+    isPrivate: boolean;
+    usernameChangedAt: Date | null;
   }> = {},
 ): ProfileEntity {
   const p = {
@@ -49,9 +51,19 @@ export function makeProfile(
     username: 'ana',
     universityId: IDS.ust,
     role: 'user' as ProfileRole,
+    isPrivate: false,
+    usernameChangedAt: null as Date | null,
     ...overrides,
   };
-  return new ProfileEntity(p.id, p.username, p.universityId, p.role, CREATED_AT);
+  return new ProfileEntity(
+    p.id,
+    p.username,
+    p.universityId,
+    p.role,
+    p.isPrivate,
+    p.usernameChangedAt,
+    CREATED_AT,
+  );
 }
 
 export function makePanel(
