@@ -2,6 +2,8 @@ import { problemDetailsSchema } from '@utalk/shared';
 import type {
   AuthSession,
   CommentView,
+  CreateCommentInput,
+  CreatePostInput,
   ErrorCode,
   FieldError,
   Community,
@@ -12,6 +14,7 @@ import type {
   PostView,
   Profile,
   PublicProfile,
+  VoteValue,
 } from '@utalk/shared';
 
 import { resolveApiUrl } from '@/lib/apiUrl';
@@ -87,6 +90,15 @@ async function authGet<T>(path: string): Promise<T> {
   return request<T>(path, { method: 'GET', headers: await authHeaders() });
 }
 
+// POST / PUT / DELETE con sesión; `body` se manda como JSON si viene.
+async function authSend<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  return request<T>(path, {
+    method,
+    headers: await authHeaders(),
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
 export const api = {
   async completeRegistration(username: string) {
     return request<Profile>('/auth/complete-registration', {
@@ -148,5 +160,40 @@ export const api = {
   // Árbol completo: cada comentario trae sus respuestas en `replies`.
   getComments(postId: string) {
     return authGet<List<CommentView>>(`/comments?${toQueryString({ postId })}`);
+  },
+
+  createPost(input: CreatePostInput) {
+    return authSend<PostView>('POST', '/posts', input);
+  },
+
+  deletePost(postId: string) {
+    return authSend<void>('DELETE', `/posts/${encodeURIComponent(postId)}`);
+  },
+
+  // `parentId` null = comentario raíz; si no, respuesta a ese comentario.
+  createComment(input: CreateCommentInput) {
+    return authSend<CommentView>('POST', '/comments', input);
+  },
+
+  // Queda como "[eliminado]" en el árbol, con sus respuestas.
+  deleteComment(commentId: string) {
+    return authSend<void>('DELETE', `/comments/${encodeURIComponent(commentId)}`);
+  },
+
+  // Votar es "poner" (PUT): votar de nuevo cambia el voto. Quitarlo es DELETE.
+  votePost(postId: string, value: VoteValue) {
+    return authSend<unknown>('PUT', '/votes/posts', { postId, value });
+  },
+
+  removePostVote(postId: string) {
+    return authSend<void>('DELETE', `/votes/posts/${encodeURIComponent(postId)}`);
+  },
+
+  voteComment(commentId: string, value: VoteValue) {
+    return authSend<unknown>('PUT', '/votes/comments', { commentId, value });
+  },
+
+  removeCommentVote(commentId: string) {
+    return authSend<void>('DELETE', `/votes/comments/${encodeURIComponent(commentId)}`);
   },
 };

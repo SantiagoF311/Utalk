@@ -4,7 +4,9 @@ import { ThemedText } from '@/components/themedText';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
-export type ButtonVariant = 'primary' | 'ghost';
+// strong: oscuro (claro en modo oscuro), para confirmar algo que no se
+// deshace, como borrar.
+export type ButtonVariant = 'primary' | 'ghost' | 'strong';
 
 type ButtonProps = {
   title: string;
@@ -30,16 +32,19 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading,
         styles.base,
         variant === 'primary' && { backgroundColor: theme.primary },
         variant === 'ghost' && { backgroundColor: theme.backgroundElement },
+        variant === 'strong' && { backgroundColor: theme.text },
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
         style,
       ]}>
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? theme.onPrimary : theme.text} />
+        <ActivityIndicator
+          color={variant === 'primary' ? theme.onPrimary : variant === 'strong' ? theme.background : theme.text}
+        />
       ) : (
         <ThemedText
           type="smallBold"
-          themeColor={variant === 'primary' ? 'onPrimary' : 'text'}
+          themeColor={variant === 'primary' ? 'onPrimary' : variant === 'strong' ? 'background' : 'text'}
           style={styles.label}>
           {title}
         </ThemedText>

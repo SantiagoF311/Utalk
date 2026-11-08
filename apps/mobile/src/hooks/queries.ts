@@ -33,8 +33,12 @@ export function useCommunities(panelId: string) {
   });
 }
 
-export function useCommunity(communityId: string) {
-  return useQuery({ queryKey: queryKeys.community(communityId), queryFn: () => api.getCommunity(communityId) });
+export function useCommunity(communityId: string, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: queryKeys.community(communityId),
+    queryFn: () => api.getCommunity(communityId),
+    enabled: options.enabled ?? true,
+  });
 }
 
 export function usePost(postId: string) {

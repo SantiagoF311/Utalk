@@ -32,7 +32,7 @@ app/
 ├── post/[postId]                │ stack raíz, encima de todo, con botón atrás
 ├── user/[userId]                │
 ├── settings                     │
-└── compose                      ┘ modal del botón ✏️ (publicar llega con la interacción)
+└── compose                      ┘ publicar: modal del ✏️ o del "+" de una comunidad (?communityId=)
 ```
 
 **El panel elegido manda.** El sidebar (`components/sidebar.tsx`) tiene
@@ -159,8 +159,8 @@ escritas a mano, y TanStack Query las resuelve:
 - **Scroll infinito con cursor**: `useInfiniteQuery` con
   `getNextPageParam: (page) => page.nextCursor` encaja directo con el
   `{ items, nextCursor }` del backend.
-- **Voto optimista** (llega con la rama de interacción): la flecha cambia
-  al instante y se revierte sola si el servidor falla.
+- **Voto optimista**: la flecha cambia al instante y se revierte sola si el
+  servidor falla (ver "Escrituras" abajo).
 
 **Configuración** (`src/lib/queryClient.ts`):
 
@@ -182,6 +182,31 @@ que la query. Las queries viven en `src/hooks/queries.ts`.
 el feed ya trae completo) se guarda con `setQueryData` en la clave del
 detalle antes de navegar. Así el detalle se muestra al instante, sin
 pantalla de carga, y solo se piden los comentarios.
+
+### Escrituras (votar, publicar, comentar, borrar)
+
+Viven en `src/hooks/mutations.ts`, con `useMutation`.
+
+**Un post vive en varias cachés a la vez.** Cada feed donde aparece es una
+entrada distinta (`['feed', { panelId }, 'hot']`, el mismo panel en
+`'new'`, el feed de su comunidad…), y su detalle es otra (`['post', id]`):
+son copias del mismo post. Por eso los cambios pasan por
+`updatePostEverywhere` / `removePostEverywhere`, que lo cambian en todas
+las cachés que empiezan con `'feed'` y en la del detalle. Si se actualizara
+una sola, al volver al feed se vería el voto viejo hasta el próximo
+refresco.
+
+| Acción | Qué hace con la caché |
+|---|---|
+| Votar post o comentario | **Optimista**: cambia flecha y puntaje antes de la respuesta. Si falla, deshace *ese* cambio (resta lo que sumó), no restaura una foto vieja de la caché, que pisaría otros votos hechos mientras tanto |
+| Publicar | Guarda el post nuevo en su detalle (se abre al instante) e invalida los feeds |
+| Comentar o responder | Invalida el árbol de comentarios y sube `commentCount` en todas las copias del post |
+| Borrar post | Lo saca de todos los feeds y borra su detalle y sus comentarios de la caché |
+| Borrar comentario | Invalida el árbol. El contador no cambia: un comentario borrado queda como "[eliminado]" y sigue contando |
+
+**Tocar la flecha que ya está marcada quita el voto** (`DELETE
+/votes/...`); la otra lo cambia (`PUT`, que reemplaza el voto anterior).
+La regla está en `nextVote`.
 
 **No confundir con la caché del backend**: esta caché vive en el celular
 de cada usuario y ahorra requests al backend. Una caché del servidor
