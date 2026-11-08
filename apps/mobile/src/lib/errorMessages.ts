@@ -17,6 +17,8 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   COMMENT_DELETED: 'Ese comentario fue eliminado.',
   NOT_COMMENT_AUTHOR: 'Solo quien lo escribió puede hacer eso.',
   VALIDATION_FAILED: 'Revisa lo que escribiste: algo no es válido.',
+  ALREADY_REPORTED: 'Ya lo habías reportado. Un moderador lo va a revisar.',
+  CANNOT_REPORT_OWN_CONTENT: 'No puedes reportar lo que escribiste tú. Si quieres, bórralo.',
 };
 
 export function errorMessage(error: unknown): string {

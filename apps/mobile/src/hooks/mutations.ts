@@ -1,4 +1,13 @@
-import type { CommentView, CreateCommentInput, CreatePostInput, List, PostPage, PostView, VoteValue } from '@utalk/shared';
+import type {
+  CommentView,
+  CreateCommentInput,
+  CreatePostInput,
+  List,
+  PostPage,
+  PostView,
+  ReportCategory,
+  VoteValue,
+} from '@utalk/shared';
 import { InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';
@@ -135,6 +144,30 @@ export function useCreateComment(postId: string) {
       // hilo) y el contador del post sube en todos lados.
       void client.invalidateQueries({ queryKey: queryKeys.comments(postId) });
       updatePostEverywhere(postId, (post) => ({ ...post, commentCount: post.commentCount + 1 }));
+    },
+  });
+}
+
+export type ReportTarget = { kind: 'post'; postId: string } | { kind: 'comment'; postId: string; commentId: string };
+
+// Al reportar, el contenido queda oculto para quien reportó (con "Ver
+// igual") en todas las cachés donde aparece. No es optimista: la pantalla de
+// "listo" se muestra recién cuando el servidor lo confirmó.
+export function useReport() {
+  return useMutation({
+    mutationFn: ({ target, category, reason }: { target: ReportTarget; category: ReportCategory; reason: string }) =>
+      api.createReport({
+        postId: target.kind === 'post' ? target.postId : null,
+        commentId: target.kind === 'comment' ? target.commentId : null,
+        category,
+        reason,
+      }),
+    onSuccess: (_report, { target }) => {
+      if (target.kind === 'post') {
+        updatePostEverywhere(target.postId, (post) => ({ ...post, reportedByMe: true }));
+      } else {
+        updateCommentInTree(target.postId, target.commentId, (comment) => ({ ...comment, reportedByMe: true }));
+      }
     },
   });
 }

@@ -49,8 +49,8 @@ export class CommentsService {
       authorId,
       body: input.body,
     });
-    // myVote es null por definición: el comentario acaba de nacer.
-    return toCommentView(item, null);
+    // myVote y el reporte no existen todavía: el comentario acaba de nacer.
+    return toCommentView(item, null, false);
   }
 
   // Todos los comentarios del post como árbol: cada uno trae sus respuestas
@@ -60,14 +60,17 @@ export class CommentsService {
     await this.postsService.findById(postId);
 
     const items = await this.commentRepository.findWithAuthorByPostId(postId);
-    const myVotes = await this.commentRepository.findVotesByUser(
-      items.map((item) => item.comment.id),
-      viewerId,
-    );
+    const commentIds = items.map((item) => item.comment.id);
+    // Votos y reportes de quien mira no dependen entre sí: en paralelo.
+    const [myVotes, reported] = await Promise.all([
+      this.commentRepository.findVotesByUser(commentIds, viewerId),
+      this.commentRepository.findReportedByUser(commentIds, viewerId),
+    ]);
 
     const views = new Map<string, CommentView>();
     for (const item of items) {
-      views.set(item.comment.id, toCommentView(item, myVotes.get(item.comment.id) ?? null));
+      const id = item.comment.id;
+      views.set(id, toCommentView(item, myVotes.get(id) ?? null, reported.has(id)));
     }
 
     const roots: CommentView[] = [];
@@ -87,15 +90,16 @@ export class CommentsService {
   }
 
   async findViewById(id: string, viewerId: string): Promise<CommentView> {
-    // El comentario y el voto de quien mira se piden en paralelo.
-    const [item, myVotes] = await Promise.all([
+    // El comentario, el voto y el reporte de quien mira se piden en paralelo.
+    const [item, myVotes, reported] = await Promise.all([
       this.commentRepository.findWithAuthorById(id),
       this.commentRepository.findVotesByUser([id], viewerId),
+      this.commentRepository.findReportedByUser([id], viewerId),
     ]);
     if (!item) {
       throw new AppException('COMMENT_NOT_FOUND', `Comment ${id} not found`);
     }
-    return toCommentView(item, myVotes.get(id) ?? null);
+    return toCommentView(item, myVotes.get(id) ?? null, reported.has(id));
   }
 
   // Para otros módulos (votos, reportes) que solo necesitan el comentario crudo.

@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
+import { clearRevealedReports } from '@/hooks/useRevealedReport';
 import { deviceStorage } from '@/lib/deviceStorage';
 import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +26,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_OUT') {
         queryClient.clear();
         void deviceStorage.clearAccountData();
+        clearRevealedReports();
       }
     });
     return () => data.subscription.unsubscribe();

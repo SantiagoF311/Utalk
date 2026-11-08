@@ -1,6 +1,7 @@
 import type { PostView } from '@utalk/shared';
 import { StyleSheet, View } from 'react-native';
 
+import { HiddenNotice, ReportedBanner } from '@/components/hiddenNotice';
 import { Icon } from '@/components/icon';
 import { PostActions } from '@/components/postActions';
 import { ThemedText } from '@/components/themedText';
@@ -8,6 +9,7 @@ import { VoteBar } from '@/components/voteBar';
 import { Spacing } from '@/constants/theme';
 import { nextVote, useVotePost } from '@/hooks/mutations';
 import { useOpenProfile } from '@/hooks/useOpenProfile';
+import { useRevealedReport } from '@/hooks/useRevealedReport';
 import { useTheme } from '@/hooks/useTheme';
 import { relativeTime } from '@/lib/relativeTime';
 
@@ -40,6 +42,20 @@ export function PostCard({
   const theme = useTheme();
   const openProfile = useOpenProfile();
   const votePost = useVotePost();
+  const [revealed, setRevealed] = useRevealedReport(post.id);
+
+  // Lo reportaste: queda oculto para ti hasta que toques "Ver igual" (y se
+  // puede volver a ocultar desde la franja de arriba).
+  if (post.reportedByMe && !revealed) {
+    return (
+      <HiddenNotice
+        title="Publicación oculta"
+        description="La reportaste. Un moderador la va a revisar."
+        onReveal={() => setRevealed(true)}
+        bordered={!full}
+      />
+    );
+  }
 
   return (
     <View
@@ -47,6 +63,9 @@ export function PostCard({
         styles.card,
         !full && [styles.bordered, { borderColor: theme.border, backgroundColor: theme.background }],
       ]}>
+      {post.reportedByMe && (
+        <ReportedBanner label="Reportaste esta publicación" onHide={() => setRevealed(false)} />
+      )}
       <View style={styles.meta}>
         {communityName && (
           <View style={[styles.chip, { backgroundColor: theme.primarySoft }]}>

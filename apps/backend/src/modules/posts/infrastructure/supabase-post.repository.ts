@@ -192,6 +192,21 @@ export class SupabasePostRepository implements PostRepository {
     );
   }
 
+  async findReportedByUser(postIds: string[], userId: string): Promise<Set<string>> {
+    if (postIds.length === 0) {
+      return new Set();
+    }
+
+    const { data, error } = await this.supabase.client
+      .from('reports')
+      .select('post_id')
+      .eq('reported_by', userId)
+      .in('post_id', postIds);
+
+    if (error) throw new Error(error.message);
+    return new Set((data as { post_id: string }[]).map((report) => report.post_id));
+  }
+
   async update(id: string, changes: PostChanges): Promise<PostEntity> {
     // Los campos `undefined` se omiten al serializar, así que solo se
     // actualiza lo que vino en `changes`.

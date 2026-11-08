@@ -47,8 +47,8 @@ export class PostsService {
     });
     // myVote es null por definición: nadie votó un post que acaba de nacer.
     // Si algún día se agrega el voto automático del autor (como Reddit),
-    // esto tiene que pasar a 1.
-    return toPostView(item, null);
+    // esto tiene que pasar a 1. Y nadie puede haberlo reportado todavía.
+    return toPostView(item, null, false);
   }
 
   async findFeed(query: PostFeedQuery, viewerId: string): Promise<PostPage> {
@@ -60,27 +60,32 @@ export class PostsService {
     }
 
     const page = await this.postRepository.findPage(query);
-    const myVotes = await this.postRepository.findVotesByUser(
-      page.items.map((item) => item.post.id),
-      viewerId,
-    );
+    const postIds = page.items.map((item) => item.post.id);
+    // Votos y reportes de quien mira no dependen entre sí: en paralelo.
+    const [myVotes, reported] = await Promise.all([
+      this.postRepository.findVotesByUser(postIds, viewerId),
+      this.postRepository.findReportedByUser(postIds, viewerId),
+    ]);
 
     return {
-      items: page.items.map((item) => toPostView(item, myVotes.get(item.post.id) ?? null)),
+      items: page.items.map((item) =>
+        toPostView(item, myVotes.get(item.post.id) ?? null, reported.has(item.post.id)),
+      ),
       nextCursor: page.nextCursor,
     };
   }
 
   async findViewById(id: string, viewerId: string): Promise<PostView> {
-    // El post y el voto de quien mira se piden en paralelo.
-    const [item, myVotes] = await Promise.all([
+    // El post, el voto y el reporte de quien mira se piden en paralelo.
+    const [item, myVotes, reported] = await Promise.all([
       this.postRepository.findWithAuthorById(id),
       this.postRepository.findVotesByUser([id], viewerId),
+      this.postRepository.findReportedByUser([id], viewerId),
     ]);
     if (!item) {
       throw new AppException('POST_NOT_FOUND', `Post ${id} not found`);
     }
-    return toPostView(item, myVotes.get(id) ?? null);
+    return toPostView(item, myVotes.get(id) ?? null, reported.has(id));
   }
 
   // Para otros módulos (comentarios, votos, reportes) que solo necesitan

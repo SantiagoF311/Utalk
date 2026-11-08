@@ -35,6 +35,9 @@ describe('PostsService', () => {
         .mockResolvedValue({ post, author: makeAuthor() }),
       findPage: jest.fn<PostRepository['findPage']>(),
       findVotesByUser: jest.fn<PostRepository['findVotesByUser']>().mockResolvedValue(new Map()),
+      findReportedByUser: jest
+        .fn<PostRepository['findReportedByUser']>()
+        .mockResolvedValue(new Set()),
       update: jest.fn<PostRepository['update']>().mockResolvedValue(post),
       delete: jest.fn<PostRepository['delete']>().mockResolvedValue(undefined),
     };
@@ -67,10 +70,11 @@ describe('PostsService', () => {
       expect(view.createdAt).toBe('2026-11-01T12:00:00.000Z');
     });
 
-    it('un post recién creado no tiene voto propio', async () => {
+    it('un post recién creado no tiene voto propio ni reporte', async () => {
       const view = await service.create(input, IDS.ana);
 
       expect(view.myVote).toBeNull();
+      expect(view.reportedByMe).toBe(false);
     });
 
     it('no relee el post ni busca su voto: el insert ya devuelve el autor', async () => {
@@ -153,6 +157,26 @@ describe('PostsService', () => {
       expect(page.nextCursor).toBe('abc');
     });
 
+    it('marca los posts que quien mira ya reportó', async () => {
+      const reported = makePost({ id: '00000000-0000-4000-8000-0000000000e2' });
+      repository.findPage.mockResolvedValue({
+        items: [
+          { post: makePost(), author: makeAuthor() },
+          { post: reported, author: makeAuthor() },
+        ],
+        nextCursor: null,
+      });
+      repository.findReportedByUser.mockResolvedValue(new Set([reported.id]));
+
+      const page = await service.findFeed(
+        { communityId: IDS.community, sort: 'hot', limit: 20 },
+        IDS.beto,
+      );
+
+      expect(page.items.map((p) => p.reportedByMe)).toEqual([false, true]);
+      expect(repository.findReportedByUser).toHaveBeenCalledWith([IDS.post, reported.id], IDS.beto);
+    });
+
     it('404 explícito si la comunidad no existe, en vez de una página vacía', async () => {
       communities.findById.mockRejectedValue(notFound('COMMUNITY_NOT_FOUND'));
 
@@ -166,6 +190,14 @@ describe('PostsService', () => {
   });
 
   describe('findViewById', () => {
+    it('dice si quien mira ya lo reportó', async () => {
+      repository.findReportedByUser.mockResolvedValue(new Set([IDS.post]));
+
+      const view = await service.findViewById(IDS.post, IDS.beto);
+
+      expect(view.reportedByMe).toBe(true);
+    });
+
     it('POST_NOT_FOUND si no existe', async () => {
       repository.findWithAuthorById.mockResolvedValue(null);
 

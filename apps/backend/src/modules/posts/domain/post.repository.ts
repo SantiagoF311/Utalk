@@ -40,6 +40,8 @@ export interface PostRepository {
   findPage(query: PostPageQuery): Promise<PostPage>;
   // Voto del usuario en cada uno de esos posts; los que no votó no aparecen.
   findVotesByUser(postIds: string[], userId: string): Promise<Map<string, VoteValue>>;
+  // Cuáles de esos posts reportó el usuario (la app los muestra ocultos).
+  findReportedByUser(postIds: string[], userId: string): Promise<Set<string>>;
   update(id: string, changes: PostChanges): Promise<PostEntity>;
   delete(id: string): Promise<void>;
 }

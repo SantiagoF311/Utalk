@@ -1,14 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import type { ReportCategory } from '@utalk/shared';
+import { AppException } from '../../../common/appException.js';
+import { isUniqueViolation } from '../../../common/databaseError.js';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import { ReportEntity } from '../domain/report.entity.js';
-import type { NewReport, ReportRepository } from '../domain/report.repository.js';
+import type { NewReport, ReportRepository, ReportTarget } from '../domain/report.repository.js';
 
 interface ReportRow {
   id: string;
   post_id: string | null;
   comment_id: string | null;
   reported_by: string;
-  reason: string;
+  category: ReportCategory;
+  reason: string | null;
   created_at: string;
 }
 
@@ -18,6 +22,7 @@ function toEntity(row: ReportRow): ReportEntity {
     row.post_id,
     row.comment_id,
     row.reported_by,
+    row.category,
     row.reason,
     new Date(row.created_at),
   );
@@ -36,13 +41,36 @@ export class SupabaseReportRepository implements ReportRepository {
         post_id: report.postId,
         comment_id: report.commentId,
         reported_by: report.reportedBy,
+        category: report.category,
         reason: report.reason,
       })
       .select()
       .single();
 
+    // Dos reportes simultáneos pueden pasar el chequeo del service; los
+    // índices únicos parciales frenan al segundo.
+    if (
+      error &&
+      (isUniqueViolation(error, 'reports_one_per_post_and_reporter') ||
+        isUniqueViolation(error, 'reports_one_per_comment_and_reporter'))
+    ) {
+      throw new AppException('ALREADY_REPORTED', 'You already reported this content');
+    }
     if (error) throw new Error(error.message);
     return toEntity(data);
+  }
+
+  async existsByReporter(target: ReportTarget, reportedBy: string): Promise<boolean> {
+    const query = this.supabase.client
+      .from('reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('reported_by', reportedBy);
+    const { count, error } = await (target.postId !== null
+      ? query.eq('post_id', target.postId)
+      : query.eq('comment_id', target.commentId));
+
+    if (error) throw new Error(error.message);
+    return (count ?? 0) > 0;
   }
 
   async findAll(): Promise<ReportEntity[]> {

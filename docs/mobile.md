@@ -32,7 +32,8 @@ app/
 ├── post/[postId]                │ stack raíz, encima de todo, con botón atrás
 ├── user/[userId]                │
 ├── settings                     │
-└── compose                      ┘ publicar: modal del ✏️ o del "+" de una comunidad (?communityId=)
+├── compose                      │ publicar: modal del ✏️ o del "+" de una comunidad (?communityId=)
+└── report                       ┘ reportar: modal desde el "···" de lo ajeno (?postId=…[&commentId=…])
 ```
 
 **El panel elegido manda.** El sidebar (`components/sidebar.tsx`) tiene
@@ -183,7 +184,7 @@ el feed ya trae completo) se guarda con `setQueryData` en la clave del
 detalle antes de navegar. Así el detalle se muestra al instante, sin
 pantalla de carga, y solo se piden los comentarios.
 
-### Escrituras (votar, publicar, comentar, borrar)
+### Escrituras (votar, publicar, comentar, borrar, reportar)
 
 Viven en `src/hooks/mutations.ts`, con `useMutation`.
 
@@ -203,6 +204,7 @@ refresco.
 | Comentar o responder | Invalida el árbol de comentarios y sube `commentCount` en todas las copias del post |
 | Borrar post | Lo saca de todos los feeds y borra su detalle y sus comentarios de la caché |
 | Borrar comentario | Invalida el árbol. El contador no cambia: un comentario borrado queda como "[eliminado]" y sigue contando |
+| Reportar | **No optimista** (la confirmación se muestra cuando el servidor respondió). Marca `reportedByMe` en todas las copias del post o en el comentario del árbol, y la app lo muestra oculto con "Ver igual". Al verlo, una franja "Reportaste esta publicación · Ocultar" permite esconderlo de nuevo. Qué se eligió ver se recuerda por id (`hooks/useRevealedReport.ts`), así que vale igual en el feed y en el detalle; dura mientras la app está abierta y se borra al cerrar sesión |
 
 **Tocar la flecha que ya está marcada quita el voto** (`DELETE
 /votes/...`); la otra lo cambia (`PUT`, que reemplaza el voto anterior).

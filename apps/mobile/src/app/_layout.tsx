@@ -102,6 +102,7 @@ function RootNavigator() {
             options={{ headerShown: true, title: 'Ajustes', headerBackTitle: 'Atrás' }}
           />
           <Stack.Screen name="compose" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="report" options={{ presentation: 'modal' }} />
           <Stack.Screen name="complete-profile" options={{ gestureEnabled: false }} />
         </Stack.Protected>
 

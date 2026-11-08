@@ -35,11 +35,13 @@ export const updatePostSchema = postSchema
 
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 
-// Post tal como lo ve un usuario: con el apodo del autor resuelto y su
-// propio voto (para pintar la flecha marcada).
+// Post tal como lo ve un usuario: con el apodo del autor resuelto, su
+// propio voto (para pintar la flecha marcada) y si ya lo reportó (la app lo
+// muestra oculto, con "Ver igual").
 export const postViewSchema = postSchema.omit({ authorId: true }).extend({
   author: authorSchema,
   myVote: voteValueSchema.nullable(),
+  reportedByMe: z.boolean(),
 });
 
 export type PostView = z.infer<typeof postViewSchema>;

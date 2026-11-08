@@ -41,6 +41,8 @@ export const commentViewSchema = z.object({
   isDeleted: z.boolean(),
   score: z.number().int(),
   myVote: voteValueSchema.nullable(),
+  // Si quien mira ya lo reportó (la app lo muestra oculto, con "Ver igual").
+  reportedByMe: z.boolean(),
   createdAt: z.iso.datetime(),
   get replies() {
     return z.array(commentViewSchema);
