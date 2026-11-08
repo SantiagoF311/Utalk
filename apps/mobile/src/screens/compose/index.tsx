@@ -25,7 +25,15 @@ const TITLE_MAX_LENGTH = 300;
 // Nueva publicación (diseño 2a/2b): dónde se ve (tu panel o el general, y la
 // comunidad), título y texto. "Publicar" abre la vista previa; desde ahí se
 // publica de verdad. Si se abrió desde una comunidad, viene elegida.
-export function ComposeScreen({ communityId: initialCommunityId }: { communityId?: string }) {
+// `title`: título ya escrito (ej. "Publicar esta pregunta" desde una búsqueda
+// sin resultados).
+export function ComposeScreen({
+  communityId: initialCommunityId,
+  title: initialTitle,
+}: {
+  communityId?: string;
+  title?: string;
+}) {
   const theme = useTheme();
   const me = useMyProfile();
   const { publishable, status, error, retry } = useMyPanels();
@@ -34,7 +42,7 @@ export function ComposeScreen({ communityId: initialCommunityId }: { communityId
 
   const [chosenPanelId, setChosenPanelId] = useState<string | null>(null);
   const [chosenCommunityId, setChosenCommunityId] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle ?? '');
   const [body, setBody] = useState('');
   const [previewing, setPreviewing] = useState(false);
 

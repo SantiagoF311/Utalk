@@ -15,6 +15,7 @@ import { useCommunities } from '@/hooks/queries';
 import { useFeedSelection } from '@/hooks/useFeedSelection';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
+import { normalize } from '@/lib/text';
 
 // Comunidades: las del panel elegido en el sidebar, con un buscador. Es la
 // pestaña "Comunidades" de Reddit, en versión simple.
@@ -153,14 +154,6 @@ function SearchField({ value, onChange }: { value: string; onChange: (value: str
       />
     </View>
   );
-}
-
-// Sin tildes ni mayúsculas: "matematicas" encuentra "Matemáticas".
-function normalize(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
 }
 
 function Separator() {

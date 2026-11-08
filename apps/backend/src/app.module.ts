@@ -14,6 +14,7 @@ import { PanelsModule } from './modules/panels/panels.module.js';
 import { PostsModule } from './modules/posts/posts.module.js';
 import { ProfilesModule } from './modules/profiles/profiles.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
+import { SearchModule } from './modules/search/search.module.js';
 import { UniversitiesModule } from './modules/universities/universities.module.js';
 import { VotesModule } from './modules/votes/votes.module.js';
 import { SupabaseModule } from './supabase/supabase.module.js';
@@ -32,6 +33,7 @@ import { SupabaseModule } from './supabase/supabase.module.js';
     CommentsModule,
     VotesModule,
     ReportsModule,
+    SearchModule,
   ],
   controllers: [AppController],
   // El orden importa: el rate limiting va primero (frena también a quien

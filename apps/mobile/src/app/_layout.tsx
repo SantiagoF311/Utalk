@@ -101,6 +101,7 @@ function RootNavigator() {
             name="settings"
             options={{ headerShown: true, title: 'Ajustes', headerBackTitle: 'Atrás' }}
           />
+          <Stack.Screen name="search" />
           <Stack.Screen name="compose" options={{ presentation: 'modal' }} />
           <Stack.Screen name="report" options={{ presentation: 'modal' }} />
           <Stack.Screen name="complete-profile" options={{ gestureEnabled: false }} />

@@ -1,4 +1,4 @@
-import type { PostSort } from '@utalk/shared';
+import type { PostSort, SearchSort } from '@utalk/shared';
 
 // Claves de la caché en un solo lugar: así invalidar (ej. después de postear)
 // usa exactamente la misma clave que la query.
@@ -12,6 +12,9 @@ export const queryKeys = {
     ['feed', scope, sort] as const,
   post: (postId: string) => ['post', postId] as const,
   comments: (postId: string) => ['comments', postId] as const,
-  // No viene de la API: se guarda en el dispositivo (ver useRecentCommunities).
+  search: (panelId: string, q: string, sort: SearchSort) => ['search', { panelId, q, sort }] as const,
+  // No vienen de la API: se guardan en el dispositivo (ver useRecentCommunities
+  // y useRecentSearches).
   recentCommunities: ['recentCommunities'] as const,
+  recentSearches: ['recentSearches'] as const,
 };

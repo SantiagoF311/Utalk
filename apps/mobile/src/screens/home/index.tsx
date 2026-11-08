@@ -1,24 +1,50 @@
+import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FeedList } from '@/components/feedList';
+import { Icon } from '@/components/icon';
 import { ScreenHeader } from '@/components/screenHeader';
 import { StateMessage } from '@/components/stateMessage';
+import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
+import { Spacing } from '@/constants/theme';
 import { useCommunities } from '@/hooks/queries';
 import { useFeedSelection } from '@/hooks/useFeedSelection';
+import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 
 // Inicio: el feed del panel elegido en el sidebar (por defecto, el de tu
-// universidad). Tocar el nombre del panel abre el sidebar para cambiarlo.
+// universidad), con la barra de búsqueda arriba.
 export function HomeScreen() {
+  const theme = useTheme();
   const selection = useFeedSelection();
+  const panelLabel = !selection.panel
+    ? 'UTalk'
+    : selection.panel.universityId === null
+      ? 'General'
+      : selection.panel.name;
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top']}>
-        <ScreenHeader title={selection.panel?.name ?? 'UTalk'} titleOpensSidebar />
+        {/* Como Reddit: la búsqueda es una barra siempre visible arriba, que
+            dice además en qué panel estás. */}
+        <ScreenHeader
+          center={
+            <Pressable
+              accessibilityRole="search"
+              accessibilityLabel={`Buscar en ${panelLabel}`}
+              onPress={() => router.push({ pathname: '/search', params: { panelId: selection.panel?.id } })}
+              style={[styles.searchBar, { backgroundColor: theme.backgroundElement }]}>
+              <Icon name="search" size={18} color="textSecondary" />
+              <ThemedText themeColor="textSecondary" numberOfLines={1} style={styles.searchText}>
+                Buscar en {panelLabel}
+              </ThemedText>
+            </Pressable>
+          }
+        />
         <PanelFeed />
       </SafeAreaView>
     </ThemedView>
@@ -60,6 +86,17 @@ function PanelFeed() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    height: 40,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 999,
+  },
+  searchText: {
     flex: 1,
   },
 });
