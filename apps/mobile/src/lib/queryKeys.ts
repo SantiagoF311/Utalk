@@ -12,7 +12,8 @@ export const queryKeys = {
     ['feed', scope, sort] as const,
   post: (postId: string) => ['post', postId] as const,
   comments: (postId: string) => ['comments', postId] as const,
-  search: (panelId: string, q: string, sort: SearchSort) => ['search', { panelId, q, sort }] as const,
+  search: (scope: { panelId: string } | { communityId: string }, q: string, sort: SearchSort) =>
+    ['search', scope, q, sort] as const,
   // No vienen de la API: se guardan en el dispositivo (ver useRecentCommunities
   // y useRecentSearches).
   recentCommunities: ['recentCommunities'] as const,

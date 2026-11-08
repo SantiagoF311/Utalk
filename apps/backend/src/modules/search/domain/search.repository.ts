@@ -4,6 +4,8 @@ import { SearchHitEntity } from './searchHit.entity.js';
 export interface SearchParams {
   query: string;
   panelId: string;
+  // null = todo el panel.
+  communityId: string | null;
   sort: SearchSort;
   limit: number;
   offset: number;

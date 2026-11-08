@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { PostCard } from '@/components/postCard';
+import { PostCard, PostCommunity } from '@/components/postCard';
 import { StateMessage } from '@/components/stateMessage';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFeed } from '@/hooks/queries';
@@ -23,10 +23,9 @@ type FeedListProps = {
   scope: { communityId: string } | { panelId: string };
   // Lo que va arriba de los posts (ej. la cabecera de la comunidad y su orden).
   header?: ReactElement;
-  // communityId → nombre, para mostrar la comunidad de cada post en el feed de un panel.
-  communityNames?: Map<string, string>;
-  // En el panel general: mostrar la universidad del autor de cada post.
-  showUniversity?: boolean;
+  // communityId → comunidad, para mostrar de cuál es cada post en el feed de
+  // un panel.
+  communities?: Map<string, PostCommunity>;
   // El orden lo elige quien usa la lista: en Inicio, el sidebar (Popular /
   // Reciente); en una comunidad, su menú de orden.
   sort: PostSort;
@@ -34,13 +33,7 @@ type FeedListProps = {
 
 // Feed paginado por cursor con scroll infinito: al acercarse al final pide la
 // página siguiente. Tirar hacia abajo lo refresca.
-export function FeedList({
-  scope,
-  header,
-  communityNames,
-  showUniversity,
-  sort,
-}: FeedListProps) {
+export function FeedList({ scope, header, communities, sort }: FeedListProps) {
   const theme = useTheme();
   const feed = useFeed(scope, sort);
   const queryClient = useQueryClient();
@@ -74,11 +67,7 @@ export function FeedList({
           accessibilityLabel={item.title}
           onPress={() => openPost(item)}
           style={({ pressed }) => pressed && styles.pressed}>
-          <PostCard
-            post={item}
-            communityName={communityNames?.get(item.communityId)}
-            showUniversity={showUniversity}
-          />
+          <PostCard post={item} community={communities?.get(item.communityId)} />
         </Pressable>
       )}
       ListHeaderComponent={header ? <View style={styles.header}>{header}</View> : undefined}

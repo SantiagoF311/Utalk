@@ -10,16 +10,22 @@ export type SearchSort = z.infer<typeof searchSortSchema>;
 export const SEARCH_QUERY_MIN_LENGTH = 2;
 export const SEARCH_QUERY_MAX_LENGTH = 100;
 
-// GET /search?q=…&panelId=…&sort=relevance|new&cursor=…&limit=…
-// Busca en publicaciones y comentarios de un panel; nunca en apodos.
+// GET /search?q=…&(panelId=…|communityId=…)&sort=relevance|new&cursor=…&limit=…
+// Busca en publicaciones y comentarios de un panel o de una comunidad
+// (exactamente uno de los dos, como el feed); nunca en apodos.
 // `cursor` es el `nextCursor` de la página anterior (opaco para el cliente).
-export const searchQuerySchema = z.object({
-  q: z.string().trim().min(SEARCH_QUERY_MIN_LENGTH).max(SEARCH_QUERY_MAX_LENGTH),
-  panelId: z.uuid(),
-  sort: searchSortSchema.default('relevance'),
-  cursor: z.string().regex(/^\d+$/).optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-});
+export const searchQuerySchema = z
+  .object({
+    q: z.string().trim().min(SEARCH_QUERY_MIN_LENGTH).max(SEARCH_QUERY_MAX_LENGTH),
+    panelId: z.uuid().optional(),
+    communityId: z.uuid().optional(),
+    sort: searchSortSchema.default('relevance'),
+    cursor: z.string().regex(/^\d+$/).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .refine((query) => (query.panelId === undefined) !== (query.communityId === undefined), {
+    message: 'Exactly one of panelId or communityId must be set',
+  });
 
 export type SearchQuery = z.infer<typeof searchQuerySchema>;
 

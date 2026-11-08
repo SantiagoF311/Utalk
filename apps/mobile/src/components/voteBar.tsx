@@ -26,7 +26,6 @@ export function VoteBar({ score, myVote, onVote, bordered = true }: VoteBarProps
       style={[
         styles.container,
         bordered && [styles.bordered, { borderColor: theme.border }],
-        bordered && myVote !== null && { backgroundColor: theme.backgroundElement },
       ]}>
       <Pressable
         accessibilityRole="button"
@@ -34,37 +33,47 @@ export function VoteBar({ score, myVote, onVote, bordered = true }: VoteBarProps
         accessibilityState={{ selected: myVote === 1 }}
         onPress={() => onVote(1)}
         hitSlop={8}>
-        <Icon name="upvote" size={16} color={myVote === 1 ? 'success' : 'textSecondary'} />
+        <Icon name="upvote" size={14} color={myVote === 1 ? 'success' : 'textSecondary'} />
       </Pressable>
       <ThemedText type="smallBold" themeColor={scoreColor} style={styles.score}>
         {score}
       </ThemedText>
+      {/* En la pastilla, una línea separa el voto a favor del voto en contra (como Reddit). */}
+      {bordered && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={myVote === -1 ? 'Quitar voto negativo' : 'Votar en contra'}
         accessibilityState={{ selected: myVote === -1 }}
         onPress={() => onVote(-1)}
         hitSlop={8}>
-        <Icon name="downvote" size={16} color={myVote === -1 ? 'primary' : 'textSecondary'} />
+        <Icon name="downvote" size={14} color={myVote === -1 ? 'primary' : 'textSecondary'} />
       </Pressable>
     </View>
   );
 }
 
+// Compacto, como el de Reddit. Las flechas se ven chicas, pero su zona de
+// toque es más grande (hitSlop).
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.one + Spacing.half,
   },
   bordered: {
     borderWidth: 1,
     borderRadius: 999,
     paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.two + Spacing.half,
   },
   score: {
-    minWidth: 16,
+    minWidth: 14,
     textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  divider: {
+    width: StyleSheet.hairlineWidth,
+    height: 14,
   },
 });

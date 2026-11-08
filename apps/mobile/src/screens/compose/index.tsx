@@ -1,4 +1,4 @@
-import type { Community, PostView } from '@utalk/shared';
+import type { CommunityView, PostView } from '@utalk/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -201,7 +201,7 @@ export function ComposeScreen({
         title="Así se va a ver"
         description={community ? `En c/${community.slug}, del panel ${panel.name}.` : undefined}>
         <View style={styles.previewBody}>
-          {preview && <PostCard post={preview} communityName={community?.name} readOnly />}
+          {preview && <PostCard post={preview} community={community} readOnly />}
           <Callout>Después de publicar puedes borrarla, pero no editar el texto.</Callout>
           {createPost.isError && <Callout variant="warning">{errorMessage(createPost.error)}</Callout>}
           <Button
@@ -217,7 +217,7 @@ export function ComposeScreen({
 }
 
 type CommunityPickerProps = {
-  communities: Community[] | undefined;
+  communities: CommunityView[] | undefined;
   loading: boolean;
   selectedId: string | undefined;
   onSelect: (communityId: string) => void;

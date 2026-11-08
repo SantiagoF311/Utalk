@@ -2,8 +2,9 @@ import { useLocalSearchParams } from 'expo-router';
 
 import { SearchScreen } from '@/screens/search';
 
-// `panelId`: el panel desde el que se abrió (el elegido en el sidebar).
+// Desde Inicio, `panelId` (el elegido en el sidebar); desde el 🔍 de una
+// comunidad, `communityId` (se busca solo en ella, con opción de quitarlo).
 export default function Search() {
-  const { panelId } = useLocalSearchParams<{ panelId?: string }>();
-  return <SearchScreen panelId={panelId} />;
+  const { panelId, communityId } = useLocalSearchParams<{ panelId?: string; communityId?: string }>();
+  return <SearchScreen panelId={panelId} communityId={communityId} />;
 }

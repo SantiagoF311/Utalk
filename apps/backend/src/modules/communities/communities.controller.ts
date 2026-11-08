@@ -8,12 +8,12 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { createCommunitySchema, updateCommunitySchema } from '@utalk/shared';
-import type { Community, List } from '@utalk/shared';
+import type { CommunityView, List } from '@utalk/shared';
 import { CurrentUserId } from '../auth/auth.guard.js';
-import { toCommunityView } from './community.view.js';
 import { CommunitiesService } from './communities.service.js';
 
 @Controller('communities')
@@ -21,20 +21,43 @@ export class CommunitiesController {
   constructor(private readonly communitiesService: CommunitiesService) {}
 
   @Post()
-  async create(@Body() body: unknown, @CurrentUserId() userId: string): Promise<Community> {
+  async create(@Body() body: unknown, @CurrentUserId() userId: string): Promise<CommunityView> {
     const input = createCommunitySchema.parse(body);
-    return toCommunityView(await this.communitiesService.create(input, userId));
+    return this.communitiesService.create(input, userId);
   }
 
   @Get()
-  async findByPanelId(@Query('panelId', ParseUUIDPipe) panelId: string): Promise<List<Community>> {
-    const communities = await this.communitiesService.findByPanelId(panelId);
-    return { items: communities.map(toCommunityView) };
+  async findByPanelId(
+    @Query('panelId', ParseUUIDPipe) panelId: string,
+    @CurrentUserId() userId: string,
+  ): Promise<List<CommunityView>> {
+    return { items: await this.communitiesService.findViewsByPanelId(panelId, userId) };
   }
 
   @Get(':id')
-  async findById(@Param('id', ParseUUIDPipe) id: string): Promise<Community> {
-    return toCommunityView(await this.communitiesService.findById(id));
+  async findById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUserId() userId: string,
+  ): Promise<CommunityView> {
+    return this.communitiesService.findViewById(id, userId);
+  }
+
+  // Unirse (PUT: idempotente, unirse dos veces no es un error).
+  @Put(':id/membership')
+  async join(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUserId() userId: string,
+  ): Promise<CommunityView> {
+    return this.communitiesService.join(id, userId);
+  }
+
+  // Salirse. Devuelve la comunidad actualizada (con el contador nuevo).
+  @Delete(':id/membership')
+  async leave(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUserId() userId: string,
+  ): Promise<CommunityView> {
+    return this.communitiesService.leave(id, userId);
   }
 
   @Patch(':id')
@@ -42,9 +65,9 @@ export class CommunitiesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: unknown,
     @CurrentUserId() userId: string,
-  ): Promise<Community> {
+  ): Promise<CommunityView> {
     const input = updateCommunitySchema.parse(body);
-    return toCommunityView(await this.communitiesService.update(id, input, userId));
+    return this.communitiesService.update(id, input, userId);
   }
 
   @Delete(':id')

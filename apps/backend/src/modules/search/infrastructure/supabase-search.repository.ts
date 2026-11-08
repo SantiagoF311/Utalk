@@ -52,6 +52,7 @@ export class SupabaseSearchRepository implements SearchRepository {
     const { data, error } = await this.supabase.client.rpc('search_content', {
       p_query: params.query,
       p_panel_id: params.panelId,
+      p_community_id: params.communityId,
       p_sort: params.sort,
       p_limit: params.limit,
       p_offset: params.offset,

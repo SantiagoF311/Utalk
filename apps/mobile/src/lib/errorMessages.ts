@@ -10,6 +10,7 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   TOO_MANY_REQUESTS: 'Vas muy rápido. Espera un momento y vuelve a intentar.',
   PANEL_NOT_FOUND: 'Este panel ya no existe.',
   COMMUNITY_NOT_FOUND: 'Esta comunidad ya no existe.',
+  COMMUNITY_SLUG_TAKEN: 'Ya hay una comunidad con ese nombre corto en este panel. Prueba otro.',
   POST_NOT_FOUND: 'Esta publicación ya no existe.',
   CANNOT_PUBLISH_IN_PANEL: 'Solo puedes publicar en el panel de tu universidad o en el general.',
   NOT_POST_AUTHOR: 'Solo quien la publicó puede hacer eso.',
