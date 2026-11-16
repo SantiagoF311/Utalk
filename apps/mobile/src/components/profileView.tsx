@@ -14,6 +14,7 @@ import { ThemedText } from '@/components/themedText';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useToggleBlock } from '@/hooks/mutations';
 import { useAuthorComments, useBlocks, useProfile } from '@/hooks/queries';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 import { relativeTime } from '@/lib/relativeTime';
@@ -65,7 +66,7 @@ export function ProfileView({ userId, isOwn }: ProfileViewProps) {
       sort="new"
       header={header}
       // Tirar hacia abajo refresca también los contadores.
-      onRefresh={() => void profile.refetch()}
+      onRefresh={() => profile.refetch()}
       empty={{
         title: isOwn ? 'Todavía no publicaste nada' : 'Todavía no publicó nada',
         description: isOwn ? 'Cuando publiques, va a aparecer acá.' : undefined,
@@ -76,7 +77,7 @@ export function ProfileView({ userId, isOwn }: ProfileViewProps) {
       authorId={userId}
       isOwn={isOwn}
       header={header}
-      onRefresh={() => void profile.refetch()}
+      onRefresh={() => profile.refetch()}
     />
   );
 }
@@ -172,12 +173,13 @@ type AuthorCommentsProps = {
   isOwn: boolean;
   header: ReactElement;
   // Además de los comentarios, al tirar hacia abajo (la cabecera del perfil).
-  onRefresh: () => void;
+  onRefresh: () => unknown;
 };
 
 function AuthorComments({ authorId, isOwn, header, onRefresh }: AuthorCommentsProps) {
   const theme = useTheme();
   const comments = useAuthorComments(authorId);
+  const pullToRefresh = usePullToRefresh(() => Promise.all([comments.refetch(), onRefresh()]));
 
   return (
     <FlatList<ProfileComment>
@@ -186,11 +188,7 @@ function AuthorComments({ authorId, isOwn, header, onRefresh }: AuthorCommentsPr
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
-          refreshing={comments.isRefetching && !comments.isFetchingNextPage}
-          onRefresh={() => {
-            void comments.refetch();
-            onRefresh();
-          }}
+          {...pullToRefresh}
           tintColor={theme.textSecondary}
         />
       }

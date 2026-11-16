@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { MaxContentWidth, Spacing, ThemeColor } from '@/constants/theme';
 import { useMyReports } from '@/hooks/queries';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 import { relativeTime } from '@/lib/relativeTime';
@@ -24,6 +25,7 @@ const STATUS_COLORS: Record<ReportStatus, ThemeColor> = {
 export function MyReportsScreen() {
   const theme = useTheme();
   const reports = useMyReports();
+  const pullToRefresh = usePullToRefresh(() => reports.refetch());
 
   const empty = reports.isPending ? (
     <StateMessage kind="loading" />
@@ -53,8 +55,7 @@ export function MyReportsScreen() {
           ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: theme.border }]} />}
           refreshControl={
             <RefreshControl
-              refreshing={reports.isRefetching}
-              onRefresh={() => void reports.refetch()}
+              {...pullToRefresh}
               tintColor={theme.textSecondary}
             />
           }

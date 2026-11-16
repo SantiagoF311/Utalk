@@ -15,6 +15,7 @@ import { PostCard, PostCommunity } from '@/components/postCard';
 import { StateMessage } from '@/components/stateMessage';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFeed } from '@/hooks/queries';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import type { FeedScope } from '@/lib/api';
 import { errorMessage } from '@/lib/errorMessages';
@@ -33,8 +34,9 @@ type FeedListProps = {
   // Texto si no hay publicaciones (ej. en un perfil).
   empty?: { title: string; description?: string };
   // Algo más para refrescar al tirar hacia abajo, además del feed (ej. la
-  // cabecera de un perfil con sus contadores).
-  onRefresh?: () => void;
+  // cabecera de un perfil con sus contadores). Si devuelve una promesa, el
+  // spinner espera también a esa.
+  onRefresh?: () => unknown;
 };
 
 // Feed paginado por cursor con scroll infinito: al acercarse al final pide la
@@ -43,6 +45,7 @@ export function FeedList({ scope, header, communities, sort, empty, onRefresh }:
   const theme = useTheme();
   const feed = useFeed(scope, sort);
   const queryClient = useQueryClient();
+  const pullToRefresh = usePullToRefresh(() => Promise.all([feed.refetch(), onRefresh?.()]));
 
   // El post del feed ya está completo: se guarda en la caché del detalle para
   // que se abra al instante, sin pantalla de carga (los comentarios se piden).
@@ -94,11 +97,7 @@ export function FeedList({ scope, header, communities, sort, empty, onRefresh }:
       onEndReachedThreshold={0.5}
       refreshControl={
         <RefreshControl
-          refreshing={feed.isRefetching && !feed.isFetchingNextPage}
-          onRefresh={() => {
-            void feed.refetch();
-            onRefresh?.();
-          }}
+          {...pullToRefresh}
           tintColor={theme.textSecondary}
         />
       }

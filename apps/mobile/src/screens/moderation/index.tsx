@@ -14,6 +14,7 @@ import { ThemedView } from '@/components/themedView';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useResolveReports } from '@/hooks/mutations';
 import { useModerationQueue, useModerationScope } from '@/hooks/queries';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 import { relativeTime } from '@/lib/relativeTime';
@@ -29,6 +30,7 @@ export function ModerationScreen() {
   // null = todas las que modera.
   const [communityId, setCommunityId] = useState<string | null>(null);
   const queue = useModerationQueue(communityId);
+  const pullToRefresh = usePullToRefresh(() => queue.refetch());
 
   const empty = queue.isPending ? (
     <StateMessage kind="loading" />
@@ -58,8 +60,7 @@ export function ModerationScreen() {
           ItemSeparatorComponent={Separator}
           refreshControl={
             <RefreshControl
-              refreshing={queue.isRefetching}
-              onRefresh={() => void queue.refetch()}
+              {...pullToRefresh}
               tintColor={theme.textSecondary}
             />
           }

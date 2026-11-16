@@ -100,7 +100,7 @@ El estado se calcula para quien mira (`ConversationEntity.statusFor`):
 
 | Qué | Cómo |
 |---|---|
-| Mensajes nuevos | `postgres_changes` INSERT en `messages`: se agrega a la caché de esa conversación (sin duplicar el que uno mismo mandó) y se refresca la lista |
+| Mensajes nuevos | `postgres_changes` INSERT en `messages`: se agrega a la caché de esa conversación y se refresca la lista. Los propios ya están (envío optimista): el que llega por Realtime reemplaza al provisional en vez de duplicarlo (detalle en [mobile.md](./mobile.md)) |
 | "Visto" | `postgres_changes` UPDATE en `messages` (`read_at`). Se marca al abrir la conversación (`POST /conversations/:id/read`) y solo se muestra debajo del último mensaje propio |
 | Solicitud aceptada | `postgres_changes` UPDATE en `conversations` (`accepted_at`) |
 | "Escribiendo…" | Broadcast (ver abajo) |

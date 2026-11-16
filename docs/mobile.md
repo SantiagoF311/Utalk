@@ -72,6 +72,9 @@ arriba un selector de panel: el de tu universidad, el general y el resto
   total de mensajes sin leer de tus chats (las solicitudes no cuentan).
 - Para escribirle a alguien: su perfil → **Enviar mensaje** (`chat/new`).
   Si ya hablaron, abre esa conversación.
+- Los mensajes se dibujan con `components/messageBubble.tsx` (en la
+  conversación y en el primer mensaje): hora, "Visto" en el último propio
+  leído, relojito si tarda en confirmarse y "No se envió" si falló.
 - En una conversación (`screens/conversation`), lo de abajo depende del
   estado: solicitud recibida (aviso, Bloquear y el campo para responder),
   solicitud enviada (solo el aviso de espera) o aceptada (el campo para
@@ -282,7 +285,8 @@ refresco.
 | Borrar post | Lo saca de todos los feeds y borra su detalle y sus comentarios de la caché |
 | Borrar comentario | Invalida el árbol. El contador no cambia: un comentario borrado queda como "[eliminado]" y sigue contando |
 | Reportar | **No optimista** (la confirmación se muestra cuando el servidor respondió). Marca `reportedByMe` en todas las copias del post o en el comentario del árbol, y la app lo muestra oculto con "Ver igual". Al verlo, una franja "Reportaste esta publicación · Ocultar" permite esconderlo de nuevo. Qué se eligió ver se recuerda por id (`hooks/useRevealedReport.ts`), así que vale igual en el feed y en el detalle; dura mientras la app está abierta y se borra al cerrar sesión. Invalida "Mis reportes" |
-| Mandar un mensaje / escribirle a alguien | **No optimista** (el servidor puede rechazarlo: solicitud sin aceptar, bloqueo). El mensaje se agrega a la caché de la conversación y se refresca la lista. Como también llega por Realtime, agregar es idempotente por id (`lib/chatCache.ts`) |
+| Mandar un mensaje | **Optimista**, como WhatsApp: aparece al instante con un id provisional y se reemplaza por el real cuando el servidor lo confirma. Si tarda más de 1 s, lleva un relojito junto a la hora; si el servidor lo rechaza (bloqueo, solicitud sin aceptar, sin conexión), queda "No se envió: motivo · Toca para reintentar". Ver "Mensajes optimistas" abajo |
+| Primer mensaje a alguien | También optimista, en la pantalla `chat/new`. Cuando el servidor crea la conversación, se guarda el mensaje en su caché (`seedFirstMessage`) y se reemplaza la pantalla por la de la conversación, que lo muestra sin cargar |
 | Abrir una conversación con no leídos | El contador baja al instante y se avisa a la API (`POST /conversations/:id/read`); el otro ve "Visto" por Realtime. En una solicitud recibida no se hace |
 | Bloquear / desbloquear | Invalida la lista de bloqueados, la de chats y la conversación con esa persona |
 | Resolver un caso (moderación) | **No optimista.** Al eliminar un post, lo saca de todos los feeds como "Borrar post"; al eliminar un comentario, invalida el árbol de su post. Siempre vuelve a pedir la cola, también si falló (otro moderador pudo haberse adelantado: `NO_PENDING_REPORTS`) |
@@ -306,6 +310,28 @@ toque. `lib/settledSync.ts` (`settleLater`) lo resuelve así:
    estado real.
 
 Un botón nuevo de ese tipo (ej. seguir a alguien) debería usar lo mismo.
+
+**Mensajes optimistas: un mensaje confirmado llega dos veces.** Al mandar
+un mensaje, el confirmado llega por dos caminos y en cualquier orden: la
+respuesta de la API y Realtime (Supabase avisa a los dos participantes,
+también a quien lo mandó). `lib/chatCache.ts` hace que siempre quede uno
+solo:
+
+- Llega la respuesta de la API (`confirmPendingMessage`): reemplaza al
+  provisional, o solo lo saca si Realtime ya había traído el real.
+- Llega por Realtime (`addMessageToCache`): si ya está, no hace nada; si hay
+  uno propio todavía sin confirmar con el mismo texto, lo reemplaza (el más
+  viejo, por si se mandó dos veces lo mismo); si no, es nuevo (del otro, o
+  propio mandado desde otro dispositivo).
+
+**"Tirar para refrescar" solo al deslizar.** Las listas usan
+`hooks/usePullToRefresh.ts`, nunca `refreshing={query.isRefetching}`:
+`isRefetching` se prende en cualquier recarga en segundo plano (al volver a
+la pantalla, al invalidar la caché, al llegar un mensaje por Realtime), y en
+iOS prender el `RefreshControl` por código sin que el usuario haya tirado
+deja el spinner trabado arriba hasta volver a deslizar. Con el hook, el
+spinner aparece solo cuando el usuario tira la lista y se apaga cuando
+termina esa recarga.
 
 **Lo que llega por Realtime también pasa por la caché.** El chat es lo
 único que el mobile lee directo de Supabase: `hooks/useChatRealtime.ts`

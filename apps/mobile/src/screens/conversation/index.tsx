@@ -1,4 +1,4 @@
-import type { ConversationView, MessageView } from '@utalk/shared';
+import type { ConversationView } from '@utalk/shared';
 import { router, Stack } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useEffect, useState } from 'react';
@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlockUserSheet } from '@/components/blockUserSheet';
 import { BottomSheet, SheetOption } from '@/components/bottomSheet';
 import { ChatComposer } from '@/components/chatComposer';
+import { MessageBubble } from '@/components/messageBubble';
 import { Icon } from '@/components/icon';
 import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
@@ -18,6 +19,7 @@ import { useConversation, useMessages, useMyProfile } from '@/hooks/queries';
 import { useOpenProfile } from '@/hooks/useOpenProfile';
 import { useTheme } from '@/hooks/useTheme';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
+import type { ChatMessage } from '@/lib/chatCache';
 import { errorMessage } from '@/lib/errorMessages';
 
 // Una conversación: los mensajes (los nuevos llegan por Realtime), "Visto",
@@ -29,6 +31,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   const conversation = useConversation(conversationId);
   const messages = useMessages(conversationId);
   const typing = useTypingIndicator(conversationId, me.data?.id);
+  const sendMessage = useSendMessage(conversationId);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingBlock, setConfirmingBlock] = useState(false);
   const [blockAfterClose, setBlockAfterClose] = useState(false);
@@ -66,8 +69,10 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   }
 
   const { otherUser } = conversation.data;
-  // "Visto" va solo debajo del último mensaje tuyo, si ya lo leyó.
-  const lastMine = messages.data?.find((message) => message.senderId === me.data?.id);
+  // "Visto" va solo debajo del último mensaje tuyo ya confirmado, si lo leyó.
+  const lastMine = messages.data?.find(
+    (message: ChatMessage) => message.senderId === me.data?.id && !message.localStatus,
+  );
 
   return (
     <ThemedView style={styles.container}>
@@ -89,7 +94,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={headerHeight}>
-        <FlatList<MessageView>
+        <FlatList<ChatMessage>
           // Invertida: el más nuevo abajo, y al subir se cargan los anteriores.
           inverted
           data={messages.data ?? []}
@@ -99,6 +104,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
               message={item}
               isMine={item.senderId === me.data?.id}
               showSeen={item.id === lastMine?.id && item.readAt !== null}
+              onRetry={() => sendMessage.retry(item)}
             />
           )}
           ListHeaderComponent={
@@ -128,6 +134,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
         />
         <ConversationFooter
           conversation={conversation.data}
+          onSend={sendMessage.send}
           onTyping={typing.notifyTyping}
           onBlock={() => setConfirmingBlock(true)}
         />
@@ -172,6 +179,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
 
 type ConversationFooterProps = {
   conversation: ConversationView;
+  onSend: (body: string) => void;
   onTyping: () => void;
   onBlock: () => void;
 };
@@ -180,9 +188,8 @@ type ConversationFooterProps = {
 // - solicitud recibida: responder (la acepta) o bloquear.
 // - solicitud enviada: esperar; no se puede mandar otro mensaje.
 // - aceptada: escribir.
-function ConversationFooter({ conversation, onTyping, onBlock }: ConversationFooterProps) {
+function ConversationFooter({ conversation, onSend, onTyping, onBlock }: ConversationFooterProps) {
   const theme = useTheme();
-  const send = useSendMessage(conversation.id);
   const username = conversation.otherUser.username;
 
   if (conversation.status === 'request_sent') {
@@ -211,44 +218,18 @@ function ConversationFooter({ conversation, onTyping, onBlock }: ConversationFoo
           </Pressable>
         </View>
       )}
+      {/* Optimista: el campo se vacía al instante y el mensaje aparece como
+          "Enviando…"; si falla, el error va en la burbuja. */}
       <ChatComposer
-        sending={send.isPending}
-        error={send.isError ? errorMessage(send.error) : null}
+        sending={false}
         onTyping={onTyping}
-        onSend={async (body) => {
-          try {
-            await send.mutateAsync(body);
-            return true;
-          } catch {
-            return false;
-          }
+        onSend={(body) => {
+          onSend(body);
+          return Promise.resolve(true);
         }}
       />
     </View>
   );
-}
-
-function MessageBubble({ message, isMine, showSeen }: { message: MessageView; isMine: boolean; showSeen: boolean }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.bubbleRow, isMine ? styles.mine : styles.theirs]}>
-      <View
-        style={[
-          styles.bubble,
-          isMine ? { backgroundColor: theme.primary } : { backgroundColor: theme.backgroundElement },
-        ]}>
-        <ThemedText themeColor={isMine ? 'onPrimary' : 'text'}>{message.body}</ThemedText>
-      </View>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.meta}>
-        {formatTime(message.createdAt)}
-        {showSeen ? ' · Visto' : ''}
-      </ThemedText>
-    </View>
-  );
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' });
 }
 
 const styles = StyleSheet.create({
@@ -265,26 +246,6 @@ const styles = StyleSheet.create({
   },
   typing: {
     marginTop: Spacing.one,
-  },
-  bubbleRow: {
-    maxWidth: '80%',
-    gap: Spacing.half,
-  },
-  mine: {
-    alignSelf: 'flex-end',
-    alignItems: 'flex-end',
-  },
-  theirs: {
-    alignSelf: 'flex-start',
-    alignItems: 'flex-start',
-  },
-  bubble: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 18,
-  },
-  meta: {
-    fontSize: 11,
   },
   notice: {
     padding: Spacing.three,

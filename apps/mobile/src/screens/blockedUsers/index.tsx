@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themedView';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useToggleBlock } from '@/hooks/mutations';
 import { useBlocks } from '@/hooks/queries';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 import { relativeTime } from '@/lib/relativeTime';
@@ -17,6 +18,7 @@ import { relativeTime } from '@/lib/relativeTime';
 export function BlockedUsersScreen() {
   const theme = useTheme();
   const blocks = useBlocks();
+  const pullToRefresh = usePullToRefresh(() => blocks.refetch());
 
   const empty = blocks.isPending ? (
     <StateMessage kind="loading" />
@@ -46,8 +48,7 @@ export function BlockedUsersScreen() {
           ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: theme.border }]} />}
           refreshControl={
             <RefreshControl
-              refreshing={blocks.isRefetching}
-              onRefresh={() => void blocks.refetch()}
+              {...pullToRefresh}
               tintColor={theme.textSecondary}
             />
           }

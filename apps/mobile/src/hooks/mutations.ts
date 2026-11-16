@@ -20,8 +20,18 @@ import type {
 } from '@utalk/shared';
 import { InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { useMyProfile } from '@/hooks/queries';
 import { api } from '@/lib/api';
-import { addMessageToCache, refreshConversation } from '@/lib/chatCache';
+import {
+  addPendingMessage,
+  ChatMessage,
+  confirmPendingMessage,
+  failPendingMessage,
+  newLocalMessageId,
+  refreshConversation,
+  removeMessageFromCache,
+} from '@/lib/chatCache';
+import { errorMessage } from '@/lib/errorMessages';
 import { queryClient } from '@/lib/queryClient';
 import { queryKeys } from '@/lib/queryKeys';
 import { settleLater } from '@/lib/settledSync';
@@ -325,17 +335,44 @@ export function useReport() {
   });
 }
 
-// Mandar un mensaje en una conversación. No optimista: el mensaje aparece
-// cuando el servidor lo guardó (puede rechazarlo: solicitud sin aceptar,
-// bloqueo).
+// Mandar un mensaje en una conversación. **Optimista**, como WhatsApp: el
+// mensaje aparece al instante como "Enviando…" con un id provisional, y se
+// reemplaza por el real cuando el servidor lo confirma (por la respuesta o
+// por Realtime, lo que llegue primero; ver lib/chatCache.ts). Si el servidor
+// lo rechaza (bloqueo, solicitud sin aceptar, sin conexión), queda "No se
+// envió" con el motivo y se puede reintentar.
 export function useSendMessage(conversationId: string) {
-  return useMutation({
-    mutationFn: (body: string) => api.sendMessage(conversationId, body),
-    onSuccess: (message) => {
-      addMessageToCache(message);
+  const me = useMyProfile();
+  const mutation = useMutation({
+    mutationFn: ({ body }: { body: string; localId: string }) => api.sendMessage(conversationId, body),
+    onMutate: ({ body, localId }) => {
+      addPendingMessage({
+        id: localId,
+        conversationId,
+        senderId: me.data?.id ?? '',
+        body,
+        readAt: null,
+        createdAt: new Date().toISOString(),
+        localStatus: 'sending',
+      });
+    },
+    onSuccess: (message, { localId }) => {
+      confirmPendingMessage(localId, message);
       refreshConversation(conversationId);
     },
+    onError: (error, { localId }) => failPendingMessage(conversationId, localId, errorMessage(error)),
   });
+
+  const send = (body: string) => mutation.mutate({ body, localId: newLocalMessageId() });
+
+  // Reintentar uno que no se envió: se saca y se manda de nuevo (vuelve a
+  // aparecer abajo, como el último).
+  const retry = (message: ChatMessage) => {
+    removeMessageFromCache(conversationId, message.id);
+    send(message.body);
+  };
+
+  return { send, retry };
 }
 
 // Primer mensaje a alguien: crea la conversación (o usa la que ya había).

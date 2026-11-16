@@ -12,6 +12,7 @@ import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useComments, usePost } from '@/hooks/queries';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 
@@ -23,6 +24,7 @@ export function PostScreen({ postId }: { postId: string }) {
   const post = usePost(postId);
   const comments = useComments(postId);
   const [replyingTo, setReplyingTo] = useState<CommentView | null>(null);
+  const pullToRefresh = usePullToRefresh(() => Promise.all([post.refetch(), comments.refetch()]));
 
   if (post.isPending) {
     return (
@@ -81,11 +83,7 @@ export function PostScreen({ postId }: { postId: string }) {
           keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
-              refreshing={post.isRefetching || comments.isRefetching}
-              onRefresh={() => {
-                void post.refetch();
-                void comments.refetch();
-              }}
+              {...pullToRefresh}
               tintColor={theme.textSecondary}
             />
           }

@@ -11,6 +11,7 @@ import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useConversations, useMyProfile } from '@/hooks/queries';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 import { relativeTime } from '@/lib/relativeTime';
@@ -24,6 +25,7 @@ export function ChatsScreen() {
   const theme = useTheme();
   const conversations = useConversations();
   const [tab, setTab] = useState<ChatsTab>('chats');
+  const pullToRefresh = usePullToRefresh(() => conversations.refetch());
 
   const all = conversations.data ?? [];
   const requests = all.filter((c) => c.status === 'request_received');
@@ -77,8 +79,7 @@ export function ChatsScreen() {
           ListEmptyComponent={empty}
           refreshControl={
             <RefreshControl
-              refreshing={conversations.isRefetching}
-              onRefresh={() => void conversations.refetch()}
+              {...pullToRefresh}
               tintColor={theme.textSecondary}
             />
           }
