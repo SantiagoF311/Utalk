@@ -100,6 +100,18 @@ export class SupabaseCommunityRepository implements CommunityRepository {
     return data ? toEntity(data) : null;
   }
 
+  async findModeratedBy(userId: string): Promise<CommunityEntity[]> {
+    // Inner join: solo las comunidades con una fila de ese usuario.
+    const { data, error } = await this.supabase.client
+      .from('communities')
+      .select('*, community_moderators!inner(user_id)')
+      .eq('community_moderators.user_id', userId)
+      .order('name');
+
+    if (error) throw new Error(error.message);
+    return (data as CommunityRow[]).map(toEntity);
+  }
+
   async update(id: string, changes: CommunityChanges): Promise<CommunityEntity> {
     const { data, error } = await this.supabase.client
       .from('communities')

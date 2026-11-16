@@ -39,6 +39,9 @@ export const commentViewSchema = z.object({
   author: authorSchema.nullable(),
   body: z.string().nullable(),
   isDeleted: z.boolean(),
+  // Lo eliminó un moderador (no su autor): la app lo dice así. Siempre
+  // implica isDeleted.
+  isRemoved: z.boolean(),
   score: z.number().int(),
   myVote: voteValueSchema.nullable(),
   // Si quien mira ya lo reportó (la app lo muestra oculto, con "Ver igual").

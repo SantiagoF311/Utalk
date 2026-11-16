@@ -17,15 +17,27 @@ export type ReportCategory = z.infer<typeof reportCategorySchema>;
 
 export const REPORT_DETAIL_MAX_LENGTH = 500;
 
+// pending: nadie lo revisó todavía; removed: un moderador eliminó el
+// contenido; dismissed: lo revisó y lo dejó (sin acción).
+export const REPORT_STATUSES = ['pending', 'removed', 'dismissed'] as const;
+
+export const reportStatusSchema = z.enum(REPORT_STATUSES);
+
+export type ReportStatus = z.infer<typeof reportStatusSchema>;
+
 export const reportSchema = z
   .object({
     id: z.uuid(),
+    // Número legible para quien reportó ("caso #42").
+    caseNumber: z.number().int().positive(),
     postId: z.uuid().nullable(),
     commentId: z.uuid().nullable(),
     reportedBy: z.uuid(),
     category: reportCategorySchema,
     // Detalle opcional que escribe quien reporta.
     reason: z.string().max(REPORT_DETAIL_MAX_LENGTH).nullable(),
+    status: reportStatusSchema,
+    resolvedAt: z.iso.datetime().nullable(),
     createdAt: z.iso.datetime(),
   })
   .refine((report) => (report.postId === null) !== (report.commentId === null), {
@@ -52,3 +64,20 @@ export const createReportSchema = z
   });
 
 export type CreateReportInput = z.infer<typeof createReportSchema>;
+
+// Un reporte en "Mis reportes" (GET /reports/mine): su número de caso, en
+// qué quedó y sobre qué publicación era (para un comentario, la publicación
+// donde está). Quién lo resolvió no se muestra.
+export const myReportSchema = z.object({
+  id: z.uuid(),
+  caseNumber: z.number().int().positive(),
+  target: z.enum(['post', 'comment']),
+  postId: z.uuid(),
+  postTitle: z.string(),
+  category: reportCategorySchema,
+  status: reportStatusSchema,
+  resolvedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
+export type MyReport = z.infer<typeof myReportSchema>;

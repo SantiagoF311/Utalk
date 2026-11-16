@@ -18,6 +18,13 @@ describe('CommentEntity', () => {
     expect(makeComment({ deletedAt: new Date() }).isAuthoredBy(IDS.ana)).toBe(true);
   });
 
+  it('sabe si lo eliminó un moderador (y no su autor)', () => {
+    const removed = makeComment({ deletedAt: new Date(), removedAt: new Date() });
+    expect(removed.isRemoved()).toBe(true);
+    expect(removed.isDeleted()).toBe(true);
+    expect(makeComment({ deletedAt: new Date() }).isRemoved()).toBe(false);
+  });
+
   describe('isEditableBy', () => {
     it('lo puede editar su autor', () => {
       expect(makeComment().isEditableBy(IDS.ana)).toBe(true);

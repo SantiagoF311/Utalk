@@ -43,6 +43,46 @@ alternativas se descartaron y por qué.
 | Observabilidad | Sentry + logs de Fly.io | Detección de errores en producción |
 | Tipos compartidos | `packages/shared` (Zod) | Contratos de datos entre backend, mobile, y payloads de jobs |
 
+## Diagrama de arquitectura
+
+Las líneas punteadas y los nodos con borde punteado son piezas **ya
+decididas pero todavía no implementadas** (ver la tabla siguiente).
+
+![Diagrama de arquitectura de UTalk: app mobile, API NestJS y workers en Fly.io, Supabase (Auth, Postgres, Realtime, Storage), Redis y Sentry](./img/arquitectura.png)
+
+Puntos clave que el diagrama resume:
+
+- **El mobile habla con el backend para casi todo.** Solo va directo a
+  Supabase para el registro/verificación de correo (Auth) y, cuando exista,
+  para el chat (Realtime). Ver [auth.md](./auth.md) y
+  [chat-realtime.md](./chat-realtime.md).
+- **El backend usa la service role key** (bypassa RLS) y es el único punto
+  de control de acceso de las tablas de contenido. Por eso esas tablas
+  tienen RLS activo sin políticas. Ver
+  [modelo-de-datos.md](./modelo-de-datos.md).
+- **El JWT se verifica localmente** con la clave pública (JWKS) de
+  Supabase, sin una llamada a Supabase por request.
+- **Redis nunca es fuente de verdad**: si se pierde, se reconstruye desde
+  Postgres.
+
+### Estado de implementación
+
+| Pieza | Estado | Dónde |
+|---|---|---|
+| Monorepo + `@utalk/shared` (Zod) | Implementado | [monorepo.md](./monorepo.md) |
+| API NestJS: auth, perfiles, universidades, paneles, comunidades, posts, comentarios, votos, reportes, moderación, búsqueda | Implementado | [arquitectura-backend.md](./arquitectura-backend.md) |
+| Supabase Auth + Auth Hook por dominio de correo | Implementado | [auth.md](./auth.md) |
+| Postgres: contadores por trigger, `hot` generado, soft delete, FTS + `pg_trgm` | Implementado | [datos-y-trending.md](./datos-y-trending.md), [busqueda.md](./busqueda.md) |
+| Seguridad de la API: JWT local, rate limiting en memoria, CORS, helmet, Problem Details | Implementado | [auth.md](./auth.md), [backend-y-colas.md](./backend-y-colas.md), [observabilidad.md](./observabilidad.md) |
+| App mobile: feeds, detalle, interacción, reportes, búsqueda, comunidades, perfil | Implementado | [mobile.md](./mobile.md) |
+| Moderación manual: estado y número de caso de los reportes, cola por comunidad, eliminar o dejar, "Mis reportes" | Implementado | [modelo-de-datos.md](./modelo-de-datos.md#moderación) |
+| Tests unitarios + CI (`npm run check`) | Implementado | [testing.md](./testing.md) |
+| Chat 1 a 1 (Realtime + Presence) | Pendiente | [chat-realtime.md](./chat-realtime.md) |
+| BullMQ + Redis (notificaciones, moderación por IA) | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
+| Imágenes en posts (Storage) | Pendiente | — |
+| Sentry | Pendiente | [observabilidad.md](./observabilidad.md) |
+| Deploy en Fly.io | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
+
 ## Principios de diseño seguidos
 
 1. **No sobre-diseñar.** Cada pieza de infraestructura se agregó porque resolvía

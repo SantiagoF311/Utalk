@@ -14,11 +14,14 @@ const COMMENT_ID = '00000000-0000-4000-8000-0000000000f1';
 const savedReport = (report: NewReport) =>
   new ReportEntity(
     REPORT_ID,
+    1,
     report.postId,
     report.commentId,
     report.reportedBy,
     report.category,
     report.reason,
+    'pending',
+    null,
     new Date('2026-11-07T12:00:00.000Z'),
   );
 
@@ -37,7 +40,7 @@ describe('ReportsService', () => {
       existsByReporter: jest.fn<ReportRepository['existsByReporter']>().mockResolvedValue(false),
       findAll: jest.fn<ReportRepository['findAll']>(),
       findById: jest.fn<ReportRepository['findById']>(),
-      delete: jest.fn<ReportRepository['delete']>(),
+      findByReporter: jest.fn<ReportRepository['findByReporter']>(),
     };
     // El post y el comentario son de Ana; reporta Beto.
     posts = { findById: jest.fn<PostsService['findById']>().mockResolvedValue(makePost()) };
@@ -73,6 +76,7 @@ describe('ReportsService', () => {
         reason: 'Dice el salón',
       });
       expect(report.category).toBe('exposes_person');
+      expect(report.isPending()).toBe(true);
     });
 
     it('reporta un comentario sin detalle', async () => {
@@ -135,6 +139,40 @@ describe('ReportsService', () => {
         ),
       ).rejects.toMatchObject({ code: 'POST_NOT_FOUND' });
       expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('propaga POST_REMOVED si la moderación ya eliminó el post', async () => {
+      posts.findById.mockRejectedValue(new AppException('POST_REMOVED', 'removed'));
+
+      await expect(
+        service.create(
+          { postId: IDS.post, commentId: null, category: 'spam', reason: null },
+          IDS.beto,
+        ),
+      ).rejects.toMatchObject({ code: 'POST_REMOVED' });
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findMine', () => {
+    it('devuelve los reportes de quien pregunta', async () => {
+      const mine = [
+        {
+          report: savedReport({
+            postId: IDS.post,
+            commentId: null,
+            reportedBy: IDS.beto,
+            category: 'spam',
+            reason: null,
+          }),
+          postId: IDS.post,
+          postTitle: 'Hola',
+        },
+      ];
+      repository.findByReporter.mockResolvedValue(mine);
+
+      await expect(service.findMine(IDS.beto)).resolves.toBe(mine);
+      expect(repository.findByReporter).toHaveBeenCalledWith(IDS.beto);
     });
   });
 });

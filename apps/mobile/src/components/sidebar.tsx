@@ -9,7 +9,7 @@ import { CommunityAvatar } from '@/components/communityAvatar';
 import { Icon, IconName } from '@/components/icon';
 import { ThemedText } from '@/components/themedText';
 import { Spacing } from '@/constants/theme';
-import { useCommunities } from '@/hooks/queries';
+import { useCommunities, useModerationScope } from '@/hooks/queries';
 import { useFeedSelection } from '@/hooks/useFeedSelection';
 import { useMyPanels } from '@/hooks/useMyPanels';
 import { useRecentCommunities } from '@/hooks/useRecentCommunities';
@@ -29,6 +29,7 @@ export function Sidebar({ navigation }: DrawerContentComponentProps) {
   const { publishable } = useMyPanels();
   const recent = useRecentCommunities(selection.panel?.id);
   const communities = useCommunities(selection.panel?.id ?? '');
+  const moderation = useModerationScope();
   const [choosingPanel, setChoosingPanel] = useState(false);
 
   const canCreate = publishable.some((panel) => panel.id === selection.panel?.id);
@@ -98,6 +99,19 @@ export function Sidebar({ navigation }: DrawerContentComponentProps) {
             onPress={() => {
               navigation.closeDrawer();
               router.push({ pathname: '/create-community', params: { panelId: selection.panel?.id } });
+            }}
+          />
+        )}
+
+        {/* Moderación: solo para moderadores de alguna comunidad y admins. */}
+        {moderation.data?.canModerate && (
+          <SidebarItem
+            icon="shield"
+            label="Moderación"
+            active={false}
+            onPress={() => {
+              navigation.closeDrawer();
+              router.push('/moderation');
             }}
           />
         )}

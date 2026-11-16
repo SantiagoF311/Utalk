@@ -10,6 +10,9 @@ import type {
   CommunityView,
   CreateCommunityInput,
   List,
+  ModerationCase,
+  ModerationScope,
+  MyReport,
   Panel,
   PostPage,
   PostSort,
@@ -18,6 +21,8 @@ import type {
   ProfileCommentPage,
   PublicProfile,
   Report,
+  ResolveReportsInput,
+  ResolveReportsResult,
   UpdateMyProfileInput,
   SearchPage,
   SearchSort,
@@ -257,5 +262,26 @@ export const api = {
   // Exactamente uno de postId / commentId.
   createReport(input: CreateReportInput) {
     return authSend<Report>('POST', '/reports', input);
+  },
+
+  // Mis reportes, con su número de caso y en qué quedaron.
+  getMyReports() {
+    return authGet<List<MyReport>>('/reports/mine');
+  },
+
+  // Qué modera el usuario: si es admin y en qué comunidades es moderador.
+  getModerationScope() {
+    return authGet<ModerationScope>('/moderation/scope');
+  },
+
+  // Sin communityId: todas las comunidades que modera.
+  getModerationQueue(communityId?: string) {
+    return authGet<List<ModerationCase>>(`/moderation/queue?${toQueryString({ communityId })}`);
+  },
+
+  // Cierra todos los reportes pendientes de ese contenido (y lo elimina si
+  // la acción es `remove`).
+  resolveReports(input: ResolveReportsInput) {
+    return authSend<ResolveReportsResult>('POST', '/moderation/resolve', input);
   },
 };

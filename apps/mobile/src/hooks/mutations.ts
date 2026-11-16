@@ -5,6 +5,8 @@ import type {
   CreateCommunityInput,
   CreatePostInput,
   List,
+  ModerationAction,
+  ModerationCase,
   PostPage,
   PostView,
   ProfileComment,
@@ -310,10 +312,39 @@ export function useReport() {
         reason,
       }),
     onSuccess: (_report, { target }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.myReports });
       if (target.kind === 'post') {
         updatePostEverywhere(target.postId, (post) => ({ ...post, reportedByMe: true }));
       } else {
         updateCommentInTree(target.postId, target.commentId, (comment) => ({ ...comment, reportedByMe: true }));
+      }
+    },
+  });
+}
+
+// Resolver un caso de la cola (eliminar o dejar). Sale de la cola en todas
+// sus vistas; si se eliminó, también desaparece de feeds y del árbol de
+// comentarios. Otro moderador puede haberse adelantado (NO_PENDING_REPORTS):
+// igual se vuelve a pedir la cola.
+export function useResolveReports() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { entry: ModerationCase; action: ModerationAction }) =>
+      api.resolveReports({
+        postId: input.entry.commentId === null ? input.entry.postId : null,
+        commentId: input.entry.commentId,
+        action: input.action,
+      }),
+    onSuccess: (_result, { entry, action }) => {
+      if (action === 'remove' && entry.commentId === null) {
+        removePostEverywhere(entry.postId);
+      }
+    },
+    onSettled: (_result, _error, { entry }) => {
+      void client.invalidateQueries({ queryKey: ['moderationQueue'] });
+      if (entry.commentId !== null) {
+        // El comentario pasa a "eliminado por moderación" en su post.
+        void client.invalidateQueries({ queryKey: queryKeys.comments(entry.postId) });
       }
     },
   });

@@ -213,9 +213,10 @@ pero lo que se publica en el panel de una universidad lo publican sus
 estudiantes verificados. Vive en `PanelEntity.acceptsPostsFrom()`, usado
 por los services que crean comunidades y posts.
 
-**Permisos sobre la comunidad**: editarla/borrarla (y, con el flujo de
-moderación, borrar posts/comentarios ajenos y ver sus reportes) lo puede
-hacer un moderador de esa comunidad o un admin — no depende de `created_by`,
+**Permisos sobre la comunidad**: editarla/borrarla, ver la cola de reportes
+de su contenido y eliminar posts/comentarios reportados (ver
+[Moderación](#moderación)) lo puede hacer un moderador de esa comunidad o un
+admin — no depende de `created_by`,
 que queda como dato histórico.
 
 ## `community_moderators`
@@ -291,6 +292,21 @@ consulta con los ids de lo que se muestra).
 | `comment_count` | integer, default 0 | cantidad de comentarios (incluye borrados lógicos) — mantenido por trigger |
 | `hot` | double precision, generada | `hot_score(score, created_at)`: fórmula hot de Reddit, la recalcula Postgres al cambiar `score` |
 | `created_at` | timestamptz | |
+| `removed_at` | timestamptz, nullable | eliminado por moderación (ver [`reports`](#reports)) |
+| `removed_by` | uuid, FK → `profiles.id`, nullable, on delete set null | el moderador o admin que lo eliminó |
+
+**Eliminado por moderación**: un post con `removed_at` deja de existir para
+todos. No aparece en ningún feed, la búsqueda ni los contadores del perfil
+(`profile_stats`), y los comentarios de su autor en esa publicación salen de
+su perfil. Abrirlo da `POST_REMOVED` (410), y lo mismo pasa al comentarlo,
+votarlo o reportarlo: `PostsService.findById` lo rechaza, así que todos los
+módulos que lo usan quedan cubiertos. La moderación lo sigue leyendo con
+`findByIdIncludingRemoved`. La fila no se borra, para no perder sus reportes
+(que se borrarían en cascada) ni el historial.
+
+A diferencia de los comentarios, el autor **sí borra su post de verdad**
+(`delete`), y eso se lleva sus reportes. Ver "Pendiente" en
+[`reports`](#reports).
 
 **Contadores desnormalizados (`score`, `comment_count`)**: los mantienen
 triggers sobre `post_votes` y `comments`, en la misma transacción que el
@@ -322,8 +338,10 @@ Comentarios anidados vía auto-referencia (`parent_id`).
 | `author_id` | uuid, FK → `profiles.id` | |
 | `body` | text | |
 | `score` | integer, default 0 | suma de `comment_votes.value` — mantenido por trigger |
-| `deleted_at` | timestamptz, nullable | borrado lógico |
+| `deleted_at` | timestamptz, nullable | borrado lógico (por su autor o por moderación) |
 | `created_at` | timestamptz | |
+| `removed_at` | timestamptz, nullable | eliminado por moderación |
+| `removed_by` | uuid, FK → `profiles.id`, nullable, on delete set null | el moderador o admin que lo eliminó |
 
 **Borrado lógico**: borrar un comentario solo setea `deleted_at`. Con un
 `delete` real, el `on delete cascade` de `parent_id` se llevaba todas las
@@ -331,6 +349,13 @@ respuestas del hilo. Un comentario borrado conserva su lugar en el árbol,
 la API lo devuelve sin autor ni texto (la app lo muestra como
 "[eliminado]"), y no se puede editar, votar ni responder. El texto queda
 en la base para poder revisar reportes.
+
+**Eliminado por moderación**: setea `removed_at` **y también**
+`deleted_at`. Así todo lo que ya trata los borrados (el árbol, los
+comentarios del perfil, la búsqueda, `profile_stats` y no dejar editar,
+votar ni responder) vale sin cambios, y `removed_at` solo dice por qué se
+borró: la vista trae `isRemoved` y la app muestra "Un moderador eliminó este
+comentario". Como cualquier borrado, sigue contando en `posts.comment_count`.
 
 **Árbol**: el backend trae todos los comentarios del post en una sola
 consulta (`parent_id` simple, sin closure table ni `WITH RECURSIVE`) y
@@ -376,10 +401,17 @@ Reporte de moderación sobre un post **o** un comentario (nunca ambos).
 | `reported_by` | uuid, FK → `profiles.id` | |
 | `category` | text, check | motivo: `exposes_person`, `threat`, `harassment`, `spam`, `other` (`REPORT_CATEGORIES` en `@utalk/shared`) |
 | `reason` | text, nullable | detalle opcional que escribe quien reporta (hasta 500 caracteres) |
+| `status` | text, check, default `'pending'` | `pending` (en revisión), `removed` (se eliminó el contenido), `dismissed` (sin acción) — `REPORT_STATUSES` en `@utalk/shared` |
+| `resolved_by` | uuid, FK → `profiles.id`, nullable, on delete set null | quién lo resolvió (no se le muestra a quien reportó) |
+| `resolved_at` | timestamptz, nullable | null mientras está pendiente (check `reports_resolved_when_not_pending`) |
+| `case_number` | bigint, identity, unique | número legible para quien reportó ("caso #42") |
 | `created_at` | timestamptz | |
 
 Constraint `reports_exactly_one_target`: exige que **exactamente uno** de
 `post_id`/`comment_id` esté presente (XOR a nivel de base de datos).
+
+Índices: `reports_pending` (parcial, solo pendientes: la cola) y
+`reports_by_reporter` (`reported_by, created_at desc`: "Mis reportes").
 
 **Por qué el motivo es una lista fija y no texto libre**: para que la
 moderación pueda filtrar y priorizar. Una amenaza o un post que expone a
@@ -412,12 +444,60 @@ reportes son de bajo volumen. Dos columnas nullable + un `check` constraint
 (y los dos índices únicos parciales) es más simple que mantener dos tablas
 (`post_reports`, `comment_reports`) para este caso.
 
-**Pendiente para la rama de moderación**: número de caso y estado del
-reporte ("en revisión", "se eliminó", "quedó sin acción"). Hoy resolver un
-reporte **lo borra** (`DELETE /reports/:id`), así que no hay dónde guardar
-cómo quedó ni a quién avisarle; eso requiere un `status` en vez de borrar,
-quién lo resolvió y las notificaciones. Hasta entonces la app no muestra
-número de caso, para no prometer un seguimiento que no existe.
+### Moderación
+
+Los reportes no se borran ni se editan: cambian de estado cuando la
+moderación resuelve el contenido. Así queda el historial y quien reportó
+puede ver en qué quedó (`GET /reports/mine`, "Mis reportes" en la app, con
+el número de caso).
+
+**Quién modera**: un moderador de la comunidad (`community_moderators`) o un
+admin. Es el mismo `CommunitiesService.canModerate()` que se usa para editar
+la comunidad; para un comentario cuenta la comunidad de su post.
+
+**Se modera el contenido, no cada reporte**: si tres personas reportan el
+mismo post, la cola muestra una sola entrada ("3 reportes · acoso · expone a
+una persona") y el moderador decide una vez:
+
+- **Eliminar** (`remove`): sus reportes pendientes pasan a `removed` y el
+  contenido queda eliminado por moderación (`removed_at`). Si es un post,
+  también se cierran como `removed` los reportes pendientes de sus
+  comentarios, que desaparecen con él.
+- **Dejar** (`dismiss`): sus reportes pendientes pasan a `dismissed` y el
+  contenido sigue igual.
+
+Resolver contenido sin reportes pendientes da `NO_PENDING_REPORTS` (409).
+Pasa cuando otro moderador se adelantó, y el contenido no se toca sin un
+reporte que lo justifique.
+
+**Dos funciones SQL** (migración `moderation`; sin `EXECUTE` para `PUBLIC`,
+solo `service_role`):
+
+- `moderation_queue(p_community_ids)`: los reportes pendientes agrupados por
+  contenido, con la cantidad, los motivos, los detalles y la fecha del
+  primero y del último. `null` = todas las comunidades (admins). Para un
+  comentario, `post_id` es el de su post, para poder abrirlo desde la cola.
+- `resolve_reports(p_post_id, p_comment_id, p_action, p_resolved_by)`:
+  cierra los reportes y elimina el contenido en **una sola transacción**
+  (el cliente de Supabase no maneja transacciones; mismo motivo que los
+  triggers). Devuelve cuántos reportes cerró.
+
+**Orden de la cola** (regla de dominio en `ModerationCaseEntity`, no en
+SQL): primero lo más grave según el motivo más grave de sus reportes
+(amenazas y lo que expone a alguien; después acoso; después el resto) y, a
+igual gravedad, lo que lleva más tiempo esperando.
+
+**Pendiente**:
+
+- **Avisos**: ni quien reportó ni el autor reciben una notificación cuando
+  se resuelve. Quien reportó lo ve en "Mis reportes"; el aviso llega con
+  BullMQ (ver [backend-y-colas.md](./backend-y-colas.md)).
+- **El autor que borra su post reportado borra los reportes**: el autor
+  borra su post de verdad, y el `on delete cascade` de `reports.post_id` se
+  lleva sus reportes (se pierde la evidencia y el caso desaparece de "Mis
+  reportes"). Arreglarlo es que borrar un post también sea lógico.
+- **Agregar o quitar moderadores** de una comunidad: hoy solo existe el
+  creador (por trigger).
 
 ## Schemas compartidos (`packages/shared`)
 
@@ -432,9 +512,10 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | `panel.ts` | `panelSchema` |
 | `community.ts` | `COMMUNITY_TOPICS`, `communitySchema`, `communityViewSchema` (con `joinedByMe`), `createCommunitySchema`, `updateCommunitySchema` |
 | `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author`, `myVote` y `reportedByMe`), `postFeedQuerySchema` (por comunidad, panel o autor), `postPageSchema` |
-| `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`, `myVote` y `reportedByMe`), `profileCommentSchema` y `profileCommentPageSchema` (comentarios de un autor, con el título de su post) |
+| `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`, `myVote`, `reportedByMe` e `isRemoved`), `profileCommentSchema` y `profileCommentPageSchema` (comentarios de un autor, con el título de su post) |
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |
-| `report.ts` | `REPORT_CATEGORIES`, `reportSchema`, `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL; un detalle vacío se guarda como null) |
+| `report.ts` | `REPORT_CATEGORIES`, `REPORT_STATUSES`, `reportSchema` (con `caseNumber`, `status` y `resolvedAt`), `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL; un detalle vacío se guarda como null), `myReportSchema` (un reporte en "Mis reportes", con el título de la publicación) |
+| `moderation.ts` | `moderationScopeSchema` (si es admin y qué comunidades modera), `moderationQueueQuerySchema`, `moderationCaseSchema` (un contenido con sus reportes pendientes), `MODERATION_ACTIONS`, `resolveReportsSchema`, `resolveReportsResultSchema` |
 
 **Convención seguida**: cada dominio tiene un schema de la fila completa
 (ej. `profileSchema`, representa la tabla tal cual) y, cuando aplica, un

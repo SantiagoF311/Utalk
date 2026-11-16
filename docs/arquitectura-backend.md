@@ -1,10 +1,53 @@
 # Arquitectura interna del backend
 
 Cómo se organiza el código dentro de `apps/backend`, a nivel de módulo —
-distinto de [backend-y-colas.md](./backend-y-colas.md), que cubre qué
-tecnologías usa el backend (NestJS, BullMQ, hosting). Este documento
-cubre cómo se estructuran los archivos y las dependencias entre capas
-dentro de cada módulo de dominio.
+distinto de [backend-y-colas.md](./backend-y-colas.md), que cubre por
+qué se eligió cada pieza de infraestructura (NestJS, BullMQ, hosting).
+Este documento lista las tecnologías del backend y cubre cómo se
+estructuran los archivos y las dependencias entre capas dentro de cada
+módulo de dominio.
+
+## Tecnologías del backend
+
+Versiones según `apps/backend/package.json`. El porqué de las elecciones
+de infraestructura está en [backend-y-colas.md](./backend-y-colas.md).
+
+### En uso
+
+| Tecnología | Versión | Para qué |
+|---|---|---|
+| Node.js | 22 (CI) | Runtime. El paquete es ESM (`"type": "module"`, imports con `.js`) |
+| TypeScript | 6 | Lenguaje; `module: nodenext` |
+| NestJS (`@nestjs/core`, `@nestjs/common`) | 12 | Framework: módulos, inyección de dependencias, controllers, guards, filtros |
+| Express (`@nestjs/platform-express`) | — | Servidor HTTP debajo de Nest; el adaptador se pasa explícito en `main.ts` |
+| `@nestjs/config` | 12 | Lee las variables de entorno (`ConfigModule` global) |
+| `@nestjs/throttler` | 6 | Rate limiting: límite global + límites estrictos por endpoint (`@Throttle`), en memoria |
+| helmet | 8 | Cabeceras HTTP de seguridad |
+| `@supabase/supabase-js` | 2 | Cliente de Supabase con la service role key: consultas a Postgres, llamadas a Auth y verificación local del JWT (JWKS) |
+| Zod | 4 | Validación de body/query en los controllers, con los schemas de `@utalk/shared` |
+| `@utalk/shared` | workspace | Schemas y tipos compartidos con el mobile (contrato de la API) |
+| rxjs, reflect-metadata | — | Dependencias que exige Nest |
+
+### Desarrollo, tests y calidad
+
+| Tecnología | Para qué |
+|---|---|
+| Nest CLI (`@nestjs/cli`, `@nestjs/schematics`) | Build y modo watch |
+| Jest 30 + ts-jest + `@nestjs/testing` | Tests unitarios (`*.spec.ts`), ver [testing.md](./testing.md) |
+| oxlint (+ `oxlint-tsgolint`) | Lint, incluidas reglas que usan los tipos |
+| Prettier | Formato |
+| GitHub Actions | CI: typecheck, lint, formato y tests (`npm run check`) |
+
+### Servicios externos
+
+| Servicio | Estado | Para qué |
+|---|---|---|
+| Supabase Postgres | En uso | Fuente de verdad; triggers, columnas generadas, FTS + `pg_trgm`. Migraciones en `supabase/migrations/` |
+| Supabase Auth (+ Auth Hook) | En uso | Cuentas, sesiones y emisión de JWT; el hook valida el dominio del correo |
+| Fly.io | Pendiente | Hosting del proceso de la API (y de los workers) |
+| BullMQ + Redis (Upstash) | Pendiente | Colas de notificaciones y moderación; rate limiting compartido cuando haya más de una instancia |
+| Sentry (`@sentry/nestjs`) | Pendiente | Captura de excepciones en producción |
+| Supabase Storage | Pendiente | Imágenes de posts |
 
 ## Decisión: monolito modular con arquitectura hexagonal / Clean Architecture
 
@@ -47,6 +90,14 @@ apps/backend/src/modules/<dominio>/
 └── <dominio>.module.ts             # cablea todo vía DI de Nest
 ```
 
+### Dirección de las dependencias dentro de un módulo
+
+El único que conoce al adaptador concreto es el `*.module.ts`: el
+service recibe la interfaz vía `@Inject(TOKEN)`, donde `TOKEN` es un
+`Symbol` exportado junto al puerto (`POST_REPOSITORY`). Reemplazar
+Supabase por otra cosa (o por un repositorio falso en los tests) es
+cambiar esa línea, nada más.
+
 **Cuándo partir `<dominio>.service.ts` en varios `*.use-case.ts`
 separados** (recién ahí formalizar una carpeta `application/`): cuando
 el service acumule muchos métodos con lógica compleja e independiente
@@ -61,18 +112,24 @@ Zod (`type Post = z.infer<typeof postSchema>`) usados directamente.
 
 ```ts
 // domain/post.entity.ts
-export class Post {
+export class PostEntity {
   constructor(
     readonly id: string,
     readonly communityId: string,
     readonly authorId: string,
     readonly title: string,
     readonly body: string,
+    readonly score: number,
+    readonly commentCount: number,
     readonly createdAt: Date,
   ) {}
 
-  isEditableBy(userId: string): boolean {
+  isAuthoredBy(userId: string): boolean {
     return this.authorId === userId;
+  }
+
+  isEditableBy(userId: string): boolean {
+    return this.isAuthoredBy(userId);
   }
 }
 ```
@@ -159,27 +216,137 @@ Promise<Profile>`) no cambia — solo cambia qué hay detrás de esa llamada
 (de una consulta local a Postgres, a una llamada HTTP/gRPC a otro
 servicio). El código que la llama no se entera del cambio.
 
+### Dependencias entre módulos
+
+Cada fila es el `imports: [...]` de su `*.module.ts` (el módulo inyecta el
+service de los que lista). Tiene que seguir siendo un **grafo sin
+ciclos**: si dos módulos se necesitan mutuamente, es señal de que la
+responsabilidad está mal repartida (o de que lo que se busca es una
+reacción asíncrona, que va por cola).
+
+| Módulo | Depende de |
+|---|---|
+| `universities` | — |
+| `profiles` | `universities` |
+| `panels` | `universities` |
+| `auth` | `profiles`, `universities` |
+| `communities` | `panels`, `profiles` |
+| `posts` | `communities`, `panels`, `profiles` |
+| `comments` | `posts`, `profiles` |
+| `votes` | `posts`, `comments`, `profiles` |
+| `reports` | `posts`, `comments`, `profiles` |
+| `moderation` | `communities`, `posts`, `comments`, `profiles` |
+| `search` | `panels`, `communities` |
+
+`moderation` es un módulo aparte de `reports`: `reports` crea reportes y
+lista los de cada persona; `moderation` tiene la cola y los casos de uso de
+quien modera (ver la sección Moderación de
+[modelo-de-datos.md](./modelo-de-datos.md#moderación)). Su dominio
+(`ModerationCaseEntity`) reutiliza el tipo `ReportTarget` del dominio de
+`reports`: un dominio puede importar tipos de otro dominio, nunca de su
+`infrastructure/`.
+
+La tabla está ordenada por capas: cada módulo depende solo de módulos que
+aparecen más arriba.
+
+Fuera de la tabla, porque los usa cualquiera:
+
+- **`SupabaseModule`** (`src/supabase/`): `@Global()`, expone
+  `SupabaseService` (el cliente con la service role key). Solo lo
+  inyectan los adaptadores de `infrastructure/`.
+- **`src/common/`**: piezas transversales sin estado de dominio —
+  `AppException` + `errorCatalog` (códigos de error), el
+  `ProblemDetailsFilter`, la traducción de errores de Postgres
+  (`databaseError`), los límites de rate limiting y el parseo de
+  `CORS_ORIGINS`.
+
+## Ciclo de vida de un request
+
+Qué atraviesa un request antes y después de llegar al código del módulo
+(configurado en `main.ts` y `app.module.ts`):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant M as Mobile
+    participant E as Express (helmet, CORS)
+    participant T as ThrottlerGuard
+    participant A as AuthGuard
+    participant AD as AdminGuard
+    participant C as Controller
+    participant S as Service
+    participant R as Repository (Supabase)
+    participant F as ProblemDetailsFilter
+
+    M->>E: HTTPS + Authorization: Bearer <JWT>
+    E->>T: headers de seguridad, origen permitido
+    T->>A: dentro del límite (si no, 429)
+    A->>AD: JWT válido → request.userId<br/>(se salta con @Public())
+    AD->>C: solo consulta el rol si hay @AdminOnly()
+    C->>C: ParseUUIDPipe + schema Zod de @utalk/shared
+    C->>S: input ya validado
+    S->>R: puerto del dominio
+    R-->>S: Entity
+    S-->>C: Entity o vista
+    C-->>M: vista (JSON)
+    Note over E,F: cualquier excepción en cualquier paso
+    F-->>M: application/problem+json (RFC 9457)
+```
+
+- **El orden de los guards importa**: el rate limiting va primero para
+  frenar también a quien manda tokens inválidos en masa, y `AdminGuard`
+  lee el `userId` que deja `AuthGuard`. Los tres son `APP_GUARD` globales:
+  toda ruta es privada salvo las marcadas con `@Public()`.
+- **`trust proxy`** está activo porque en Fly.io todas las requests llegan
+  desde el proxy; sin eso, el rate limiting contaría a todos los usuarios
+  como un único cliente.
+- **La validación es explícita en el controller** (`schema.parse(body)`),
+  no con un `ValidationPipe` global: el schema es el mismo que usa el
+  mobile, así que el contrato vive en un solo lugar.
+- **La moderación por comunidad no es un guard**: depende de qué comunidad
+  se toca, así que la valida el service contra `community_moderators`
+  (`CommunitiesService.canModerate()`, que también deja pasar a los admins).
+  Por eso los endpoints de `/moderation` no llevan `@AdminOnly()`, que es
+  solo para el rol global de admin.
+- El formato de error y el catálogo de códigos están en
+  [observabilidad.md](./observabilidad.md).
+
 ## Ejemplo de flujo completo
 
+Versión simplificada del módulo `posts` real (el código completo está en
+`apps/backend/src/modules/posts/`):
+
 ```ts
-// domain/post.repository.ts — el puerto
+// domain/post.repository.ts — el puerto, y el token con que se inyecta
 export interface PostRepository {
-  create(post: NewPost): Promise<Post>;
-  findById(id: string): Promise<Post | null>;
+  create(post: NewPost): Promise<PostEntity>;
+  findById(id: string): Promise<PostEntity | null>;
 }
+export const POST_REPOSITORY = Symbol('POST_REPOSITORY');
 
 // posts.service.ts — caso de uso, orquesta entity + repository + otros módulos
 @Injectable()
 export class PostsService {
   constructor(
-    @Inject('PostRepository') private readonly postRepository: PostRepository,
-    private readonly profilesService: ProfilesService, // inyección directa
+    @Inject(POST_REPOSITORY) private readonly postRepository: PostRepository,
+    private readonly communitiesService: CommunitiesService, // inyección directa
+    private readonly panelsService: PanelsService,
+    private readonly profilesService: ProfilesService,
   ) {}
 
-  async create(input: CreatePostInput, authorId: string): Promise<Post> {
-    const author = await this.profilesService.findById(authorId);
-    // ... reglas de negocio ...
-    return this.postRepository.create({ ...input, authorId });
+  // Devuelve la vista (no la Entity) porque armarla necesita el autor:
+  // ver "Dónde se arma la vista" más arriba.
+  async create(input: CreatePostInput, authorId: string): Promise<PostView> {
+    const [author, community] = await Promise.all([
+      this.profilesService.findById(authorId),
+      this.communitiesService.findById(input.communityId),
+    ]);
+    const panel = await this.panelsService.findById(community.panelId);
+    if (!panel.acceptsPostsFrom(author.universityId)) {   // regla en la Entity
+      throw new AppException('CANNOT_PUBLISH_IN_PANEL', `You cannot post in community ${community.id}`);
+    }
+    const post = await this.postRepository.create({ ...input, authorId });
+    return toPostView(post, author /* ... */);
   }
 }
 
@@ -188,25 +355,31 @@ export class PostsService {
 export class SupabasePostRepository implements PostRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async create(post: NewPost): Promise<Post> {
+  async create(post: NewPost): Promise<PostEntity> {
     const { data, error } = await this.supabase.client
       .from('posts')
-      .insert(post)
+      .insert({ community_id: post.communityId, author_id: post.authorId, title: post.title, body: post.body })
       .select()
       .single();
     if (error) throw new Error(error.message);
-    return new Post(data.id, data.community_id, data.author_id, data.title, data.body, new Date(data.created_at));
+    return toEntity(data); // fila snake_case → new PostEntity(...)
   }
+}
+
+// posts.controller.ts — valida con el schema compartido y devuelve la vista
+@Throttle(STRICT_RATE_LIMITS.createPost) // límite más estricto que el global
+@Post()
+async create(@Body() body: unknown, @CurrentUserId() userId: string) {
+  const input = createPostSchema.parse(body);
+  return this.postsService.create(input, userId);
 }
 
 // posts.module.ts — cablea el puerto con el adaptador concreto
 @Module({
-  imports: [ProfilesModule],
+  imports: [CommunitiesModule, PanelsModule, ProfilesModule],
   controllers: [PostsController],
-  providers: [
-    PostsService,
-    { provide: 'PostRepository', useClass: SupabasePostRepository },
-  ],
+  providers: [PostsService, { provide: POST_REPOSITORY, useClass: SupabasePostRepository }],
+  exports: [PostsService],
 })
 export class PostsModule {}
 ```

@@ -23,6 +23,7 @@ interface PostRow {
   comment_count: number;
   hot: number;
   created_at: string;
+  removed_at: string | null;
 }
 
 interface PostWithAuthorRow extends PostRow {
@@ -51,6 +52,7 @@ function toEntity(row: PostRow): PostEntity {
     row.score,
     row.comment_count,
     new Date(row.created_at),
+    row.removed_at ? new Date(row.removed_at) : null,
   );
 }
 
@@ -142,7 +144,9 @@ export class SupabasePostRepository implements PostRepository {
     // communities para poder filtrar por communities.panel_id.
     let request = this.supabase.client
       .from('posts')
-      .select(query.panelId ? `${WITH_AUTHOR}, communities!inner(panel_id)` : WITH_AUTHOR);
+      .select(query.panelId ? `${WITH_AUTHOR}, communities!inner(panel_id)` : WITH_AUTHOR)
+      // Lo eliminado por moderación no aparece en ningún feed.
+      .is('removed_at', null);
 
     if (query.panelId) {
       request = request.eq('communities.panel_id', query.panelId);

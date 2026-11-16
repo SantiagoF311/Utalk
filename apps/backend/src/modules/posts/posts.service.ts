@@ -15,6 +15,12 @@ import { POST_REPOSITORY } from './domain/post.repository.js';
 import type { PostRepository } from './domain/post.repository.js';
 import { toPostView } from './post.view.js';
 
+function assertNotRemoved(post: PostEntity): void {
+  if (post.isRemoved()) {
+    throw new AppException('POST_REMOVED', `Post ${post.id} was removed by moderation`);
+  }
+}
+
 @Injectable()
 export class PostsService {
   constructor(
@@ -89,12 +95,21 @@ export class PostsService {
     if (!item) {
       throw new AppException('POST_NOT_FOUND', `Post ${id} not found`);
     }
+    assertNotRemoved(item.post);
     return toPostView(item, myVotes.get(id) ?? null, reported.has(id));
   }
 
   // Para otros módulos (comentarios, votos, reportes) que solo necesitan
-  // saber que el post existe o leer sus datos crudos.
+  // saber que el post existe o leer sus datos crudos. Uno eliminado por
+  // moderación da POST_REMOVED: no se comenta, vota ni reporta.
   async findById(id: string): Promise<PostEntity> {
+    const post = await this.findByIdIncludingRemoved(id);
+    assertNotRemoved(post);
+    return post;
+  }
+
+  // Para la moderación, que necesita el post aunque ya esté eliminado.
+  async findByIdIncludingRemoved(id: string): Promise<PostEntity> {
     const post = await this.postRepository.findById(id);
     if (!post) {
       throw new AppException('POST_NOT_FOUND', `Post ${id} not found`);

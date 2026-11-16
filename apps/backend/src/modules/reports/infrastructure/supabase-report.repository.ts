@@ -1,29 +1,53 @@
 import { Injectable } from '@nestjs/common';
-import type { ReportCategory } from '@utalk/shared';
+import type { ReportCategory, ReportStatus } from '@utalk/shared';
 import { AppException } from '../../../common/appException.js';
 import { isUniqueViolation } from '../../../common/databaseError.js';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import { ReportEntity } from '../domain/report.entity.js';
-import type { NewReport, ReportRepository, ReportTarget } from '../domain/report.repository.js';
+import type {
+  NewReport,
+  ReportRepository,
+  ReportTarget,
+  ReportWithPost,
+} from '../domain/report.repository.js';
 
 interface ReportRow {
   id: string;
+  case_number: number;
   post_id: string | null;
   comment_id: string | null;
   reported_by: string;
   category: ReportCategory;
   reason: string | null;
+  status: ReportStatus;
+  resolved_at: string | null;
   created_at: string;
 }
+
+interface PostRef {
+  id: string;
+  title: string;
+}
+
+interface ReportWithPostRow extends ReportRow {
+  post: PostRef | null;
+  comment: { post: PostRef } | null;
+}
+
+// "Mis reportes" muestra los últimos; más atrás no le sirven a nadie.
+const MY_REPORTS_LIMIT = 100;
 
 function toEntity(row: ReportRow): ReportEntity {
   return new ReportEntity(
     row.id,
+    row.case_number,
     row.post_id,
     row.comment_id,
     row.reported_by,
     row.category,
     row.reason,
+    row.status,
+    row.resolved_at ? new Date(row.resolved_at) : null,
     new Date(row.created_at),
   );
 }
@@ -94,9 +118,20 @@ export class SupabaseReportRepository implements ReportRepository {
     return data ? toEntity(data) : null;
   }
 
-  async delete(id: string): Promise<void> {
-    const { error } = await this.supabase.client.from('reports').delete().eq('id', id);
+  async findByReporter(reportedBy: string): Promise<ReportWithPost[]> {
+    const { data, error } = await this.supabase.client
+      .from('reports')
+      .select('*, post:posts(id, title), comment:comments(post:posts(id, title))')
+      .eq('reported_by', reportedBy)
+      .order('created_at', { ascending: false })
+      .limit(MY_REPORTS_LIMIT);
 
     if (error) throw new Error(error.message);
+    return (data as unknown as ReportWithPostRow[]).flatMap((row) => {
+      // El check de la tabla garantiza uno de los dos; el post del comentario
+      // existe por su FK.
+      const post = row.post ?? row.comment?.post;
+      return post ? [{ report: toEntity(row), postId: post.id, postTitle: post.title }] : [];
+    });
   }
 }

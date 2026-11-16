@@ -41,6 +41,7 @@ export const ERROR_CODES = [
 
   // Posts
   'POST_NOT_FOUND',
+  'POST_REMOVED',
   'NOT_POST_AUTHOR',
   'INVALID_CURSOR',
 
@@ -54,6 +55,9 @@ export const ERROR_CODES = [
   'REPORT_NOT_FOUND',
   'ALREADY_REPORTED',
   'CANNOT_REPORT_OWN_CONTENT',
+
+  // Moderación
+  'NO_PENDING_REPORTS',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

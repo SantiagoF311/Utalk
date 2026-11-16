@@ -11,4 +11,11 @@ describe('PostEntity', () => {
     expect(makePost().isEditableBy(IDS.ana)).toBe(true);
     expect(makePost().isEditableBy(IDS.beto)).toBe(false);
   });
+
+  it('eliminado por moderación, no lo puede editar ni su autor', () => {
+    const removed = makePost({ removedAt: new Date() });
+    expect(removed.isRemoved()).toBe(true);
+    expect(removed.isEditableBy(IDS.ana)).toBe(false);
+    expect(makePost().isRemoved()).toBe(false);
+  });
 });

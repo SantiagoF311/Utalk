@@ -33,6 +33,8 @@ app/
 ├── user/[userId]                │
 ├── settings                     │
 ├── change-username              │ desde Ajustes
+├── my-reports                   │ Mis reportes: desde Ajustes
+├── moderation                   │ cola de moderación: desde el sidebar o Ajustes (solo moderadores y admins)
 ├── search                       │ buscar: desde Inicio (?panelId=) o desde una comunidad (?communityId=)
 ├── compose                      │ publicar: modal del "+" de Inicio o de una comunidad (?communityId=, ?title=)
 ├── create-community             │ crear comunidad: modal desde el sidebar (?panelId=)
@@ -58,6 +60,25 @@ arriba un selector de panel: el de tu universidad, el general y el resto
   tuyo o el general (donde se puede publicar).
 - **Visitadas recientemente** y **Tus comunidades** (a las que te uniste) en
   el sidebar, del panel elegido.
+
+**Reportes y moderación** (ver la sección Moderación de
+[modelo-de-datos.md](./modelo-de-datos.md#moderación)):
+
+- Al reportar, la confirmación muestra el **número de caso**. En **Ajustes →
+  Mis reportes** (`screens/myReports`) está cada reporte con su estado: en
+  revisión, se eliminó o sin acción. Tocarlo abre la publicación, salvo que
+  se haya eliminado.
+- **Moderación** (`screens/moderation`) aparece en el sidebar y en Ajustes
+  solo si `GET /moderation/scope` dice que el usuario es admin o modera
+  alguna comunidad (`useModerationScope`). Es la cola, con lo más grave
+  primero: una tarjeta por contenido con sus motivos, los detalles y la
+  cantidad de reportes, y los botones **Eliminar** (con confirmación) y
+  **Dejar**. Si modera más de una comunidad, arriba se filtra por cada una.
+- Un comentario eliminado por moderación se ve como "Un moderador eliminó
+  este comentario"; un post eliminado no aparece, y abrirlo desde un enlace
+  viejo da "Un moderador eliminó esta publicación" (`POST_REMOVED`).
+- Los textos de los motivos y estados están en `lib/reportLabels.ts`, que
+  usan el formulario de reportar, la cola y "Mis reportes".
 
 **Tarjetas de post** (`components/postCard.tsx`), como Reddit:
 
@@ -242,7 +263,8 @@ refresco.
 | Comentar o responder | Invalida el árbol de comentarios y sube `commentCount` en todas las copias del post |
 | Borrar post | Lo saca de todos los feeds y borra su detalle y sus comentarios de la caché |
 | Borrar comentario | Invalida el árbol. El contador no cambia: un comentario borrado queda como "[eliminado]" y sigue contando |
-| Reportar | **No optimista** (la confirmación se muestra cuando el servidor respondió). Marca `reportedByMe` en todas las copias del post o en el comentario del árbol, y la app lo muestra oculto con "Ver igual". Al verlo, una franja "Reportaste esta publicación · Ocultar" permite esconderlo de nuevo. Qué se eligió ver se recuerda por id (`hooks/useRevealedReport.ts`), así que vale igual en el feed y en el detalle; dura mientras la app está abierta y se borra al cerrar sesión |
+| Reportar | **No optimista** (la confirmación se muestra cuando el servidor respondió). Marca `reportedByMe` en todas las copias del post o en el comentario del árbol, y la app lo muestra oculto con "Ver igual". Al verlo, una franja "Reportaste esta publicación · Ocultar" permite esconderlo de nuevo. Qué se eligió ver se recuerda por id (`hooks/useRevealedReport.ts`), así que vale igual en el feed y en el detalle; dura mientras la app está abierta y se borra al cerrar sesión. Invalida "Mis reportes" |
+| Resolver un caso (moderación) | **No optimista.** Al eliminar un post, lo saca de todos los feeds como "Borrar post"; al eliminar un comentario, invalida el árbol de su post. Siempre vuelve a pedir la cola, también si falló (otro moderador pudo haberse adelantado: `NO_PENDING_REPORTS`) |
 
 **Tocar la flecha que ya está marcada quita el voto** (`DELETE
 /votes/...`); la otra lo cambia (`PUT`, que reemplaza el voto anterior).

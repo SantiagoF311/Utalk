@@ -81,7 +81,7 @@ export function CommentItem({ comment, onReply, depth = 0 }: CommentItemProps) {
             />
           ) : comment.isDeleted ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.deleted}>
-              Este comentario fue eliminado.
+              {comment.isRemoved ? 'Un moderador eliminó este comentario.' : 'Este comentario fue eliminado.'}
             </ThemedText>
           ) : (
             <ThemedText type="small" style={styles.body}>

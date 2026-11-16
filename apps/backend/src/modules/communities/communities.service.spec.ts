@@ -29,6 +29,7 @@ describe('CommunitiesService', () => {
       findByPanelAndSlug: jest
         .fn<CommunityRepository['findByPanelAndSlug']>()
         .mockResolvedValue(null),
+      findModeratedBy: jest.fn<CommunityRepository['findModeratedBy']>().mockResolvedValue([]),
       update: jest.fn<CommunityRepository['update']>().mockResolvedValue(makeCommunity()),
       delete: jest.fn<CommunityRepository['delete']>().mockResolvedValue(undefined),
     };
