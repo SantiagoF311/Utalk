@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Sidebar } from '@/components/sidebar';
+import { useChatRealtime } from '@/hooks/useChatRealtime';
 import { FeedSelectionProvider } from '@/hooks/useFeedSelection';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -10,6 +11,9 @@ import { useTheme } from '@/hooks/useTheme';
 // ☰ de Inicio y Comunidades, o deslizando desde el borde izquierdo.
 export default function DrawerLayout() {
   const theme = useTheme();
+  // Los mensajes llegan en tiempo real mientras hay sesión, en cualquier
+  // pantalla (la lista de Chats y el contador de la pestaña se actualizan).
+  useChatRealtime();
 
   return (
     // El gesto de deslizar para abrir el sidebar necesita GestureHandlerRootView.

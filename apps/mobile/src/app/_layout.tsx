@@ -103,6 +103,16 @@ function RootNavigator() {
             name="change-username"
             options={{ headerShown: true, title: 'Cambiar apodo', headerBackTitle: 'Atrás' }}
           />
+          {/* El título (u/apodo) lo pone cada pantalla. */}
+          <Stack.Screen
+            name="chat/[conversationId]"
+            options={{ headerShown: true, title: '', headerBackTitle: 'Atrás' }}
+          />
+          <Stack.Screen name="chat/new" options={{ headerShown: true, title: '', headerBackTitle: 'Atrás' }} />
+          <Stack.Screen
+            name="blocked-users"
+            options={{ headerShown: true, title: 'Bloqueados', headerBackTitle: 'Atrás' }}
+          />
           <Stack.Screen
             name="my-reports"
             options={{ headerShown: true, title: 'Mis reportes', headerBackTitle: 'Atrás' }}

@@ -70,6 +70,17 @@ export const ERROR_CATALOG = {
   },
 
   NO_PENDING_REPORTS: { status: HttpStatus.CONFLICT, title: 'No pending reports' },
+
+  CONVERSATION_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Conversation not found' },
+  CANNOT_MESSAGE_SELF: { status: HttpStatus.BAD_REQUEST, title: 'Cannot message yourself' },
+  // Hay un bloqueo entre los dos (en cualquier sentido). No dice quién
+  // bloqueó a quién.
+  CANNOT_MESSAGE_USER: { status: HttpStatus.FORBIDDEN, title: 'Cannot message this user' },
+  MESSAGE_REQUEST_PENDING: {
+    status: HttpStatus.CONFLICT,
+    title: 'Message request not accepted yet',
+  },
+  CANNOT_BLOCK_SELF: { status: HttpStatus.BAD_REQUEST, title: 'Cannot block yourself' },
 } satisfies Record<ErrorCode, ErrorDefinition>;
 
 // Para las excepciones de Nest que no son AppException (ParseUUIDPipe,

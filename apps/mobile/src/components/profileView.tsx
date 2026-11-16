@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import { ReactElement, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { BlockUserSheet } from '@/components/blockUserSheet';
+import { Button } from '@/components/button';
 import { FeedList } from '@/components/feedList';
 import { Icon } from '@/components/icon';
 import { ProfileHeader } from '@/components/profileHeader';
@@ -10,7 +12,8 @@ import { SegmentedControl } from '@/components/segmentedControl';
 import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useAuthorComments, useProfile } from '@/hooks/queries';
+import { useToggleBlock } from '@/hooks/mutations';
+import { useAuthorComments, useBlocks, useProfile } from '@/hooks/queries';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 import { relativeTime } from '@/lib/relativeTime';
@@ -98,6 +101,7 @@ function ProfileTop({ profile, isOwn, tab, onTab }: ProfileTopProps) {
         universityName={profile.university.name}
         createdAt={profile.createdAt}
       />
+      {!isOwn && <ProfileChatActions profile={profile} />}
       {isOwn && profile.isPrivate && (
         <View style={styles.privateNote}>
           <Icon name="lock" size={14} color="textSecondary" />
@@ -116,6 +120,41 @@ function ProfileTop({ profile, isOwn, tab, onTab }: ProfileTopProps) {
           <SegmentedControl options={TABS} value={tab} onChange={onTab} />
         </>
       )}
+    </View>
+  );
+}
+
+// En el perfil de otro: escribirle (abre la conversación si ya hablaron) y
+// bloquear o desbloquear. Un bloqueado no tiene "Enviar mensaje".
+function ProfileChatActions({ profile }: { profile: PublicProfile }) {
+  const blocks = useBlocks();
+  const toggleBlock = useToggleBlock();
+  const [confirmingBlock, setConfirmingBlock] = useState(false);
+  const isBlocked = blocks.data?.some((blocked) => blocked.user.id === profile.id) ?? false;
+
+  return (
+    <View style={styles.chatActions}>
+      {isBlocked ? (
+        <Button
+          title="Desbloquear"
+          variant="ghost"
+          style={styles.flex}
+          loading={toggleBlock.isPending}
+          onPress={() => toggleBlock.mutate({ userId: profile.id, block: false })}
+        />
+      ) : (
+        <>
+          <Button
+            title="Enviar mensaje"
+            style={styles.flex}
+            onPress={() =>
+              router.push({ pathname: '/chat/new', params: { userId: profile.id, username: profile.username } })
+            }
+          />
+          <Button title="Bloquear" variant="ghost" onPress={() => setConfirmingBlock(true)} />
+        </>
+      )}
+      <BlockUserSheet visible={confirmingBlock} onClose={() => setConfirmingBlock(false)} user={profile} />
     </View>
   );
 }
@@ -220,6 +259,13 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingBottom: Spacing.three,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  chatActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  flex: {
+    flex: 1,
   },
   privateNote: {
     flexDirection: 'row',

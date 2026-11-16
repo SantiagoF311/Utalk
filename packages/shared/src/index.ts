@@ -8,6 +8,8 @@ export * from './vote.ts';
 export * from './report.ts';
 export * from './moderation.ts';
 export * from './search.ts';
+export * from './chat.ts';
+export * from './block.ts';
 export * from './auth.ts';
 export * from './error.ts';
 export * from './list.ts';

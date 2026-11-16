@@ -26,13 +26,16 @@ app/
 │   └── (tabs)/_layout.tsx       barra de abajo propia (components/tabBar.tsx)
 │       ├── index                Inicio
 │       ├── communities          Comunidades
-│       ├── chats                Chats (reservada: todavía no existen)
+│       ├── chats                Chats y Solicitudes
 │       └── profile              Perfil (con su propia barra: solo ⚙️ Ajustes)
 ├── community/[communityId]      ┐ con su propia barra de color (?sort= opcional)
 ├── post/[postId]                │ stack raíz, encima de todo, con botón atrás
 ├── user/[userId]                │
 ├── settings                     │
 ├── change-username              │ desde Ajustes
+├── chat/[conversationId]        │ una conversación
+├── chat/new                     │ primer mensaje a alguien: desde su perfil (?userId=&username=)
+├── blocked-users                │ Bloqueados: desde Ajustes
 ├── my-reports                   │ Mis reportes: desde Ajustes
 ├── moderation                   │ cola de moderación: desde el sidebar o Ajustes (solo moderadores y admins)
 ├── search                       │ buscar: desde Inicio (?panelId=) o desde una comunidad (?communityId=)
@@ -60,6 +63,21 @@ arriba un selector de panel: el de tu universidad, el general y el resto
   tuyo o el general (donde se puede publicar).
 - **Visitadas recientemente** y **Tus comunidades** (a las que te uniste) en
   el sidebar, del panel elegido.
+
+**Chats** (diseño completo en [chat-realtime.md](./chat-realtime.md)):
+
+- La pestaña **Chats** separa **Chats** y **Solicitudes** (te escribió
+  alguien y no respondiste). Las que mandaste y esperan respuesta van en
+  Chats, marcadas "Esperando que acepte". El ícono de la pestaña lleva el
+  total de mensajes sin leer de tus chats (las solicitudes no cuentan).
+- Para escribirle a alguien: su perfil → **Enviar mensaje** (`chat/new`).
+  Si ya hablaron, abre esa conversación.
+- En una conversación (`screens/conversation`), lo de abajo depende del
+  estado: solicitud recibida (aviso, Bloquear y el campo para responder),
+  solicitud enviada (solo el aviso de espera) o aceptada (el campo para
+  escribir). El "···" tiene Ver perfil y Bloquear.
+- **Bloquear** desde el perfil o la conversación (`components/blockUserSheet.tsx`
+  confirma); desbloquear desde el perfil o **Ajustes → Bloqueados**.
 
 **Reportes y moderación** (ver la sección Moderación de
 [modelo-de-datos.md](./modelo-de-datos.md#moderación)):
@@ -264,6 +282,9 @@ refresco.
 | Borrar post | Lo saca de todos los feeds y borra su detalle y sus comentarios de la caché |
 | Borrar comentario | Invalida el árbol. El contador no cambia: un comentario borrado queda como "[eliminado]" y sigue contando |
 | Reportar | **No optimista** (la confirmación se muestra cuando el servidor respondió). Marca `reportedByMe` en todas las copias del post o en el comentario del árbol, y la app lo muestra oculto con "Ver igual". Al verlo, una franja "Reportaste esta publicación · Ocultar" permite esconderlo de nuevo. Qué se eligió ver se recuerda por id (`hooks/useRevealedReport.ts`), así que vale igual en el feed y en el detalle; dura mientras la app está abierta y se borra al cerrar sesión. Invalida "Mis reportes" |
+| Mandar un mensaje / escribirle a alguien | **No optimista** (el servidor puede rechazarlo: solicitud sin aceptar, bloqueo). El mensaje se agrega a la caché de la conversación y se refresca la lista. Como también llega por Realtime, agregar es idempotente por id (`lib/chatCache.ts`) |
+| Abrir una conversación con no leídos | El contador baja al instante y se avisa a la API (`POST /conversations/:id/read`); el otro ve "Visto" por Realtime. En una solicitud recibida no se hace |
+| Bloquear / desbloquear | Invalida la lista de bloqueados, la de chats y la conversación con esa persona |
 | Resolver un caso (moderación) | **No optimista.** Al eliminar un post, lo saca de todos los feeds como "Borrar post"; al eliminar un comentario, invalida el árbol de su post. Siempre vuelve a pedir la cola, también si falló (otro moderador pudo haberse adelantado: `NO_PENDING_REPORTS`) |
 
 **Tocar la flecha que ya está marcada quita el voto** (`DELETE
@@ -285,6 +306,15 @@ toque. `lib/settledSync.ts` (`settleLater`) lo resuelve así:
    estado real.
 
 Un botón nuevo de ese tipo (ej. seguir a alguien) debería usar lo mismo.
+
+**Lo que llega por Realtime también pasa por la caché.** El chat es lo
+único que el mobile lee directo de Supabase: `hooks/useChatRealtime.ts`
+(montado en el layout del drawer mientras hay sesión) recibe los mensajes
+nuevos, los "Visto" y las solicitudes aceptadas, y los aplica a las mismas
+cachés que usa TanStack Query (`lib/chatCache.ts`). Así la pantalla no
+distingue si un mensaje vino de la API o de Realtime. "Escribiendo…" no
+pasa por la caché: es estado local de la pantalla
+(`hooks/useTypingIndicator.ts`).
 
 **No confundir con la caché del backend**: esta caché vive en el celular
 de cada usuario y ahorra requests al backend. Una caché del servidor

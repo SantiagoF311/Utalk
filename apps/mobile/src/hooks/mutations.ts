@@ -1,6 +1,7 @@
 import type {
   CommentView,
   CommunityView,
+  ConversationView,
   CreateCommentInput,
   CreateCommunityInput,
   CreatePostInput,
@@ -13,12 +14,14 @@ import type {
   ProfileCommentPage,
   PublicProfile,
   ReportCategory,
+  StartConversationInput,
   UpdateMyProfileInput,
   VoteValue,
 } from '@utalk/shared';
 import { InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';
+import { addMessageToCache, refreshConversation } from '@/lib/chatCache';
 import { queryClient } from '@/lib/queryClient';
 import { queryKeys } from '@/lib/queryKeys';
 import { settleLater } from '@/lib/settledSync';
@@ -318,6 +321,58 @@ export function useReport() {
       } else {
         updateCommentInTree(target.postId, target.commentId, (comment) => ({ ...comment, reportedByMe: true }));
       }
+    },
+  });
+}
+
+// Mandar un mensaje en una conversación. No optimista: el mensaje aparece
+// cuando el servidor lo guardó (puede rechazarlo: solicitud sin aceptar,
+// bloqueo).
+export function useSendMessage(conversationId: string) {
+  return useMutation({
+    mutationFn: (body: string) => api.sendMessage(conversationId, body),
+    onSuccess: (message) => {
+      addMessageToCache(message);
+      refreshConversation(conversationId);
+    },
+  });
+}
+
+// Primer mensaje a alguien: crea la conversación (o usa la que ya había).
+export function useStartConversation() {
+  return useMutation({
+    mutationFn: (input: StartConversationInput) => api.startConversation(input),
+    onSuccess: ({ conversation }, { recipientId }) => {
+      queryClient.setQueryData(queryKeys.conversation(conversation.id), conversation);
+      queryClient.setQueryData(queryKeys.conversationWith(recipientId), conversation);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+    },
+  });
+}
+
+// Al abrir una conversación con mensajes sin leer. El contador de la lista
+// baja al instante; el otro ve "Visto" por Realtime. Una solicitud recibida
+// no se marca (el backend tampoco lo haría): quien la mandó no sabe si la
+// viste hasta que respondas.
+export function markConversationRead(conversation: ConversationView) {
+  if (conversation.unreadCount === 0 || conversation.status === 'request_received') return;
+  const clear = (c: ConversationView) => (c.id === conversation.id ? { ...c, unreadCount: 0 } : c);
+  queryClient.setQueryData<List<ConversationView>>(queryKeys.conversations, (list) =>
+    list ? { ...list, items: list.items.map(clear) } : list,
+  );
+  queryClient.setQueryData<ConversationView>(queryKeys.conversation(conversation.id), (c) => (c ? clear(c) : c));
+  void api.markConversationRead(conversation.id).catch(() => refreshConversation(conversation.id));
+}
+
+// Bloquear / desbloquear. Bloquear saca su conversación de tu lista.
+export function useToggleBlock() {
+  return useMutation({
+    mutationFn: ({ userId, block }: { userId: string; block: boolean }) =>
+      block ? api.blockUser(userId) : api.unblockUser(userId),
+    onSuccess: (_result, { userId }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.blocks });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversationWith(userId) });
     },
   });
 }

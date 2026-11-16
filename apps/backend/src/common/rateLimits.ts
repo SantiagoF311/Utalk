@@ -23,4 +23,8 @@ export const STRICT_RATE_LIMITS = {
   createPost: { default: { ttl: MINUTE, limit: 5 } },
   createComment: { default: { ttl: MINUTE, limit: 20 } },
   createReport: { default: { ttl: MINUTE, limit: 10 } },
+  // Chat: empezar conversaciones con desconocidos es lo que más se presta
+  // al spam; dentro de una conversación se escribe rápido.
+  startConversation: { default: { ttl: MINUTE, limit: 5 } },
+  sendMessage: { default: { ttl: MINUTE, limit: 40 } },
 };

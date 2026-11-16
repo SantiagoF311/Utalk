@@ -58,6 +58,13 @@ export const ERROR_CODES = [
 
   // Moderación
   'NO_PENDING_REPORTS',
+
+  // Chat y bloqueos
+  'CONVERSATION_NOT_FOUND',
+  'CANNOT_MESSAGE_SELF',
+  'CANNOT_MESSAGE_USER',
+  'MESSAGE_REQUEST_PENDING',
+  'CANNOT_BLOCK_SELF',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

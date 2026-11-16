@@ -20,9 +20,9 @@ capas (migración `harden_public_tables`):
    que para el backend (y sus triggers y funciones) no cambia nada.
 
 Al crear una tabla nueva del backend: activarle RLS (sin políticas) en su
-migración. Las tablas que el cliente sí lea directo (vía Realtime — chat,
-notificaciones) necesitan RLS **con políticas**, y se documentan en
-[chat-realtime.md](./chat-realtime.md).
+migración. Las tablas que el cliente sí lea directo (vía Realtime) necesitan
+RLS **con políticas**: hoy son `conversations` y `messages` (ver
+[Chat](#chat) y [chat-realtime.md](./chat-realtime.md)).
 
 ## Diagrama de relaciones
 
@@ -36,6 +36,9 @@ universities ──< panels ──< communities ──< posts ──< comments (
                               post_votes ─┘  comment_votes ─┘
                                           │           │
                                   reports (post_id XOR comment_id)
+
+profiles ──< conversations (user_a < user_b) ──< messages
+profiles ──< user_blocks (blocker_id, blocked_id)
 ```
 
 ## `universities`
@@ -499,6 +502,72 @@ igual gravedad, lo que lleva más tiempo esperando.
 - **Agregar o quitar moderadores** de una comunidad: hoy solo existe el
   creador (por trigger).
 
+## Chat
+
+Diseño, reglas y tiempo real en [chat-realtime.md](./chat-realtime.md).
+**Acceso distinto al resto**: `conversations` y `messages` las lee el mobile
+directo por Realtime, así que tienen RLS **con políticas** de `SELECT` para
+quien participa (y `SELECT` para `authenticated`, sin permisos de
+escritura). `user_blocks` es como el resto: solo backend, RLS sin
+políticas.
+
+### `conversations`
+
+Una por par de usuarios.
+
+| columna | tipo | notas |
+|---|---|---|
+| `id` | uuid, PK | |
+| `user_a` | uuid, FK → `profiles.id`, on delete cascade | el menor de los dos ids |
+| `user_b` | uuid, FK → `profiles.id`, on delete cascade | el mayor (índice propio, para "mis conversaciones") |
+| `initiated_by` | uuid, FK → `profiles.id`, on delete cascade | quien escribió primero; check: es `user_a` o `user_b` |
+| `accepted_at` | timestamptz, nullable | null = solicitud sin aceptar |
+| `last_message_at` | timestamptz | fecha del último mensaje, mantenida por trigger (`messages_touch_conversation`); ordena la lista |
+| `created_at` | timestamptz | |
+
+**Pares ordenados** (`conversations_users_ordered`: `user_a < user_b`, y
+unique `conversations_one_per_pair`): así (A, B) y (B, A) son la misma fila
+y no puede haber dos conversaciones entre las mismas personas. Si dos
+primeros mensajes llegan a la vez, el unique frena al segundo.
+
+### `messages`
+
+| columna | tipo | notas |
+|---|---|---|
+| `id` | uuid, PK | |
+| `conversation_id` | uuid, FK → `conversations.id`, on delete cascade | |
+| `sender_id` | uuid, FK → `profiles.id`, on delete cascade | |
+| `body` | text | 1 a 2000 caracteres (check; `MESSAGE_MAX_LENGTH` en `@utalk/shared`) |
+| `read_at` | timestamptz, nullable | cuándo lo leyó el otro ("Visto") |
+| `created_at` | timestamptz | |
+
+Índices: `messages_by_conversation` (`conversation_id, created_at desc, id
+desc`: historial paginado por cursor) y `messages_unread` (parcial, `read_at
+is null`: los no leídos).
+
+### `user_blocks`
+
+| columna | tipo | notas |
+|---|---|---|
+| `blocker_id` | uuid, FK → `profiles.id`, on delete cascade | quien bloquea |
+| `blocked_id` | uuid, FK → `profiles.id`, on delete cascade | a quién; check: no a sí mismo |
+| `created_at` | timestamptz | |
+
+Clave primaria compuesta `(blocker_id, blocked_id)`. Un bloqueo corta los
+mensajes en los dos sentidos (regla en `BlocksService` / `ChatService`).
+
+### Funciones
+
+Solo `service_role` las ejecuta.
+
+- `start_conversation(p_sender, p_recipient, p_body)`: crea la conversación
+  (con el par ordenado) y su primer mensaje en una sola transacción, para
+  que no quede una conversación vacía si el mensaje falla.
+- `conversation_summaries(p_user_id, p_conversation_id)`: las conversaciones
+  de un usuario con la otra persona (apodo y universidad), el último mensaje
+  y cuántos no leyó, sin las de alguien que él bloqueó. Con
+  `p_conversation_id`, una sola (el detalle).
+
 ## Schemas compartidos (`packages/shared`)
 
 Cada tabla tiene un schema Zod equivalente en `packages/shared/src/`,
@@ -516,6 +585,8 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |
 | `report.ts` | `REPORT_CATEGORIES`, `REPORT_STATUSES`, `reportSchema` (con `caseNumber`, `status` y `resolvedAt`), `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL; un detalle vacío se guarda como null), `myReportSchema` (un reporte en "Mis reportes", con el título de la publicación) |
 | `moderation.ts` | `moderationScopeSchema` (si es admin y qué comunidades modera), `moderationQueueQuerySchema`, `moderationCaseSchema` (un contenido con sus reportes pendientes), `MODERATION_ACTIONS`, `resolveReportsSchema`, `resolveReportsResultSchema` |
+| `chat.ts` | `MESSAGE_MAX_LENGTH`, `messageViewSchema` (con `senderId`, misma forma que la fila de Realtime), `CONVERSATION_STATUSES`, `conversationViewSchema` (con `otherUser`, `status` para quien mira, último mensaje y `unreadCount`), `startConversationSchema`, `startConversationResultSchema`, `sendMessageSchema`, `messagePageQuerySchema`, `messagePageSchema` |
+| `block.ts` | `blockedUserSchema` (alguien que bloqueaste, para Ajustes) |
 
 **Convención seguida**: cada dominio tiene un schema de la fila completa
 (ej. `profileSchema`, representa la tabla tal cual) y, cuando aplica, un

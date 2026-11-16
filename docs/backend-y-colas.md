@@ -153,6 +153,8 @@ autenticación, así frena también a quien manda tokens inválidos en masa.
 | `POST /posts` | 5 / min |
 | `POST /comments` | 20 / min |
 | `POST /reports` | 10 / min |
+| `POST /conversations` (escribirle a alguien por primera vez) | 5 / min |
+| `POST /conversations/:id/messages` | 40 / min |
 | `GET /` (health check) | sin límite, para el monitoreo del hosting |
 
 Definidos en `apps/backend/src/common/rateLimits.ts`. Detrás del proxy de

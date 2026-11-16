@@ -2,7 +2,7 @@ import { SEARCH_QUERY_MIN_LENGTH } from '@utalk/shared';
 import type { PostSort, SearchSort } from '@utalk/shared';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
-import { api, FeedScope } from '@/lib/api';
+import { api, ApiError, FeedScope } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 
 export function useMyProfile() {
@@ -80,6 +80,60 @@ export function useFeed(scope: FeedScope, sort: PostSort) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     select: (data) => data.pages.flatMap((page) => page.items),
+  });
+}
+
+// Todas mis conversaciones (Chats y Solicitudes se separan por `status`).
+// Realtime las invalida cuando llega un mensaje (useChatRealtime).
+export function useConversations() {
+  return useQuery({
+    queryKey: queryKeys.conversations,
+    queryFn: () => api.getConversations(),
+    select: (list) => list.items,
+  });
+}
+
+export function useConversation(conversationId: string) {
+  return useQuery({
+    queryKey: queryKeys.conversation(conversationId),
+    queryFn: () => api.getConversation(conversationId),
+  });
+}
+
+// La conversación con alguien, o null si todavía no hablaron (el 404 no es
+// un error acá: es "no hay").
+export function useConversationWith(userId: string, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: queryKeys.conversationWith(userId),
+    queryFn: async () => {
+      try {
+        return await api.getConversationWith(userId);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'CONVERSATION_NOT_FOUND') return null;
+        throw error;
+      }
+    },
+    enabled: options.enabled ?? true,
+  });
+}
+
+// Mensajes del más nuevo al más viejo (para una lista invertida): cada
+// página trae los anteriores.
+export function useMessages(conversationId: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.messages(conversationId),
+    queryFn: ({ pageParam }) => api.getMessages(conversationId, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    select: (data) => data.pages.flatMap((page) => page.items),
+  });
+}
+
+export function useBlocks() {
+  return useQuery({
+    queryKey: queryKeys.blocks,
+    queryFn: () => api.getBlocks(),
+    select: (list) => list.items,
   });
 }
 

@@ -236,6 +236,8 @@ reacción asíncrona, que va por cola).
 | `votes` | `posts`, `comments`, `profiles` |
 | `reports` | `posts`, `comments`, `profiles` |
 | `moderation` | `communities`, `posts`, `comments`, `profiles` |
+| `blocks` | `profiles` |
+| `chat` | `profiles`, `blocks` |
 | `search` | `panels`, `communities` |
 
 `moderation` es un módulo aparte de `reports`: `reports` crea reportes y
@@ -245,6 +247,13 @@ quien modera (ver la sección Moderación de
 (`ModerationCaseEntity`) reutiliza el tipo `ReportTarget` del dominio de
 `reports`: un dominio puede importar tipos de otro dominio, nunca de su
 `infrastructure/`.
+
+`chat` tiene **dos puertos** en su `domain/` (`ConversationRepository` y
+`MessageRepository`, cada uno con su adaptador), porque son dos tablas con
+operaciones distintas; el service los usa juntos. `blocks` es un módulo
+aparte porque bloquear es una relación entre usuarios, no algo del chat
+(mañana puede ocultar también publicaciones). Ver
+[chat-realtime.md](./chat-realtime.md).
 
 La tabla está ordenada por capas: cada módulo depende solo de módulos que
 aparecen más arriba.
