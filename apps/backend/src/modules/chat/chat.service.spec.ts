@@ -25,6 +25,8 @@ const summaryOf = (conversation: ConversationEntity): ConversationSummary => ({
   otherUser: makeAuthor({ id: IDS.beto, username: 'beto' }),
   lastMessage: null,
   unreadCount: 0,
+  blockedByMe: false,
+  blockedByOther: false,
 });
 
 describe('ChatService', () => {

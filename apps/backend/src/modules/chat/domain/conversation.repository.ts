@@ -8,6 +8,9 @@ export interface ConversationSummary {
   otherUser: Author;
   lastMessage: { body: string; senderId: string; createdAt: Date } | null;
   unreadCount: number;
+  // Si quien mira bloqueó a la otra persona, y si ella lo bloqueó a él.
+  blockedByMe: boolean;
+  blockedByOther: boolean;
 }
 
 export interface ConversationRepository {
@@ -22,8 +25,8 @@ export interface ConversationRepository {
     body: string,
   ): Promise<{ conversationId: string; messageId: string }>;
   accept(id: string): Promise<void>;
-  // Las conversaciones del usuario (o solo `conversationId`), sin las de
-  // alguien que él bloqueó, de la más reciente a la más vieja.
+  // Las conversaciones del usuario (o solo `conversationId`), de la más
+  // reciente a la más vieja. Incluye las de alguien que bloqueó, marcadas.
   findSummaries(userId: string, conversationId?: string): Promise<ConversationSummary[]>;
 }
 

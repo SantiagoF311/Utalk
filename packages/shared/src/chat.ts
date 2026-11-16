@@ -45,6 +45,12 @@ export const conversationViewSchema = z.object({
     .nullable(),
   // Mensajes de la otra persona que quien mira todavía no leyó.
   unreadCount: z.number().int().nonnegative(),
+  // Quien mira bloqueó a la otra persona: la conversación sigue en su lista,
+  // pero nadie puede escribir hasta que la desbloquee.
+  blockedByMe: z.boolean(),
+  // La otra persona bloqueó a quien mira: no puede escribirle (como Reddit,
+  // el bloqueado se entera).
+  blockedByOther: z.boolean(),
   lastMessageAt: z.iso.datetime(),
 });
 

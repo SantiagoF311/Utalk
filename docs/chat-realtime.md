@@ -87,14 +87,33 @@ El estado se calcula para quien mira (`ConversationEntity.statusFor`):
 ## Bloqueo
 
 - Se bloquea desde el perfil de alguien o desde el "···" de la
-  conversación; se desbloquea en Ajustes → Bloqueados.
+  conversación. Se desbloquea desde el mismo chat (abajo o en el "···"),
+  desde el perfil o en Ajustes → Bloqueados.
 - **Corta los mensajes en los dos sentidos**: el bloqueado no puede
-  escribirte, y tú tampoco a él hasta desbloquearlo. El error
-  (`CANNOT_MESSAGE_USER`) no dice quién bloqueó a quién.
-- La conversación sale de la lista de quien bloqueó. **El bloqueado no se
-  entera**: sigue viendo la conversación, pero no puede mandar nada.
+  escribirte, y tú tampoco a él hasta desbloquearlo
+  (`CANNOT_MESSAGE_USER`).
+- **La conversación no desaparece** (como WhatsApp): sigue en la lista de
+  los dos, con su historial. `conversation_summaries` devuelve
+  `blocked_by_me` y `blocked_by_other`, y el chat muestra:
+
+  | Situación | Abajo del chat |
+  |---|---|
+  | Lo bloqueaste | "Bloqueaste a u/x…" y **Desbloquear**. En la lista de chats dice "Bloqueado" |
+  | Te bloqueó | "u/x te bloqueó. No puedes escribirle.", sin campo para escribir |
+  | Los dos | Lo de "Bloqueaste…", porque es lo único que uno puede deshacer |
+
+- **El bloqueado se entera** (como Reddit), en vez de dejarlo escribir
+  mensajes que nunca llegan (como WhatsApp): es más honesto, y el
+  anonimato no depende de esto.
+- `user_blocks` **no está en Realtime**, a propósito: nadie puede escuchar
+  quién bloquea a quién. Por eso, si el bloqueado tiene el chat abierto
+  justo cuando lo bloquean, ve el aviso al volver a entrar o al refrescar;
+  si escribe antes, el mensaje queda "No se envió".
 - Bloquear y desbloquear son idempotentes (`PUT` / `DELETE
   /blocks/:userId`).
+- **Pendiente**: que el bloqueo también corte posts y comentarios, como en
+  Reddit (que el bloqueado no vea ni responda lo tuyo, y tú no veas lo
+  suyo). Hoy solo corta el chat.
 
 ## Tiempo real en el mobile
 

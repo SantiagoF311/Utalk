@@ -29,6 +29,8 @@ interface SummaryRow extends ConversationRow {
   last_sender_id: string | null;
   last_created_at: string | null;
   unread_count: number;
+  blocked_by_me: boolean;
+  blocked_by_other: boolean;
 }
 
 function toEntity(row: ConversationRow): ConversationEntity {
@@ -64,6 +66,8 @@ function toSummary(row: SummaryRow): ConversationSummary {
           }
         : null,
     unreadCount: row.unread_count,
+    blockedByMe: row.blocked_by_me,
+    blockedByOther: row.blocked_by_other,
   };
 }
 

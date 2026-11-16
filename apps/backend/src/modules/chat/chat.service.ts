@@ -30,8 +30,7 @@ export class ChatService {
 
   async findSummary(conversationId: string, userId: string): Promise<ConversationSummary> {
     const [summary] = await this.conversationRepository.findSummaries(userId, conversationId);
-    // Tampoco existe para quien no participa (no se confirma que exista) ni
-    // para quien bloqueó a la otra persona.
+    // Tampoco existe para quien no participa (no se confirma que exista).
     if (!summary) {
       throw new AppException('CONVERSATION_NOT_FOUND', `Conversation ${conversationId} not found`);
     }

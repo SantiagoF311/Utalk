@@ -76,11 +76,14 @@ arriba un selector de panel: el de tu universidad, el general y el resto
   conversación y en el primer mensaje): hora, "Visto" en el último propio
   leído, relojito si tarda en confirmarse y "No se envió" si falló.
 - En una conversación (`screens/conversation`), lo de abajo depende del
-  estado: solicitud recibida (aviso, Bloquear y el campo para responder),
-  solicitud enviada (solo el aviso de espera) o aceptada (el campo para
-  escribir). El "···" tiene Ver perfil y Bloquear.
+  estado: la bloqueaste (aviso y Desbloquear), te bloqueó (solo el aviso,
+  sin campo para escribir), solicitud recibida (aviso, Bloquear y el campo
+  para responder), solicitud enviada (solo el aviso de espera) o aceptada
+  (el campo para escribir). El "···" tiene Ver perfil y Bloquear (o
+  Desbloquear).
 - **Bloquear** desde el perfil o la conversación (`components/blockUserSheet.tsx`
-  confirma); desbloquear desde el perfil o **Ajustes → Bloqueados**.
+  confirma). La conversación se queda en la lista, marcada "Bloqueado".
+  Desbloquear desde el chat, el perfil o **Ajustes → Bloqueados**.
 
 **Reportes y moderación** (ver la sección Moderación de
 [modelo-de-datos.md](./modelo-de-datos.md#moderación)):

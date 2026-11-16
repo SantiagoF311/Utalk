@@ -1,5 +1,5 @@
 import type { ConversationView } from '@utalk/shared';
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useEffect, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BlockUserSheet } from '@/components/blockUserSheet';
 import { BottomSheet, SheetOption } from '@/components/bottomSheet';
+import { Button } from '@/components/button';
 import { ChatComposer } from '@/components/chatComposer';
 import { MessageBubble } from '@/components/messageBubble';
 import { Icon } from '@/components/icon';
@@ -14,7 +15,7 @@ import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { markConversationRead, useSendMessage } from '@/hooks/mutations';
+import { markConversationRead, useSendMessage, useToggleBlock } from '@/hooks/mutations';
 import { useConversation, useMessages, useMyProfile } from '@/hooks/queries';
 import { useOpenProfile } from '@/hooks/useOpenProfile';
 import { useTheme } from '@/hooks/useTheme';
@@ -35,6 +36,7 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingBlock, setConfirmingBlock] = useState(false);
   const [blockAfterClose, setBlockAfterClose] = useState(false);
+  const toggleBlock = useToggleBlock();
   const openProfile = useOpenProfile();
 
   // Al abrirla, y cada vez que llega algo nuevo mientras está abierta.
@@ -156,23 +158,31 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
             openProfile(otherUser.id);
           }}
         />
-        <SheetOption
-          icon="close"
-          label="Bloquear"
-          destructive
-          onPress={() => {
-            setBlockAfterClose(true);
-            setMenuOpen(false);
-          }}
-        />
+        {conversation.data.blockedByMe ? (
+          <SheetOption
+            icon="close"
+            label="Desbloquear"
+            onPress={() => {
+              setMenuOpen(false);
+              toggleBlock.mutate({ userId: otherUser.id, block: false });
+            }}
+          />
+        ) : (
+          <SheetOption
+            icon="close"
+            label="Bloquear"
+            destructive
+            onPress={() => {
+              setBlockAfterClose(true);
+              setMenuOpen(false);
+            }}
+          />
+        )}
       </BottomSheet>
 
-      <BlockUserSheet
-        visible={confirmingBlock}
-        onClose={() => setConfirmingBlock(false)}
-        user={otherUser}
-        onBlocked={() => router.back()}
-      />
+      {/* Como WhatsApp: al bloquear, la conversación se queda (con el aviso
+          y Desbloquear abajo); no se vuelve atrás. */}
+      <BlockUserSheet visible={confirmingBlock} onClose={() => setConfirmingBlock(false)} user={otherUser} />
     </ThemedView>
   );
 }
@@ -185,12 +195,49 @@ type ConversationFooterProps = {
 };
 
 // Qué se puede hacer según el estado:
+// - la bloqueaste: el aviso y Desbloquear (nadie puede escribir). Si se
+//   bloquearon los dos, gana este: es lo que uno puede deshacer.
+// - te bloqueó: solo el aviso, sin campo para escribir.
 // - solicitud recibida: responder (la acepta) o bloquear.
 // - solicitud enviada: esperar; no se puede mandar otro mensaje.
 // - aceptada: escribir.
 function ConversationFooter({ conversation, onSend, onTyping, onBlock }: ConversationFooterProps) {
   const theme = useTheme();
+  const toggleBlock = useToggleBlock();
   const username = conversation.otherUser.username;
+
+  if (conversation.blockedByMe) {
+    return (
+      <SafeAreaView edges={['bottom']} style={[styles.notice, styles.blocked, { borderTopColor: theme.border }]}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+          Bloqueaste a u/{username}. No puede escribirte, y tú tampoco a u/{username} hasta que lo
+          desbloquees.
+        </ThemedText>
+        {toggleBlock.isError && (
+          <ThemedText type="small" themeColor="warning" style={styles.center}>
+            {errorMessage(toggleBlock.error)}
+          </ThemedText>
+        )}
+        <Button
+          title="Desbloquear"
+          variant="ghost"
+          loading={toggleBlock.isPending}
+          onPress={() => toggleBlock.mutate({ userId: conversation.otherUser.id, block: false })}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Te bloqueó: no hay campo para escribir, solo el aviso (como Reddit).
+  if (conversation.blockedByOther) {
+    return (
+      <SafeAreaView edges={['bottom']} style={[styles.notice, { borderTopColor: theme.border }]}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
+          u/{username} te bloqueó. No puedes escribirle.
+        </ThemedText>
+      </SafeAreaView>
+    );
+  }
 
   if (conversation.status === 'request_sent') {
     return (
@@ -250,6 +297,9 @@ const styles = StyleSheet.create({
   notice: {
     padding: Spacing.three,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  blocked: {
+    gap: Spacing.two,
   },
   request: {
     gap: Spacing.two,

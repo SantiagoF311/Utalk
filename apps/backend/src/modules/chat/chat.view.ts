@@ -4,7 +4,14 @@ import type { MessageEntity } from './domain/message.entity.js';
 
 // `status` depende de quien mira (quién la mandó y quién la recibió).
 export function toConversationView(
-  { conversation, otherUser, lastMessage, unreadCount }: ConversationSummary,
+  {
+    conversation,
+    otherUser,
+    lastMessage,
+    unreadCount,
+    blockedByMe,
+    blockedByOther,
+  }: ConversationSummary,
   viewerId: string,
 ): ConversationView {
   return {
@@ -19,6 +26,8 @@ export function toConversationView(
         }
       : null,
     unreadCount,
+    blockedByMe,
+    blockedByOther,
     lastMessageAt: conversation.lastMessageAt.toISOString(),
   };
 }

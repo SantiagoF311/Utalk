@@ -128,8 +128,9 @@ function ConversationRow({ conversation }: { conversation: ConversationView }) {
             themeColor={unread ? 'text' : 'textSecondary'}
             numberOfLines={1}
             style={styles.flex}>
-            {conversation.status === 'request_sent' ? 'Esperando que acepte · ' : ''}
-            {preview}
+            {conversation.blockedByMe
+              ? 'Bloqueado'
+              : `${conversation.status === 'request_sent' ? 'Esperando que acepte · ' : ''}${preview}`}
           </ThemedText>
           {unread && (
             <View style={[styles.badge, { backgroundColor: theme.primary }]}>

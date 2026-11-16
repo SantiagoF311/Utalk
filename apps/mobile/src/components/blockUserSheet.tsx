@@ -18,7 +18,7 @@ export function BlockUserSheet({ visible, onClose, user, onBlocked }: BlockUserS
       visible={visible}
       onClose={onClose}
       title={`¿Bloquear a u/${user.username}?`}
-      description="No va a poder escribirte, y su conversación sale de tus chats. No se entera de que lo bloqueaste. Lo puedes desbloquear desde Ajustes."
+      description="No va a poder escribirte ni tú a esa persona. La conversación sigue en tus chats y no se entera de que lo bloqueaste. Lo puedes desbloquear desde el chat o desde Ajustes."
       confirmLabel="Sí, bloquear"
       cancelLabel="Volver"
       loading={toggleBlock.isPending}

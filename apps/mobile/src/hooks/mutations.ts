@@ -401,7 +401,9 @@ export function markConversationRead(conversation: ConversationView) {
   void api.markConversationRead(conversation.id).catch(() => refreshConversation(conversation.id));
 }
 
-// Bloquear / desbloquear. Bloquear saca su conversación de tu lista.
+// Bloquear / desbloquear. Como WhatsApp, la conversación se queda en la lista
+// (marcada); cambia su `blockedByMe`, así que se vuelven a pedir las
+// conversaciones y su detalle.
 export function useToggleBlock() {
   return useMutation({
     mutationFn: ({ userId, block }: { userId: string; block: boolean }) =>
@@ -409,6 +411,7 @@ export function useToggleBlock() {
     onSuccess: (_result, { userId }) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.blocks });
       void queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+      void queryClient.invalidateQueries({ queryKey: ['conversation'] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.conversationWith(userId) });
     },
   });

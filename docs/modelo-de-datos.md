@@ -564,9 +564,13 @@ Solo `service_role` las ejecuta.
   (con el par ordenado) y su primer mensaje en una sola transacción, para
   que no quede una conversación vacía si el mensaje falla.
 - `conversation_summaries(p_user_id, p_conversation_id)`: las conversaciones
-  de un usuario con la otra persona (apodo y universidad), el último mensaje
-  y cuántos no leyó, sin las de alguien que él bloqueó. Con
-  `p_conversation_id`, una sola (el detalle).
+  de un usuario con la otra persona (apodo y universidad), el último mensaje,
+  cuántos no leyó y si hay un bloqueo (`blocked_by_me`, `blocked_by_other`).
+  Las conversaciones con bloqueo no se ocultan (ver
+  [chat-realtime.md](./chat-realtime.md#bloqueo)). Con `p_conversation_id`,
+  una sola (el detalle). Versión actual en la migración
+  `chat_blocked_conversations_visible`, que la borra y la vuelve a crear
+  porque cambió lo que devuelve.
 
 ## Schemas compartidos (`packages/shared`)
 
@@ -585,7 +589,7 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |
 | `report.ts` | `REPORT_CATEGORIES`, `REPORT_STATUSES`, `reportSchema` (con `caseNumber`, `status` y `resolvedAt`), `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL; un detalle vacío se guarda como null), `myReportSchema` (un reporte en "Mis reportes", con el título de la publicación) |
 | `moderation.ts` | `moderationScopeSchema` (si es admin y qué comunidades modera), `moderationQueueQuerySchema`, `moderationCaseSchema` (un contenido con sus reportes pendientes), `MODERATION_ACTIONS`, `resolveReportsSchema`, `resolveReportsResultSchema` |
-| `chat.ts` | `MESSAGE_MAX_LENGTH`, `messageViewSchema` (con `senderId`, misma forma que la fila de Realtime), `CONVERSATION_STATUSES`, `conversationViewSchema` (con `otherUser`, `status` para quien mira, último mensaje y `unreadCount`), `startConversationSchema`, `startConversationResultSchema`, `sendMessageSchema`, `messagePageQuerySchema`, `messagePageSchema` |
+| `chat.ts` | `MESSAGE_MAX_LENGTH`, `messageViewSchema` (con `senderId`, misma forma que la fila de Realtime), `CONVERSATION_STATUSES`, `conversationViewSchema` (con `otherUser`, `status` para quien mira, último mensaje, `unreadCount`, `blockedByMe` y `blockedByOther`), `startConversationSchema`, `startConversationResultSchema`, `sendMessageSchema`, `messagePageQuerySchema`, `messagePageSchema` |
 | `block.ts` | `blockedUserSchema` (alguien que bloqueaste, para Ajustes) |
 
 **Convención seguida**: cada dominio tiene un schema de la fila completa
