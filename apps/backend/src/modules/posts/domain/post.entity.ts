@@ -8,13 +8,21 @@ export class PostEntity {
     readonly score: number,
     readonly commentCount: number,
     readonly createdAt: Date,
+    // Cuándo lo eliminó un moderador (null = no lo eliminó).
+    readonly removedAt: Date | null,
   ) {}
 
   isAuthoredBy(userId: string): boolean {
     return this.authorId === userId;
   }
 
+  // Eliminado por moderación: deja de existir para todos menos para la
+  // moderación (que conserva su historial).
+  isRemoved(): boolean {
+    return this.removedAt !== null;
+  }
+
   isEditableBy(userId: string): boolean {
-    return this.isAuthoredBy(userId);
+    return !this.isRemoved() && this.isAuthoredBy(userId);
   }
 }

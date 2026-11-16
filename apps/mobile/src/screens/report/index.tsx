@@ -1,4 +1,4 @@
-import { REPORT_DETAIL_MAX_LENGTH } from '@utalk/shared';
+import { REPORT_CATEGORIES, REPORT_DETAIL_MAX_LENGTH } from '@utalk/shared';
 import type { ReportCategory } from '@utalk/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -14,14 +14,12 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { ReportTarget, useReport } from '@/hooks/mutations';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
+import { REPORT_CATEGORY_LABELS } from '@/lib/reportLabels';
 
-const CATEGORIES: { value: ReportCategory; label: string }[] = [
-  { value: 'exposes_person', label: 'Expone a una persona' },
-  { value: 'threat', label: 'Amenaza o incita a la violencia' },
-  { value: 'harassment', label: 'Acoso contra alguien' },
-  { value: 'spam', label: 'Spam o cuenta falsa' },
-  { value: 'other', label: 'Otra cosa' },
-];
+const CATEGORIES: { value: ReportCategory; label: string }[] = REPORT_CATEGORIES.map((value) => ({
+  value,
+  label: REPORT_CATEGORY_LABELS[value],
+}));
 
 type ReportScreenProps = {
   target: ReportTarget;
@@ -38,7 +36,7 @@ export function ReportScreen({ target, authorUsername }: ReportScreenProps) {
   const what = target.kind === 'post' ? 'publicación' : 'comentario';
 
   if (report.isSuccess) {
-    return <ReportSent what={what} />;
+    return <ReportSent what={what} caseNumber={report.data.caseNumber} />;
   }
 
   const submit = () => {
@@ -147,13 +145,19 @@ function DetailField({ value, onChange }: { value: string; onChange: (value: str
   );
 }
 
-// Confirmación (diseño 2f). Solo dice lo que de verdad pasa: el número de
-// caso y el aviso de cómo quedó llegan con la moderación.
-function ReportSent({ what }: { what: 'publicación' | 'comentario' }) {
+// Confirmación (diseño 2f), con el número de caso. Solo dice lo que de verdad
+// pasa: en qué quedó se ve en "Mis reportes" (el aviso automático llega con
+// las notificaciones).
+function ReportSent({ what, caseNumber }: { what: 'publicación' | 'comentario'; caseNumber: number }) {
   const theme = useTheme();
   // "la publicación" / "el comentario": artículo y terminaciones según cuál.
   const a = what === 'publicación' ? 'a' : 'o';
   const items: { icon: IconName; title: string; description: string }[] = [
+    {
+      icon: 'flag',
+      title: `Caso #${caseNumber}`,
+      description: 'Puedes ver en qué quedó en Ajustes → Mis reportes.',
+    },
     {
       icon: 'hidden',
       title: `Ya no l${a} verás`,

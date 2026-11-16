@@ -11,7 +11,7 @@ import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useUpdateMyProfile } from '@/hooks/mutations';
-import { useMyProfile } from '@/hooks/queries';
+import { useModerationScope, useMyProfile } from '@/hooks/queries';
 import { useSession } from '@/hooks/useSession';
 import { ThemePreference, useThemePreference } from '@/hooks/useThemePreference';
 import { useTheme } from '@/hooks/useTheme';
@@ -23,12 +23,13 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: IconName }[]
   { value: 'dark', label: 'Oscuro', icon: 'themeDark' },
 ];
 
-// Ajustes (desde el ⚙️ de tu perfil): tu apodo, la privacidad, tu cuenta, el
-// tema y cerrar sesión. Cambiar la contraseña, el teléfono, los avisos y
+// Ajustes (desde el ⚙️ de tu perfil): tu apodo, la privacidad, tu cuenta, tus
+// reportes (y la moderación, si moderas algo), el tema y cerrar sesión. Cambiar la contraseña, el teléfono, los avisos y
 // eliminar la cuenta todavía no existen en el backend.
 export function SettingsScreen() {
   const theme = useTheme();
   const me = useMyProfile();
+  const moderation = useModerationScope();
   const session = useSession();
   const updateProfile = useUpdateMyProfile();
   const { preference, setPreference } = useThemePreference();
@@ -108,6 +109,23 @@ export function SettingsScreen() {
             El correo no se cambia: es lo que prueba que estudias ahí y lo que te da acceso al panel de
             tu universidad. Nunca se le muestra a nadie.
           </Hint>
+
+          <Section title="REPORTES">
+            <LinkRow icon="flag" title="Mis reportes" subtitle="En qué quedó cada uno" href="/my-reports" />
+            {moderation.data?.canModerate && (
+              <LinkRow
+                icon="shield"
+                title="Moderación"
+                subtitle={
+                  moderation.data.isAdmin
+                    ? 'Reportes de toda la plataforma'
+                    : 'Reportes de las comunidades que moderas'
+                }
+                href="/moderation"
+                bordered
+              />
+            )}
+          </Section>
 
           <Section title="APARIENCIA">
             {THEME_OPTIONS.map((option, index) => {
@@ -199,6 +217,27 @@ function Row({ icon, title, subtitle, right }: RowProps) {
       </View>
       {right}
     </View>
+  );
+}
+
+type LinkRowProps = Omit<RowProps, 'right'> & {
+  href: '/my-reports' | '/moderation';
+  // Línea arriba, para separarla de la fila anterior del mismo grupo.
+  bordered?: boolean;
+};
+
+function LinkRow({ href, bordered = false, ...row }: LinkRowProps) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="link"
+      onPress={() => router.push(href)}
+      style={({ pressed }) => [
+        bordered && { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth },
+        pressed && { backgroundColor: theme.backgroundElement },
+      ]}>
+      <Row {...row} right={<Icon name="chevronRight" size={18} color="textSecondary" />} />
+    </Pressable>
   );
 }
 

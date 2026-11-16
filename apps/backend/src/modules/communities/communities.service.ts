@@ -113,6 +113,11 @@ export class CommunitiesService {
     await this.communityRepository.delete(id);
   }
 
+  // Las comunidades donde es moderador (sin contar que un admin modera todas).
+  async findModeratedBy(userId: string): Promise<CommunityEntity[]> {
+    return this.communityRepository.findModeratedBy(userId);
+  }
+
   // Admins moderan todo; el resto, solo las comunidades donde tiene fila en
   // community_moderators.
   async canModerate(communityId: string, userId: string): Promise<boolean> {

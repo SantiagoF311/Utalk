@@ -1,14 +1,18 @@
-import type { ReportCategory } from '@utalk/shared';
+import type { ReportCategory, ReportStatus } from '@utalk/shared';
 
 export class ReportEntity {
   constructor(
     readonly id: string,
+    // Número legible para quien reportó ("caso #42").
+    readonly caseNumber: number,
     readonly postId: string | null,
     readonly commentId: string | null,
     readonly reportedBy: string,
     readonly category: ReportCategory,
     // Detalle opcional que escribió quien reporta.
     readonly reason: string | null,
+    readonly status: ReportStatus,
+    readonly resolvedAt: Date | null,
     readonly createdAt: Date,
   ) {}
 
@@ -18,5 +22,9 @@ export class ReportEntity {
 
   targetsComment(): boolean {
     return this.commentId !== null;
+  }
+
+  isPending(): boolean {
+    return this.status === 'pending';
   }
 }

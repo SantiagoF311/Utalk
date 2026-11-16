@@ -12,6 +12,14 @@ export type NewReport = ReportTarget & {
   reason: string | null;
 };
 
+// Un reporte con la publicación a la que apunta (la del comentario, si es
+// un comentario), para "Mis reportes".
+export interface ReportWithPost {
+  report: ReportEntity;
+  postId: string;
+  postTitle: string;
+}
+
 export interface ReportRepository {
   // Si esa persona ya reportó ese contenido (dos requests simultáneos que
   // pasaron el chequeo del service), lanza ALREADY_REPORTED.
@@ -19,7 +27,8 @@ export interface ReportRepository {
   existsByReporter(target: ReportTarget, reportedBy: string): Promise<boolean>;
   findAll(): Promise<ReportEntity[]>;
   findById(id: string): Promise<ReportEntity | null>;
-  delete(id: string): Promise<void>;
+  // Los reportes de una persona, del más nuevo al más viejo.
+  findByReporter(reportedBy: string): Promise<ReportWithPost[]>;
 }
 
 export const REPORT_REPOSITORY = Symbol('REPORT_REPOSITORY');

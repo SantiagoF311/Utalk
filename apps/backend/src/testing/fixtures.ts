@@ -106,10 +106,33 @@ export function makeCommunity(
 }
 
 export function makePost(
-  overrides: Partial<{ id: string; communityId: string; authorId: string; score: number }> = {},
+  overrides: Partial<{
+    id: string;
+    communityId: string;
+    authorId: string;
+    score: number;
+    removedAt: Date | null;
+  }> = {},
 ): PostEntity {
-  const p = { id: IDS.post, communityId: IDS.community, authorId: IDS.ana, score: 0, ...overrides };
-  return new PostEntity(p.id, p.communityId, p.authorId, 'Hola', 'Cuerpo', p.score, 0, CREATED_AT);
+  const p = {
+    id: IDS.post,
+    communityId: IDS.community,
+    authorId: IDS.ana,
+    score: 0,
+    removedAt: null as Date | null,
+    ...overrides,
+  };
+  return new PostEntity(
+    p.id,
+    p.communityId,
+    p.authorId,
+    'Hola',
+    'Cuerpo',
+    p.score,
+    0,
+    CREATED_AT,
+    p.removedAt,
+  );
 }
 
 export function makeComment(
@@ -121,6 +144,7 @@ export function makeComment(
     score: number;
     deletedAt: Date | null;
     createdAt: Date;
+    removedAt: Date | null;
   }> = {},
 ): CommentEntity {
   const c = {
@@ -131,6 +155,7 @@ export function makeComment(
     score: 0,
     deletedAt: null as Date | null,
     createdAt: CREATED_AT,
+    removedAt: null as Date | null,
     ...overrides,
   };
   return new CommentEntity(
@@ -142,6 +167,7 @@ export function makeComment(
     c.score,
     c.deletedAt,
     c.createdAt,
+    c.removedAt,
   );
 }
 

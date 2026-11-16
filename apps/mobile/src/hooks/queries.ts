@@ -83,6 +83,35 @@ export function useFeed(scope: FeedScope, sort: PostSort) {
   });
 }
 
+export function useMyReports() {
+  return useQuery({
+    queryKey: queryKeys.myReports,
+    queryFn: () => api.getMyReports(),
+    select: (list) => list.items,
+  });
+}
+
+// Qué modera el usuario. `canModerate` decide si se muestra la entrada a
+// moderación (sidebar y ajustes).
+export function useModerationScope() {
+  return useQuery({
+    queryKey: queryKeys.moderationScope,
+    queryFn: () => api.getModerationScope(),
+    select: (scope) => ({ ...scope, canModerate: scope.isAdmin || scope.communities.length > 0 }),
+    // Ser moderador cambia poco.
+    staleTime: 5 * 60_000,
+  });
+}
+
+// `communityId` null = todas las que modera. Ya viene ordenada por gravedad.
+export function useModerationQueue(communityId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.moderationQueue(communityId),
+    queryFn: () => api.getModerationQueue(communityId ?? undefined),
+    select: (list) => list.items,
+  });
+}
+
 // Comentarios de alguien para su perfil, paginados igual que el feed.
 export function useAuthorComments(authorId: string) {
   return useInfiniteQuery({

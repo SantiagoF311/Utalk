@@ -50,6 +50,7 @@ export const ERROR_CATALOG = {
   },
 
   POST_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Post not found' },
+  POST_REMOVED: { status: HttpStatus.GONE, title: 'Post was removed by moderation' },
   NOT_POST_AUTHOR: { status: HttpStatus.FORBIDDEN, title: 'Not the author of this post' },
   INVALID_CURSOR: { status: HttpStatus.BAD_REQUEST, title: 'Invalid cursor' },
 
@@ -67,6 +68,8 @@ export const ERROR_CATALOG = {
     status: HttpStatus.FORBIDDEN,
     title: 'Cannot report your own content',
   },
+
+  NO_PENDING_REPORTS: { status: HttpStatus.CONFLICT, title: 'No pending reports' },
 } satisfies Record<ErrorCode, ErrorDefinition>;
 
 // Para las excepciones de Nest que no son AppException (ParseUUIDPipe,

@@ -29,6 +29,7 @@ export function toCommentView(
     author: isDeleted ? null : author,
     body: isDeleted ? null : comment.body,
     isDeleted,
+    isRemoved: comment.isRemoved(),
     score: comment.score,
     myVote,
     reportedByMe,

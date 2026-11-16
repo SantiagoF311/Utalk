@@ -22,6 +22,7 @@ interface CommentRow {
   score: number;
   deleted_at: string | null;
   created_at: string;
+  removed_at: string | null;
 }
 
 interface CommentWithAuthorRow extends CommentRow {
@@ -43,6 +44,7 @@ function toEntity(row: CommentRow): CommentEntity {
     row.score,
     row.deleted_at ? new Date(row.deleted_at) : null,
     new Date(row.created_at),
+    row.removed_at ? new Date(row.removed_at) : null,
   );
 }
 
@@ -131,9 +133,12 @@ export class SupabaseCommentRepository implements CommentRepository {
   async findPageByAuthor(query: AuthorCommentPageQuery): Promise<AuthorCommentPage> {
     let request = this.supabase.client
       .from('comments')
-      .select('*, post:posts(title)')
+      // Inner join para dejar afuera los de publicaciones eliminadas por
+      // moderación (que ya no se pueden abrir).
+      .select('*, post:posts!inner(title, removed_at)')
       .eq('author_id', query.authorId)
-      .is('deleted_at', null);
+      .is('deleted_at', null)
+      .is('post.removed_at', null);
 
     if (query.cursor) {
       const { createdAt, id } = decodeAuthorCursor(query.cursor);

@@ -235,6 +235,32 @@ describe('PostsService', () => {
         code: 'POST_NOT_FOUND',
       });
     });
+
+    it('POST_REMOVED si lo eliminó la moderación', async () => {
+      repository.findWithAuthorById.mockResolvedValue({
+        post: makePost({ removedAt: new Date() }),
+        author: makeAuthor(),
+      });
+
+      await expect(service.findViewById(IDS.post, IDS.ana)).rejects.toMatchObject({
+        code: 'POST_REMOVED',
+      });
+    });
+  });
+
+  describe('findById / findByIdIncludingRemoved', () => {
+    it('findById da POST_REMOVED para un post eliminado (no se comenta ni vota)', async () => {
+      repository.findById.mockResolvedValue(makePost({ removedAt: new Date() }));
+
+      await expect(service.findById(IDS.post)).rejects.toMatchObject({ code: 'POST_REMOVED' });
+    });
+
+    it('findByIdIncludingRemoved lo devuelve igual (para la moderación)', async () => {
+      const removed = makePost({ removedAt: new Date() });
+      repository.findById.mockResolvedValue(removed);
+
+      await expect(service.findByIdIncludingRemoved(IDS.post)).resolves.toBe(removed);
+    });
   });
 
   describe('update / delete', () => {

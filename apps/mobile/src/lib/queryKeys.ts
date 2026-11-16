@@ -14,6 +14,10 @@ export const queryKeys = {
   authorComments: (authorId: string) => ['authorComments', authorId] as const,
   post: (postId: string) => ['post', postId] as const,
   comments: (postId: string) => ['comments', postId] as const,
+  myReports: ['myReports'] as const,
+  moderationScope: ['moderationScope'] as const,
+  // null = todas las comunidades que modera.
+  moderationQueue: (communityId: string | null) => ['moderationQueue', communityId] as const,
   search: (scope: { panelId: string } | { communityId: string }, q: string, sort: SearchSort) =>
     ['search', scope, q, sort] as const,
   // No vienen de la API: se guardan en el dispositivo (ver useRecentCommunities

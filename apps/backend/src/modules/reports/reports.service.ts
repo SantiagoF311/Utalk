@@ -8,7 +8,7 @@ import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { ReportEntity } from './domain/report.entity.js';
 import { REPORT_REPOSITORY } from './domain/report.repository.js';
-import type { ReportRepository, ReportTarget } from './domain/report.repository.js';
+import type { ReportRepository, ReportTarget, ReportWithPost } from './domain/report.repository.js';
 
 @Injectable()
 export class ReportsService {
@@ -55,9 +55,10 @@ export class ReportsService {
     return report;
   }
 
-  async delete(id: string): Promise<void> {
-    await this.findById(id);
-    await this.reportRepository.delete(id);
+  // "Mis reportes": en qué quedó cada uno. Resolverlos es de la moderación
+  // (ModerationService), que los cierra por contenido.
+  async findMine(userId: string): Promise<ReportWithPost[]> {
+    return this.reportRepository.findByReporter(userId);
   }
 
   // Convierte el input (dos campos nullable, validados con .refine()) en un

@@ -22,6 +22,8 @@ export interface CommunityRepository {
   findById(id: string): Promise<CommunityEntity | null>;
   findByPanelId(panelId: string): Promise<CommunityEntity[]>;
   findByPanelAndSlug(panelId: string, slug: string): Promise<CommunityEntity | null>;
+  // Las comunidades donde el usuario tiene fila en community_moderators.
+  findModeratedBy(userId: string): Promise<CommunityEntity[]>;
   update(id: string, changes: CommunityChanges): Promise<CommunityEntity>;
   delete(id: string): Promise<void>;
 }
