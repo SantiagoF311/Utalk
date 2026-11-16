@@ -1,7 +1,13 @@
 import { problemDetailsSchema } from '@utalk/shared';
 import type {
   AuthSession,
+  BlockedUser,
   CommentView,
+  ConversationView,
+  MessagePage,
+  MessageView,
+  StartConversationInput,
+  StartConversationResult,
   CreateCommentInput,
   CreatePostInput,
   CreateReportInput,
@@ -262,6 +268,55 @@ export const api = {
   // Exactamente uno de postId / commentId.
   createReport(input: CreateReportInput) {
     return authSend<Report>('POST', '/reports', input);
+  },
+
+  // Chats: escribir siempre va por acá; los mensajes nuevos y los "Visto"
+  // llegan además por Realtime (ver hooks/useChatRealtime.ts).
+  getConversations() {
+    return authGet<List<ConversationView>>('/conversations');
+  },
+
+  getConversation(conversationId: string) {
+    return authGet<ConversationView>(`/conversations/${encodeURIComponent(conversationId)}`);
+  },
+
+  // La conversación con alguien, si ya existe (404 CONVERSATION_NOT_FOUND si no).
+  getConversationWith(userId: string) {
+    return authGet<ConversationView>(`/conversations/with/${encodeURIComponent(userId)}`);
+  },
+
+  // Del más nuevo al más viejo, paginado por cursor.
+  getMessages(conversationId: string, cursor?: string) {
+    return authGet<MessagePage>(
+      `/conversations/${encodeURIComponent(conversationId)}/messages?${toQueryString({ cursor })}`,
+    );
+  },
+
+  startConversation(input: StartConversationInput) {
+    return authSend<StartConversationResult>('POST', '/conversations', input);
+  },
+
+  sendMessage(conversationId: string, body: string) {
+    return authSend<MessageView>('POST', `/conversations/${encodeURIComponent(conversationId)}/messages`, {
+      body,
+    });
+  },
+
+  markConversationRead(conversationId: string) {
+    return authSend<void>('POST', `/conversations/${encodeURIComponent(conversationId)}/read`);
+  },
+
+  getBlocks() {
+    return authGet<List<BlockedUser>>('/blocks');
+  },
+
+  // Bloquear / desbloquear: idempotentes.
+  blockUser(userId: string) {
+    return authSend<void>('PUT', `/blocks/${encodeURIComponent(userId)}`);
+  },
+
+  unblockUser(userId: string) {
+    return authSend<void>('DELETE', `/blocks/${encodeURIComponent(userId)}`);
   },
 
   // Mis reportes, con su número de caso y en qué quedaron.

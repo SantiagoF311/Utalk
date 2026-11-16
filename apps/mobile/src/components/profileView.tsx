@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import { ReactElement, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { BlockUserSheet } from '@/components/blockUserSheet';
+import { Button } from '@/components/button';
 import { FeedList } from '@/components/feedList';
 import { Icon } from '@/components/icon';
 import { ProfileHeader } from '@/components/profileHeader';
@@ -10,7 +12,9 @@ import { SegmentedControl } from '@/components/segmentedControl';
 import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useAuthorComments, useProfile } from '@/hooks/queries';
+import { useToggleBlock } from '@/hooks/mutations';
+import { useAuthorComments, useBlocks, useProfile } from '@/hooks/queries';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 import { relativeTime } from '@/lib/relativeTime';
@@ -62,7 +66,7 @@ export function ProfileView({ userId, isOwn }: ProfileViewProps) {
       sort="new"
       header={header}
       // Tirar hacia abajo refresca también los contadores.
-      onRefresh={() => void profile.refetch()}
+      onRefresh={() => profile.refetch()}
       empty={{
         title: isOwn ? 'Todavía no publicaste nada' : 'Todavía no publicó nada',
         description: isOwn ? 'Cuando publiques, va a aparecer acá.' : undefined,
@@ -73,7 +77,7 @@ export function ProfileView({ userId, isOwn }: ProfileViewProps) {
       authorId={userId}
       isOwn={isOwn}
       header={header}
-      onRefresh={() => void profile.refetch()}
+      onRefresh={() => profile.refetch()}
     />
   );
 }
@@ -98,6 +102,7 @@ function ProfileTop({ profile, isOwn, tab, onTab }: ProfileTopProps) {
         universityName={profile.university.name}
         createdAt={profile.createdAt}
       />
+      {!isOwn && <ProfileChatActions profile={profile} />}
       {isOwn && profile.isPrivate && (
         <View style={styles.privateNote}>
           <Icon name="lock" size={14} color="textSecondary" />
@@ -120,6 +125,41 @@ function ProfileTop({ profile, isOwn, tab, onTab }: ProfileTopProps) {
   );
 }
 
+// En el perfil de otro: escribirle (abre la conversación si ya hablaron) y
+// bloquear o desbloquear. Un bloqueado no tiene "Enviar mensaje".
+function ProfileChatActions({ profile }: { profile: PublicProfile }) {
+  const blocks = useBlocks();
+  const toggleBlock = useToggleBlock();
+  const [confirmingBlock, setConfirmingBlock] = useState(false);
+  const isBlocked = blocks.data?.some((blocked) => blocked.user.id === profile.id) ?? false;
+
+  return (
+    <View style={styles.chatActions}>
+      {isBlocked ? (
+        <Button
+          title="Desbloquear"
+          variant="ghost"
+          style={styles.flex}
+          loading={toggleBlock.isPending}
+          onPress={() => toggleBlock.mutate({ userId: profile.id, block: false })}
+        />
+      ) : (
+        <>
+          <Button
+            title="Enviar mensaje"
+            style={styles.flex}
+            onPress={() =>
+              router.push({ pathname: '/chat/new', params: { userId: profile.id, username: profile.username } })
+            }
+          />
+          <Button title="Bloquear" variant="ghost" onPress={() => setConfirmingBlock(true)} />
+        </>
+      )}
+      <BlockUserSheet visible={confirmingBlock} onClose={() => setConfirmingBlock(false)} user={profile} />
+    </View>
+  );
+}
+
 function Stat({ value, label }: { value: number; label: string }) {
   return (
     <ThemedText type="small" themeColor="textSecondary">
@@ -133,12 +173,13 @@ type AuthorCommentsProps = {
   isOwn: boolean;
   header: ReactElement;
   // Además de los comentarios, al tirar hacia abajo (la cabecera del perfil).
-  onRefresh: () => void;
+  onRefresh: () => unknown;
 };
 
 function AuthorComments({ authorId, isOwn, header, onRefresh }: AuthorCommentsProps) {
   const theme = useTheme();
   const comments = useAuthorComments(authorId);
+  const pullToRefresh = usePullToRefresh(() => Promise.all([comments.refetch(), onRefresh()]));
 
   return (
     <FlatList<ProfileComment>
@@ -147,11 +188,7 @@ function AuthorComments({ authorId, isOwn, header, onRefresh }: AuthorCommentsPr
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
-          refreshing={comments.isRefetching && !comments.isFetchingNextPage}
-          onRefresh={() => {
-            void comments.refetch();
-            onRefresh();
-          }}
+          {...pullToRefresh}
           tintColor={theme.textSecondary}
         />
       }
@@ -220,6 +257,13 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingBottom: Spacing.three,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  chatActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  flex: {
+    flex: 1,
   },
   privateNote: {
     flexDirection: 'row',

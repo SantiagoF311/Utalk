@@ -14,6 +14,11 @@ export const queryKeys = {
   authorComments: (authorId: string) => ['authorComments', authorId] as const,
   post: (postId: string) => ['post', postId] as const,
   comments: (postId: string) => ['comments', postId] as const,
+  conversations: ['conversations'] as const,
+  conversation: (conversationId: string) => ['conversation', conversationId] as const,
+  conversationWith: (userId: string) => ['conversationWith', userId] as const,
+  messages: (conversationId: string) => ['messages', conversationId] as const,
+  blocks: ['blocks'] as const,
   myReports: ['myReports'] as const,
   moderationScope: ['moderationScope'] as const,
   // null = todas las comunidades que modera.

@@ -43,6 +43,8 @@ const ICONS = {
   hidden: { ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' },
   flag: { ios: 'flag', android: 'flag', web: 'flag' },
   checkCircle: { ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' },
+  // El relojito de un mensaje que todavía no confirmó el servidor.
+  pending: { ios: 'clock', android: 'schedule', web: 'schedule' },
   lock: { ios: 'lock', android: 'lock', web: 'lock' },
   themeSystem: { ios: 'iphone', android: 'smartphone', web: 'smartphone' },
   themeLight: { ios: 'sun.max', android: 'light_mode', web: 'light_mode' },

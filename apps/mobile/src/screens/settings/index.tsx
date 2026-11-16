@@ -23,8 +23,9 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: IconName }[]
   { value: 'dark', label: 'Oscuro', icon: 'themeDark' },
 ];
 
-// Ajustes (desde el ⚙️ de tu perfil): tu apodo, la privacidad, tu cuenta, tus
-// reportes (y la moderación, si moderas algo), el tema y cerrar sesión. Cambiar la contraseña, el teléfono, los avisos y
+// Ajustes (desde el ⚙️ de tu perfil): tu apodo, la privacidad, los
+// bloqueados, tu cuenta, tus reportes (y la moderación, si moderas algo), el
+// tema y cerrar sesión. Cambiar la contraseña, el teléfono, los avisos y
 // eliminar la cuenta todavía no existen en el backend.
 export function SettingsScreen() {
   const theme = useTheme();
@@ -92,6 +93,15 @@ export function SettingsScreen() {
             Lo que publicas se sigue viendo en cada comunidad: privado esconde la lista en tu perfil, no
             tus publicaciones.
           </Hint>
+
+          <Section title="CHATS">
+            <LinkRow
+              icon="close"
+              title="Bloqueados"
+              subtitle="Quiénes no pueden escribirte"
+              href="/blocked-users"
+            />
+          </Section>
 
           <Section title="CUENTA">
             <Row
@@ -221,7 +231,7 @@ function Row({ icon, title, subtitle, right }: RowProps) {
 }
 
 type LinkRowProps = Omit<RowProps, 'right'> & {
-  href: '/my-reports' | '/moderation';
+  href: '/my-reports' | '/moderation' | '/blocked-users';
   // Línea arriba, para separarla de la fila anterior del mismo grupo.
   bordered?: boolean;
 };

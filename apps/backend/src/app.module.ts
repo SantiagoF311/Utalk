@@ -10,6 +10,8 @@ import { AuthGuard } from './modules/auth/auth.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CommentsModule } from './modules/comments/comments.module.js';
 import { CommunitiesModule } from './modules/communities/communities.module.js';
+import { BlocksModule } from './modules/blocks/blocks.module.js';
+import { ChatModule } from './modules/chat/chat.module.js';
 import { ModerationModule } from './modules/moderation/moderation.module.js';
 import { PanelsModule } from './modules/panels/panels.module.js';
 import { PostsModule } from './modules/posts/posts.module.js';
@@ -35,6 +37,8 @@ import { SupabaseModule } from './supabase/supabase.module.js';
     VotesModule,
     ReportsModule,
     ModerationModule,
+    BlocksModule,
+    ChatModule,
     SearchModule,
   ],
   controllers: [AppController],

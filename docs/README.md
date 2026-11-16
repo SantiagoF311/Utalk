@@ -16,7 +16,7 @@ alternativas se descartaron y por qué.
 - [mobile.md](./mobile.md) — estructura de la app Expo, navegación, TanStack Query (datos y caché del cliente), errores y variables de entorno
 - [backend-y-colas.md](./backend-y-colas.md) — NestJS, hosting, variables de entorno, BullMQ + Redis, notificaciones, moderación y rate limiting
 - [datos-y-trending.md](./datos-y-trending.md) — Supabase/Postgres como fuente de verdad, trending (`hot`) como columna generada, contadores por trigger
-- [chat-realtime.md](./chat-realtime.md) — chats 1 a 1 con Supabase Realtime y Presence
+- [chat-realtime.md](./chat-realtime.md) — chats 1 a 1: se escribe por la API, se lee por Realtime; solicitudes, bloqueo, "Visto" y "escribiendo…"
 - [auth.md](./auth.md) — registro y login, verificación local del JWT, universidad por dominio de correo
 - [busqueda.md](./busqueda.md) — full-text search + `pg_trgm`, cómo está implementada y por qué no se usa un motor dedicado
 - [observabilidad.md](./observabilidad.md) — logging, manejo de errores, monitoreo
@@ -34,7 +34,7 @@ alternativas se descartaron y por qué.
 | Hosting backend | Fly.io | Proceso persistente 24/7 (necesario para los workers de colas) |
 | Base de datos | Supabase (Postgres) | Fuente de verdad de todos los datos |
 | Auth | Supabase Auth | Login sin contraseña vía código al correo institucional |
-| Tiempo real | Supabase Realtime + Presence | Chats, indicadores de lectura y "escribiendo..." |
+| Tiempo real | Supabase Realtime (`postgres_changes` + Broadcast) | Mensajes del chat, "Visto" y "escribiendo..." |
 | Almacenamiento de archivos | Supabase Storage | Imágenes de posts |
 | Colas de trabajo | BullMQ | Notificaciones, moderación |
 | Backing store de colas / cache | Redis (Upstash, serverless) | Almacenamiento de BullMQ (y del rate limiting cuando el backend tenga más de una instancia) |
@@ -53,9 +53,9 @@ decididas pero todavía no implementadas** (ver la tabla siguiente).
 Puntos clave que el diagrama resume:
 
 - **El mobile habla con el backend para casi todo.** Solo va directo a
-  Supabase para el registro/verificación de correo (Auth) y, cuando exista,
-  para el chat (Realtime). Ver [auth.md](./auth.md) y
-  [chat-realtime.md](./chat-realtime.md).
+  Supabase para el registro/verificación de correo (Auth) y para **leer**
+  el chat por Realtime (escribir mensajes también va por el backend). Ver
+  [auth.md](./auth.md) y [chat-realtime.md](./chat-realtime.md).
 - **El backend usa la service role key** (bypassa RLS) y es el único punto
   de control de acceso de las tablas de contenido. Por eso esas tablas
   tienen RLS activo sin políticas. Ver
@@ -70,14 +70,15 @@ Puntos clave que el diagrama resume:
 | Pieza | Estado | Dónde |
 |---|---|---|
 | Monorepo + `@utalk/shared` (Zod) | Implementado | [monorepo.md](./monorepo.md) |
-| API NestJS: auth, perfiles, universidades, paneles, comunidades, posts, comentarios, votos, reportes, moderación, búsqueda | Implementado | [arquitectura-backend.md](./arquitectura-backend.md) |
+| API NestJS: auth, perfiles, universidades, paneles, comunidades, posts, comentarios, votos, reportes, moderación, búsqueda, chat, bloqueos | Implementado | [arquitectura-backend.md](./arquitectura-backend.md) |
 | Supabase Auth + Auth Hook por dominio de correo | Implementado | [auth.md](./auth.md) |
 | Postgres: contadores por trigger, `hot` generado, soft delete, FTS + `pg_trgm` | Implementado | [datos-y-trending.md](./datos-y-trending.md), [busqueda.md](./busqueda.md) |
 | Seguridad de la API: JWT local, rate limiting en memoria, CORS, helmet, Problem Details | Implementado | [auth.md](./auth.md), [backend-y-colas.md](./backend-y-colas.md), [observabilidad.md](./observabilidad.md) |
 | App mobile: feeds, detalle, interacción, reportes, búsqueda, comunidades, perfil | Implementado | [mobile.md](./mobile.md) |
 | Moderación manual: estado y número de caso de los reportes, cola por comunidad, eliminar o dejar, "Mis reportes" | Implementado | [modelo-de-datos.md](./modelo-de-datos.md#moderación) |
 | Tests unitarios + CI (`npm run check`) | Implementado | [testing.md](./testing.md) |
-| Chat 1 a 1 (Realtime + Presence) | Pendiente | [chat-realtime.md](./chat-realtime.md) |
+| Chat 1 a 1: solicitudes de mensaje, bloqueo, "Visto" y "escribiendo…" (Realtime + Broadcast) | Implementado | [chat-realtime.md](./chat-realtime.md) |
+| Push del chat con la app cerrada | Pendiente | [chat-realtime.md](./chat-realtime.md) |
 | BullMQ + Redis (notificaciones, moderación por IA) | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
 | Imágenes en posts (Storage) | Pendiente | — |
 | Sentry | Pendiente | [observabilidad.md](./observabilidad.md) |

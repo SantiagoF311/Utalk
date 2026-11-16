@@ -1,4 +1,6 @@
 import type { Author } from '@utalk/shared';
+import { ConversationEntity } from '../modules/chat/domain/conversation.entity.js';
+import { MessageEntity } from '../modules/chat/domain/message.entity.js';
 import { CommentEntity } from '../modules/comments/domain/comment.entity.js';
 import { CommunityEntity } from '../modules/communities/domain/community.entity.js';
 import { PanelEntity } from '../modules/panels/domain/panel.entity.js';
@@ -21,6 +23,7 @@ export const IDS = {
   generalPanel: '00000000-0000-4000-8000-0000000000c2',
   community: '00000000-0000-4000-8000-0000000000d1',
   post: '00000000-0000-4000-8000-0000000000e1',
+  conversation: '00000000-0000-4000-8000-000000000101',
 } as const;
 
 const CREATED_AT = new Date('2026-11-01T12:00:00.000Z');
@@ -169,6 +172,43 @@ export function makeComment(
     c.createdAt,
     c.removedAt,
   );
+}
+
+// Conversación entre Ana y Beto que empezó Ana. Por defecto, solicitud
+// (acceptedAt null).
+export function makeConversation(
+  overrides: Partial<{ id: string; initiatedBy: string; acceptedAt: Date | null }> = {},
+): ConversationEntity {
+  const c = {
+    id: IDS.conversation,
+    initiatedBy: IDS.ana as string,
+    acceptedAt: null as Date | null,
+    ...overrides,
+  };
+  // user_a < user_b, como en la base.
+  const [userA, userB] = [IDS.ana, IDS.beto].sort();
+  return new ConversationEntity(
+    c.id,
+    userA,
+    userB,
+    c.initiatedBy,
+    c.acceptedAt,
+    CREATED_AT,
+    CREATED_AT,
+  );
+}
+
+export function makeMessage(
+  overrides: Partial<{ id: string; senderId: string; body: string; readAt: Date | null }> = {},
+): MessageEntity {
+  const m = {
+    id: '00000000-0000-4000-8000-000000000301',
+    senderId: IDS.ana as string,
+    body: 'hola',
+    readAt: null as Date | null,
+    ...overrides,
+  };
+  return new MessageEntity(m.id, IDS.conversation, m.senderId, m.body, m.readAt, CREATED_AT);
 }
 
 export function makeAuthor(overrides: Partial<Author> = {}): Author {
