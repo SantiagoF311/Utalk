@@ -2,18 +2,13 @@ import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import * as Sentry from '@sentry/nestjs';
 import { notifyModerationResultJobSchema, notifySubscribersJobSchema } from '@utalk/shared';
 import type { Job } from 'bullmq';
+import { isFinalAttempt } from '../../common/jobs.js';
 import {
   NOTIFICATIONS_QUEUE,
   NOTIFY_MODERATION_RESULT_JOB,
   NOTIFY_SUBSCRIBERS_JOB,
 } from './notifications.jobs.js';
 import { NotificationsService } from './notifications.service.js';
-
-// Un intento fallido que BullMQ todavía va a reintentar no es un problema;
-// el último, sí: ese aviso no se va a mandar.
-export function isFinalAttempt(job: Pick<Job, 'attemptsMade' | 'opts'>): boolean {
-  return job.attemptsMade >= (job.opts.attempts ?? 1);
-}
 
 // Worker de la cola `notifications`: corre en el mismo proceso que la API.
 @Processor(NOTIFICATIONS_QUEUE)

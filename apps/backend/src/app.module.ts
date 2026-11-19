@@ -17,6 +17,7 @@ import { ModerationModule } from './modules/moderation/moderation.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { PanelsModule } from './modules/panels/panels.module.js';
 import { PostsModule } from './modules/posts/posts.module.js';
+import { PushModule } from './modules/push/push.module.js';
 import { ProfilesModule } from './modules/profiles/profiles.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { SearchModule } from './modules/search/search.module.js';
@@ -50,6 +51,7 @@ import { SupabaseModule } from './supabase/supabase.module.js';
     ChatModule,
     SearchModule,
     NotificationsModule,
+    PushModule,
   ],
   controllers: [AppController],
   // El orden importa: el rate limiting va primero (frena también a quien

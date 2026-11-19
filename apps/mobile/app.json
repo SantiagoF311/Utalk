@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Tempora",
-    "slug": "Tempora",
+    "name": "UTalk",
+    "slug": "utalk",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "tempora",
+    "scheme": "utalk",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -45,6 +45,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ac31c7bf-4663-4d6b-9b7d-7fe004283ae5"
+      }
+    },
+    "owner": "santiagof311"
   }
 }

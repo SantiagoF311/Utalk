@@ -15,6 +15,7 @@ import { useModerationScope, useMyProfile } from '@/hooks/queries';
 import { useSession } from '@/hooks/useSession';
 import { ThemePreference, useThemePreference } from '@/hooks/useThemePreference';
 import { useTheme } from '@/hooks/useTheme';
+import { unregisterPush } from '@/lib/pushNotifications';
 import { supabase } from '@/lib/supabase';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: IconName }[] = [
@@ -39,9 +40,11 @@ export function SettingsScreen() {
   const nextChange = me.data ? nextUsernameChange(me.data.usernameChangedAt) : null;
 
   // La app vuelve sola a la bienvenida al perder la sesión (rutas
-  // protegidas en app/_layout.tsx).
+  // protegidas en app/_layout.tsx). Antes, el celular deja de recibir avisos
+  // de esta cuenta (si falla, se cierra sesión igual).
   const signOut = async () => {
     setSigningOut(true);
+    await unregisterPush().catch(() => undefined);
     await supabase.auth.signOut();
   };
 

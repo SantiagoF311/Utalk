@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { isFinalAttempt } from './notifications.processor.js';
+import { isFinalAttempt } from './jobs.js';
 
 describe('isFinalAttempt', () => {
   it('con reintentos pendientes no es el último', () => {
