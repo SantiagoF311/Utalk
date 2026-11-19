@@ -46,6 +46,7 @@ const ICONS = {
   // El relojito de un mensaje que todavía no confirmó el servidor.
   pending: { ios: 'clock', android: 'schedule', web: 'schedule' },
   lock: { ios: 'lock', android: 'lock', web: 'lock' },
+  bell: { ios: 'bell', android: 'notifications', web: 'notifications' },
   themeSystem: { ios: 'iphone', android: 'smartphone', web: 'smartphone' },
   themeLight: { ios: 'sun.max', android: 'light_mode', web: 'light_mode' },
   themeDark: { ios: 'moon', android: 'dark_mode', web: 'dark_mode' },

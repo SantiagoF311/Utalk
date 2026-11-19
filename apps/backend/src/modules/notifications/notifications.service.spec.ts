@@ -1,0 +1,98 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { Logger } from '@nestjs/common';
+import { NOTIFICATIONS_LIMIT } from '@utalk/shared';
+import { IDS, makeNotification } from '../../testing/fixtures.js';
+import type { NotificationQueue } from './domain/notification.queue.js';
+import type { NotificationRepository } from './domain/notification.repository.js';
+import { NotificationsService } from './notifications.service.js';
+
+describe('NotificationsService', () => {
+  let repository: jest.Mocked<NotificationRepository>;
+  let queue: jest.Mocked<NotificationQueue>;
+  let service: NotificationsService;
+
+  beforeEach(() => {
+    repository = {
+      createForNewPost: jest.fn<NotificationRepository['createForNewPost']>().mockResolvedValue(2),
+      findById: jest.fn<NotificationRepository['findById']>().mockResolvedValue(makeNotification()),
+      findLatestByUser: jest.fn<NotificationRepository['findLatestByUser']>().mockResolvedValue([]),
+      countUnread: jest.fn<NotificationRepository['countUnread']>().mockResolvedValue(3),
+      markRead: jest.fn<NotificationRepository['markRead']>().mockResolvedValue(undefined),
+      markAllRead: jest.fn<NotificationRepository['markAllRead']>().mockResolvedValue(undefined),
+    };
+    queue = {
+      enqueueNewPost: jest.fn<NotificationQueue['enqueueNewPost']>().mockResolvedValue(undefined),
+    };
+    service = new NotificationsService(repository, queue);
+  });
+
+  describe('enqueueNewPost', () => {
+    it('encola el post', async () => {
+      await service.enqueueNewPost(IDS.post);
+
+      expect(queue.enqueueNewPost).toHaveBeenCalledWith(IDS.post);
+    });
+
+    it('no falla si la cola no responde: el post ya está publicado', async () => {
+      queue.enqueueNewPost.mockRejectedValue(new Error('Redis down'));
+      const logError = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      await expect(service.enqueueNewPost(IDS.post)).resolves.toBeUndefined();
+      expect(logError).toHaveBeenCalled();
+      logError.mockRestore();
+    });
+  });
+
+  describe('notifySubscribers', () => {
+    it('crea las notificaciones del post y devuelve cuántas', async () => {
+      await expect(service.notifySubscribers(IDS.post)).resolves.toBe(2);
+      expect(repository.createForNewPost).toHaveBeenCalledWith(IDS.post);
+    });
+  });
+
+  describe('findMine', () => {
+    it('pide las más nuevas de quien mira, con el límite compartido', async () => {
+      await service.findMine(IDS.beto);
+
+      expect(repository.findLatestByUser).toHaveBeenCalledWith(IDS.beto, NOTIFICATIONS_LIMIT);
+    });
+  });
+
+  describe('markRead', () => {
+    it('marca como leída una notificación propia sin leer', async () => {
+      await service.markRead(IDS.notification, IDS.beto);
+
+      expect(repository.markRead).toHaveBeenCalledWith(IDS.notification);
+    });
+
+    it('es idempotente: una ya leída no se vuelve a escribir', async () => {
+      repository.findById.mockResolvedValue(makeNotification({ readAt: new Date() }));
+
+      await expect(service.markRead(IDS.notification, IDS.beto)).resolves.toBeUndefined();
+      expect(repository.markRead).not.toHaveBeenCalled();
+    });
+
+    it('NOTIFICATION_NOT_FOUND si no existe', async () => {
+      repository.findById.mockResolvedValue(null);
+
+      await expect(service.markRead(IDS.notification, IDS.beto)).rejects.toMatchObject({
+        code: 'NOTIFICATION_NOT_FOUND',
+      });
+    });
+
+    it('NOTIFICATION_NOT_FOUND si es de otro usuario (no revela que existe)', async () => {
+      await expect(service.markRead(IDS.notification, IDS.ana)).rejects.toMatchObject({
+        code: 'NOTIFICATION_NOT_FOUND',
+      });
+      expect(repository.markRead).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('markAllRead', () => {
+    it('marca todas las de quien mira', async () => {
+      await service.markAllRead(IDS.beto);
+
+      expect(repository.markAllRead).toHaveBeenCalledWith(IDS.beto);
+    });
+  });
+});

@@ -20,6 +20,8 @@ export const queryKeys = {
   messages: (conversationId: string) => ['messages', conversationId] as const,
   blocks: ['blocks'] as const,
   myReports: ['myReports'] as const,
+  notifications: ['notifications'] as const,
+  unreadNotifications: ['unreadNotifications'] as const,
   moderationScope: ['moderationScope'] as const,
   // null = todas las comunidades que modera.
   moderationQueue: (communityId: string | null) => ['moderationQueue', communityId] as const,

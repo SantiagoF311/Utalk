@@ -1,6 +1,7 @@
 import type { Author } from '@utalk/shared';
 import { ConversationEntity } from '../modules/chat/domain/conversation.entity.js';
 import { MessageEntity } from '../modules/chat/domain/message.entity.js';
+import { NotificationEntity } from '../modules/notifications/domain/notification.entity.js';
 import { CommentEntity } from '../modules/comments/domain/comment.entity.js';
 import { CommunityEntity } from '../modules/communities/domain/community.entity.js';
 import { PanelEntity } from '../modules/panels/domain/panel.entity.js';
@@ -24,6 +25,7 @@ export const IDS = {
   community: '00000000-0000-4000-8000-0000000000d1',
   post: '00000000-0000-4000-8000-0000000000e1',
   conversation: '00000000-0000-4000-8000-000000000101',
+  notification: '00000000-0000-4000-8000-000000000401',
 } as const;
 
 const CREATED_AT = new Date('2026-11-01T12:00:00.000Z');
@@ -209,6 +211,27 @@ export function makeMessage(
     ...overrides,
   };
   return new MessageEntity(m.id, IDS.conversation, m.senderId, m.body, m.readAt, CREATED_AT);
+}
+
+// Notificación para Beto de que Ana publicó en una comunidad de la que es
+// miembro. Por defecto, sin leer.
+export function makeNotification(
+  overrides: Partial<{ id: string; userId: string; readAt: Date | null }> = {},
+): NotificationEntity {
+  const n = {
+    id: IDS.notification,
+    userId: IDS.beto as string,
+    readAt: null as Date | null,
+    ...overrides,
+  };
+  return new NotificationEntity(
+    n.id,
+    n.userId,
+    'new_post_in_community',
+    IDS.post,
+    n.readAt,
+    CREATED_AT,
+  );
 }
 
 export function makeAuthor(overrides: Partial<Author> = {}): Author {

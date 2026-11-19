@@ -73,7 +73,8 @@ el tiempo. Casos de uso concretos identificados:
 
 - Tipos/schemas de dominio (`Post`, `Comment`, `User`, etc.) — pendientes
   de definir.
-- Payloads de los jobs de BullMQ (ej. `NotifySubscribersJobPayload`), para
+- Payloads de los jobs de BullMQ (ej. `notifySubscribersJobSchema` /
+  `NotifySubscribersJob`, en `notification.ts`), para
   que el código que encola un job y el worker que lo procesa compartan
   exactamente el mismo contrato.
 

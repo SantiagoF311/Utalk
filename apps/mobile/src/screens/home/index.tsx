@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FeedList } from '@/components/feedList';
 import { Icon } from '@/components/icon';
+import { NotificationBell } from '@/components/notificationBell';
 import { ScreenHeader } from '@/components/screenHeader';
 import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
@@ -33,13 +34,16 @@ export function HomeScreen() {
             dice además en qué panel estás, y publicar es el "+" de al lado. */}
         <ScreenHeader
           right={
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Nueva publicación"
-              onPress={() => router.push('/compose')}
-              hitSlop={8}>
-              <Icon name="plus" size={26} />
-            </Pressable>
+            <>
+              <NotificationBell />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Nueva publicación"
+                onPress={() => router.push('/compose')}
+                hitSlop={8}>
+                <Icon name="plus" size={26} />
+              </Pressable>
+            </>
           }
           center={
             <Pressable

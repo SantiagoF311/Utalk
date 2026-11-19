@@ -8,6 +8,7 @@ import type {
 } from '@utalk/shared';
 import { AppException } from '../../common/appException.js';
 import { CommunitiesService } from '../communities/communities.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PanelsService } from '../panels/panels.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import { PostEntity } from './domain/post.entity.js';
@@ -28,6 +29,7 @@ export class PostsService {
     private readonly communitiesService: CommunitiesService,
     private readonly panelsService: PanelsService,
     private readonly profilesService: ProfilesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(input: CreatePostInput, authorId: string): Promise<PostView> {
@@ -51,6 +53,8 @@ export class PostsService {
       title: input.title,
       body: input.body,
     });
+    // Solo encola (barato): avisar a los miembros lo hace el worker después.
+    await this.notificationsService.enqueueNewPost(item.post.id);
     // myVote es null por definición: nadie votó un post que acaba de nacer.
     // Si algún día se agrega el voto automático del autor (como Reddit),
     // esto tiene que pasar a 1. Y nadie puede haberlo reportado todavía.

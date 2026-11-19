@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Sidebar } from '@/components/sidebar';
 import { useChatRealtime } from '@/hooks/useChatRealtime';
 import { FeedSelectionProvider } from '@/hooks/useFeedSelection';
+import { useNotificationsRealtime } from '@/hooks/useNotificationsRealtime';
 import { useTheme } from '@/hooks/useTheme';
 
 // El sidebar (como el de Reddit) envuelve las pestañas: se abre con el botón
@@ -14,6 +15,8 @@ export default function DrawerLayout() {
   // Los mensajes llegan en tiempo real mientras hay sesión, en cualquier
   // pantalla (la lista de Chats y el contador de la pestaña se actualizan).
   useChatRealtime();
+  // Igual con las notificaciones: la campana de Inicio se actualiza sola.
+  useNotificationsRealtime();
 
   return (
     // El gesto de deslizar para abrir el sidebar necesita GestureHandlerRootView.
