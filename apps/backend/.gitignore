@@ -3,6 +3,9 @@
 /node_modules
 /build
 
+# resultados de corridas locales de k6 (scripts/perf)
+scripts/perf/results.json
+
 # TypeScript build cache
 *.tsbuildinfo
 
