@@ -1,0 +1,35 @@
+# Backend de UTalk en Render, plan gratis (Blueprint: Render lee este archivo
+# del repo y arma el servicio). Ver docs/backend-y-colas.md.
+#
+# Plan gratis: el servicio se duerme tras 15 minutos sin requests y tarda
+# 30-50 s en despertar. Mientras duerme, el worker de BullMQ tampoco corre:
+# los avisos quedan en Redis y se mandan al despertar. Alcanza para una demo;
+# para usuarios reales hace falta un plan que no se duerma.
+
+services:
+  - type: web
+    name: utalk-api
+    runtime: docker
+    plan: free
+    # La misma región que Supabase y Upstash (us-east-1).
+    region: virginia
+    # Se construye desde la raíz del monorepo (necesita el lockfile y
+    # @utalk/shared).
+    dockerfilePath: ./apps/backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      # Secretos: Render los pide al crear el servicio (`sync: false` = no
+      # están en el repo). Copiarlos de apps/backend/.env.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
