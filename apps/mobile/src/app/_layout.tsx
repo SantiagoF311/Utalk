@@ -10,6 +10,7 @@ import { useRequireProfile } from '@/hooks/useRequireProfile';
 import { SessionProvider, useSession } from '@/hooks/useSession';
 import { ThemePreferenceProvider } from '@/hooks/useThemePreference';
 import { queryClient } from '@/lib/queryClient';
+import { Sentry } from '@/lib/sentry';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,8 +36,11 @@ function withPalette(base: typeof DefaultTheme, palette: (typeof Colors)['light'
 }
 
 // Los proveedores van afuera y la navegación adentro: RootNavigator lee la
-// sesión del contexto, que tiene que existir antes.
-export default function RootLayout() {
+// sesión del contexto, que tiene que existir antes. Sentry.wrap captura los
+// errores que rompen una pantalla (ver lib/sentry.ts).
+export default Sentry.wrap(RootLayout);
+
+function RootLayout() {
   return (
     <ThemePreferenceProvider>
       <SessionProvider>

@@ -1,3 +1,5 @@
+// Primero que todo: Sentry tiene que inicializarse antes que el resto.
+import './instrument.js';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import type { NestExpressApplication } from '@nestjs/platform-express';

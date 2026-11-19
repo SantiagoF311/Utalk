@@ -1,13 +1,18 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { ArgumentsHost, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { ProblemDetails } from '@utalk/shared';
 import { z } from 'zod';
 import { AppException } from './appException.js';
 import { ProblemDetailsFilter } from './problemDetails.filter.js';
 
 // Ejecuta el filtro con un request/response falsos y devuelve lo que habría
-// respondido por HTTP.
-function run(exception: unknown) {
+// respondido por HTTP. `reportError` reemplaza a Sentry.
+function run(exception: unknown, reportError: (error: unknown) => unknown = () => undefined) {
   const sent: { status?: number; type?: string; body?: ProblemDetails } = {};
   const response = {
     status(code: number) {
@@ -28,7 +33,7 @@ function run(exception: unknown) {
     switchToHttp: () => ({ getRequest: () => request, getResponse: () => response }),
   } as unknown as ArgumentsHost;
 
-  new ProblemDetailsFilter().catch(exception, host);
+  new ProblemDetailsFilter(reportError).catch(exception, host);
   return sent;
 }
 
@@ -79,5 +84,36 @@ describe('ProblemDetailsFilter', () => {
       expect.stringContaining('permission denied'),
     );
     log.mockRestore();
+  });
+
+  describe('reporte a Sentry', () => {
+    it('reporta los errores inesperados (500)', () => {
+      const log = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      const report = jest.fn();
+      const error = new Error('boom');
+
+      run(error, report);
+
+      expect(report).toHaveBeenCalledWith(error);
+      log.mockRestore();
+    });
+
+    it('reporta una excepción de Nest con status 5xx', () => {
+      const report = jest.fn();
+
+      run(new ServiceUnavailableException('down'), report);
+
+      expect(report).toHaveBeenCalled();
+    });
+
+    it('no reporta lo esperable: errores de la app, validación ni 4xx de Nest', () => {
+      const report = jest.fn();
+
+      run(new AppException('POST_NOT_FOUND', 'not found'), report);
+      run(z.object({ title: z.string() }).safeParse({}).error, report);
+      run(new NotFoundException('nope'), report);
+
+      expect(report).not.toHaveBeenCalled();
+    });
   });
 });

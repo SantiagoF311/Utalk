@@ -399,11 +399,18 @@ texto: `src/lib/errorMessages.ts` traduce cada `code` a un mensaje en
 español para el usuario (el `detail` del backend es técnico y en inglés,
 nunca se muestra).
 
+Los errores de la propia app (una pantalla que se rompe, una promesa sin
+atrapar) van a Sentry: `lib/sentry.ts` lo configura y `app/_layout.tsx`
+envuelve la app con `Sentry.wrap`. Los de la API no, porque ya los reporta
+el backend. Qué se manda y qué no, en
+[observabilidad.md](./observabilidad.md#sentry).
+
 ## Variables de entorno
 
 En `apps/mobile/.env` (plantilla: `apps/mobile/.env.example`):
-`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y
-`EXPO_PUBLIC_API_URL`. Todo lo `EXPO_PUBLIC_*` queda dentro de la app
+`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+`EXPO_PUBLIC_API_URL` y, opcionales, `EXPO_PUBLIC_SENTRY_DSN` y
+`EXPO_PUBLIC_SENTRY_ENVIRONMENT` (sin el DSN, Sentry queda apagado). Todo lo `EXPO_PUBLIC_*` queda dentro de la app
 instalada y cualquiera puede leerlo: **nunca** va una clave secreta.
 
 **`EXPO_PUBLIC_API_URL` en un celular**: en el celular, `localhost` es el
