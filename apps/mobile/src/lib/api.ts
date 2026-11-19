@@ -1,4 +1,4 @@
-import { problemDetailsSchema } from '@utalk/shared';
+import { POST_IMAGE_FIELD, problemDetailsSchema } from '@utalk/shared';
 import type {
   AuthSession,
   BlockedUser,
@@ -36,6 +36,8 @@ import type {
   UnreadNotificationCount,
   VoteValue,
 } from '@utalk/shared';
+import type { ImagePickerAsset } from 'expo-image-picker';
+import { Platform } from 'react-native';
 
 import { resolveApiUrl } from '@/lib/apiUrl';
 import { supabase } from '@/lib/supabase';
@@ -63,9 +65,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit): Promise<T> {
+  // Con FormData (subir una imagen) el Content-Type lo pone fetch, con el
+  // `boundary` del multipart; si se fija a mano, el backend no lo puede leer.
+  const isForm = options.body instanceof FormData;
   const response = await fetch(`${apiUrl}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: isForm ? options.headers : { 'Content-Type': 'application/json', ...options.headers },
   });
 
   // 204 (ej. un DELETE) no trae cuerpo.
@@ -114,7 +119,8 @@ async function authGet<T>(path: string): Promise<T> {
   return request<T>(path, { method: 'GET', headers: await authHeaders() });
 }
 
-// POST / PUT / PATCH / DELETE con sesión; `body` se manda como JSON si viene.
+// POST / PUT / PATCH / DELETE con sesión; `body` se manda como JSON si viene
+// (o tal cual si es FormData).
 async function authSend<T>(
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
@@ -123,8 +129,23 @@ async function authSend<T>(
   return request<T>(path, {
     method,
     headers: await authHeaders(),
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
   });
+}
+
+// En la web el selector da un File de verdad; en iOS/Android, una ruta local
+// que React Native sube leyendo el archivo (el objeto { uri, name, type }).
+function appendImage(form: FormData, image: ImagePickerAsset) {
+  if (Platform.OS === 'web' && image.file) {
+    form.append(POST_IMAGE_FIELD, image.file);
+    return;
+  }
+  const file = {
+    uri: image.uri,
+    name: image.fileName ?? 'imagen.jpg',
+    type: image.mimeType ?? 'image/jpeg',
+  };
+  form.append(POST_IMAGE_FIELD, file as unknown as Blob);
 }
 
 export const api = {
@@ -221,8 +242,17 @@ export const api = {
     return authGet<List<CommentView>>(`/comments?${toQueryString({ postId })}`);
   },
 
-  createPost(input: CreatePostInput) {
-    return authSend<PostView>('POST', '/posts', input);
+  // Con imagen va como multipart (los mismos campos más `image`); sin, JSON.
+  createPost(input: CreatePostInput, image: ImagePickerAsset | null = null) {
+    if (!image) {
+      return authSend<PostView>('POST', '/posts', input);
+    }
+    const form = new FormData();
+    form.append('communityId', input.communityId);
+    form.append('title', input.title);
+    form.append('body', input.body);
+    appendImage(form, image);
+    return authSend<PostView>('POST', '/posts', form);
   },
 
   deletePost(postId: string) {

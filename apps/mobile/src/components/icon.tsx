@@ -47,6 +47,7 @@ const ICONS = {
   pending: { ios: 'clock', android: 'schedule', web: 'schedule' },
   lock: { ios: 'lock', android: 'lock', web: 'lock' },
   bell: { ios: 'bell', android: 'notifications', web: 'notifications' },
+  image: { ios: 'photo', android: 'image', web: 'image' },
   themeSystem: { ios: 'iphone', android: 'smartphone', web: 'smartphone' },
   themeLight: { ios: 'sun.max', android: 'light_mode', web: 'light_mode' },
   themeDark: { ios: 'moon', android: 'dark_mode', web: 'dark_mode' },

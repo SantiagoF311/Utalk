@@ -13,6 +13,7 @@ export const ERROR_CODES = [
   'NOT_FOUND',
   'CONFLICT',
   'TOO_MANY_REQUESTS',
+  'PAYLOAD_TOO_LARGE',
   'INTERNAL_ERROR',
 
   // Auth y perfiles
@@ -44,6 +45,7 @@ export const ERROR_CODES = [
   'POST_REMOVED',
   'NOT_POST_AUTHOR',
   'INVALID_CURSOR',
+  'INVALID_IMAGE',
 
   // Comentarios
   'COMMENT_NOT_FOUND',

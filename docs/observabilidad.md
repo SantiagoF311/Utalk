@@ -65,8 +65,9 @@ ASP.NET Core, y cuesta lo mismo que uno propio.
 - Un único filtro global, `ProblemDetailsFilter`
   (`common/problemDetails.filter.ts`, `@Catch()` sin argumentos),
   convierte todo a Problem Details. Las excepciones propias de Nest
-  (ParseUUIDPipe, 404 de ruta, JSON inválido) reciben un código genérico
-  según su status (`BAD_REQUEST`, `NOT_FOUND`…).
+  (ParseUUIDPipe, 404 de ruta, JSON inválido, un archivo de más de 5 MB)
+  reciben un código genérico según su status (`BAD_REQUEST`, `NOT_FOUND`,
+  `PAYLOAD_TOO_LARGE`…).
 - **Errores de Postgres**: se traducen en el **repositorio** (el adaptador
   de infraestructura), nunca en el filtro — así la capa HTTP no conoce
   códigos de Postgres. Hoy se traduce el `23505` (unique violation): dos

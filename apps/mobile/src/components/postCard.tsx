@@ -6,6 +6,7 @@ import { CommunityAvatar } from '@/components/communityAvatar';
 import { HiddenNotice, ReportedBanner } from '@/components/hiddenNotice';
 import { Icon } from '@/components/icon';
 import { PostActions } from '@/components/postActions';
+import { PostImage } from '@/components/postImage';
 import { ThemedText } from '@/components/themedText';
 import { VoteBar } from '@/components/voteBar';
 import { Spacing } from '@/constants/theme';
@@ -101,6 +102,7 @@ export function PostCard({
       <ThemedText style={[styles.title, full && styles.titleFull]} numberOfLines={full ? undefined : 3}>
         {post.title}
       </ThemedText>
+      {post.imageUrl && <PostImage uri={post.imageUrl} full={full} />}
       <ThemedText
         type={full ? 'default' : 'small'}
         themeColor={full ? 'text' : 'textSecondary'}

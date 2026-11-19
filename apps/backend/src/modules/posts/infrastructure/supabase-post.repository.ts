@@ -24,6 +24,7 @@ interface PostRow {
   hot: number;
   created_at: string;
   removed_at: string | null;
+  image_path: string | null;
 }
 
 interface PostWithAuthorRow extends PostRow {
@@ -53,6 +54,7 @@ function toEntity(row: PostRow): PostEntity {
     row.comment_count,
     new Date(row.created_at),
     row.removed_at ? new Date(row.removed_at) : null,
+    row.image_path,
   );
 }
 
@@ -109,6 +111,7 @@ export class SupabasePostRepository implements PostRepository {
         author_id: post.authorId,
         title: post.title,
         body: post.body,
+        image_path: post.imagePath,
       })
       .select(WITH_AUTHOR)
       .single();

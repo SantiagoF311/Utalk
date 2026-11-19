@@ -47,7 +47,7 @@ de infraestructura está en [backend-y-colas.md](./backend-y-colas.md).
 | Fly.io | Pendiente | Hosting del proceso de la API (y de los workers) |
 | BullMQ + Redis (Upstash) | En uso | Cola `notifications` (job `notify-subscribers`, ver [backend-y-colas.md](./backend-y-colas.md)). Pendiente: moderación por IA, push del chat y rate limiting compartido cuando haya más de una instancia |
 | Sentry (`@sentry/nestjs`) | Pendiente | Captura de excepciones en producción |
-| Supabase Storage | Pendiente | Imágenes de posts |
+| Supabase Storage | En uso | Imágenes de posts (bucket `post-images`): las sube y borra solo el backend, detrás del puerto `PostImageStorage` |
 
 ## Decisión: monolito modular con arquitectura hexagonal / Clean Architecture
 

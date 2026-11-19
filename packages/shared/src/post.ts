@@ -35,13 +35,22 @@ export const updatePostSchema = postSchema
 
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 
+// Imagen opcional de un post: se manda en el mismo POST /posts (multipart,
+// campo `image`). El backend mira los bytes, no el tipo que dice el cliente.
+export const POST_IMAGE_FIELD = 'image';
+export const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+export const POST_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
+export type PostImageType = (typeof POST_IMAGE_TYPES)[number];
+
 // Post tal como lo ve un usuario: con el apodo del autor resuelto, su
-// propio voto (para pintar la flecha marcada) y si ya lo reportó (la app lo
-// muestra oculto, con "Ver igual").
+// propio voto (para pintar la flecha marcada), si ya lo reportó (la app lo
+// muestra oculto, con "Ver igual") y la URL de su imagen.
 export const postViewSchema = postSchema.omit({ authorId: true }).extend({
   author: authorSchema,
   myVote: voteValueSchema.nullable(),
   reportedByMe: z.boolean(),
+  imageUrl: z.url().nullable(),
 });
 
 export type PostView = z.infer<typeof postViewSchema>;

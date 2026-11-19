@@ -117,6 +117,23 @@ arriba un selector de panel: el de tu universidad, el general y el resto
 | Feed de una comunidad | `u/<apodo>` · hace cuánto |
 | Detalle del post | avatar y `c/<comunidad>` arriba; `u/<apodo>` · universidad · hace cuánto debajo |
 
+Si el post tiene imagen, va entre el título y el texto
+(`components/postImage.tsx`, con `expo-image`). En el feed todas ocupan lo
+mismo (4:3, recortadas) para que la lista no salte mientras cargan; en el
+detalle se ve entera, con su proporción real dentro de un rango (ni muy
+alta ni muy ancha).
+
+**Publicar con imagen** (`screens/compose`): "Agregar imagen (opcional)"
+abre la galería del sistema (`expo-image-picker`, que no pide permiso para
+elegir una foto). Se ve la miniatura con ✕ para quitarla y un recordatorio
+de no subir caras ni datos de nadie. Si la imagen pesa más de 5 MB o no es
+JPG, PNG o WebP, se avisa antes de mandar y no se puede publicar (el
+backend lo valida igual). En la vista previa se ve con la foto local. Con
+imagen, `api.createPost` manda **multipart** (`FormData`) en vez de JSON:
+en la web, el `File` que da el selector; en iOS/Android, `{ uri, name,
+type }`, que React Native sube leyendo el archivo. Con `FormData`,
+`request` no fija el `Content-Type`: lo pone `fetch` con el `boundary`.
+
 El panel elegido y su orden viven en un contexto (`hooks/useFeedSelection.tsx`),
 que el layout `(drawer)` pone alrededor del sidebar y las pestañas.
 
@@ -288,7 +305,7 @@ refresco.
 | Votar post o comentario | **Optimista y "al soltar"** (ver abajo): flecha y puntaje cambian al instante en todas las copias (feeds —incluido el del perfil del autor—, detalle, árbol, lista de comentarios del perfil) y en los votos recibidos del perfil del autor; al servidor va solo el voto final. Si falla, se vuelve a pedir todo eso |
 | Unirse / salirse de una comunidad | Igual que votar: botón y contador cambian al instante en la lista del panel y en el detalle; al confirmar el servidor se aplica el contador real |
 | Crear comunidad | Guarda la comunidad nueva en su detalle e invalida la lista del panel |
-| Publicar | Guarda el post nuevo en su detalle (se abre al instante) e invalida los feeds |
+| Publicar (con o sin imagen) | Guarda el post nuevo en su detalle (se abre al instante) e invalida los feeds |
 | Comentar o responder | Invalida el árbol de comentarios y sube `commentCount` en todas las copias del post |
 | Borrar post | Lo saca de todos los feeds y borra su detalle y sus comentarios de la caché |
 | Borrar comentario | Invalida el árbol. El contador no cambia: un comentario borrado queda como "[eliminado]" y sigue contando |
