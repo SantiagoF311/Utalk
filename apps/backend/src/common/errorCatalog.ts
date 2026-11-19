@@ -18,6 +18,8 @@ export const ERROR_CATALOG = {
   NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Not found' },
   CONFLICT: { status: HttpStatus.CONFLICT, title: 'Conflict' },
   TOO_MANY_REQUESTS: { status: HttpStatus.TOO_MANY_REQUESTS, title: 'Too many requests' },
+  // Body o archivo por encima del límite (ej. una imagen de más de 5 MB).
+  PAYLOAD_TOO_LARGE: { status: HttpStatus.PAYLOAD_TOO_LARGE, title: 'Payload too large' },
   INTERNAL_ERROR: { status: HttpStatus.INTERNAL_SERVER_ERROR, title: 'Internal server error' },
 
   INVALID_CREDENTIALS: { status: HttpStatus.UNAUTHORIZED, title: 'Invalid credentials' },
@@ -53,6 +55,7 @@ export const ERROR_CATALOG = {
   POST_REMOVED: { status: HttpStatus.GONE, title: 'Post was removed by moderation' },
   NOT_POST_AUTHOR: { status: HttpStatus.FORBIDDEN, title: 'Not the author of this post' },
   INVALID_CURSOR: { status: HttpStatus.BAD_REQUEST, title: 'Invalid cursor' },
+  INVALID_IMAGE: { status: HttpStatus.BAD_REQUEST, title: 'Image must be JPEG, PNG or WebP' },
 
   COMMENT_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Comment not found' },
   NOT_COMMENT_AUTHOR: { status: HttpStatus.FORBIDDEN, title: 'Not the author of this comment' },
@@ -99,6 +102,8 @@ export function genericCodeForStatus(status: number): ErrorCode {
       return 'CONFLICT';
     case HttpStatus.TOO_MANY_REQUESTS:
       return 'TOO_MANY_REQUESTS';
+    case HttpStatus.PAYLOAD_TOO_LARGE:
+      return 'PAYLOAD_TOO_LARGE';
     default:
       return status >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST';
   }

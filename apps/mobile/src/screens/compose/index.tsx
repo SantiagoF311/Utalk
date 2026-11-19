@@ -1,4 +1,7 @@
+import { POST_IMAGE_MAX_BYTES, POST_IMAGE_TYPES } from '@utalk/shared';
 import type { CommunityView, PostView } from '@utalk/shared';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -22,6 +25,19 @@ import { errorMessage } from '@/lib/errorMessages';
 
 const TITLE_MAX_LENGTH = 300;
 
+// Lo que el backend va a rechazar, avisado antes de mandar nada. El tamaño
+// y el tipo pueden no venir (depende de la plataforma): ahí decide el backend.
+function imageProblem(image: ImagePicker.ImagePickerAsset | null): string | null {
+  if (!image) return null;
+  if (image.fileSize !== undefined && image.fileSize > POST_IMAGE_MAX_BYTES) {
+    return 'La imagen pesa demasiado (máximo 5 MB). Elige otra.';
+  }
+  if (image.mimeType && !(POST_IMAGE_TYPES as readonly string[]).includes(image.mimeType)) {
+    return 'La imagen tiene que ser JPG, PNG o WebP.';
+  }
+  return null;
+}
+
 // Nueva publicación (diseño 2a/2b): dónde se ve (tu panel o el general, y la
 // comunidad), título y texto. "Publicar" abre la vista previa; desde ahí se
 // publica de verdad. Si se abrió desde una comunidad, viene elegida.
@@ -44,7 +60,9 @@ export function ComposeScreen({
   const [chosenCommunityId, setChosenCommunityId] = useState<string | null>(null);
   const [title, setTitle] = useState(initialTitle ?? '');
   const [body, setBody] = useState('');
+  const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const imageWarning = imageProblem(image);
 
   // La comunidad de la que se vino cuenta solo si es de un panel donde se
   // puede publicar.
@@ -58,7 +76,14 @@ export function ComposeScreen({
     (c) => c.id === (chosenCommunityId ?? (fromCommunity?.panelId === panel?.id ? fromCommunity?.id : null)),
   );
 
-  const canPublish = !!community && title.trim().length > 0 && body.trim().length > 0;
+  const canPublish =
+    !!community && title.trim().length > 0 && body.trim().length > 0 && !imageWarning;
+
+  // La galería del sistema: no necesita pedir permiso para elegir una foto.
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    if (!result.canceled) setImage(result.assets[0] ?? null);
+  };
 
   if (status === 'pending') {
     return (
@@ -82,7 +107,7 @@ export function ComposeScreen({
   const publish = () => {
     if (!community) return;
     createPost.mutate(
-      { communityId: community.id, title: title.trim(), body: body.trim() },
+      { communityId: community.id, title: title.trim(), body: body.trim(), image },
       {
         onSuccess: (post) => {
           setPreviewing(false);
@@ -105,6 +130,8 @@ export function ComposeScreen({
           createdAt: new Date().toISOString(),
           myVote: null,
           reportedByMe: false,
+          // La foto local: todavía no está subida.
+          imageUrl: image?.uri ?? null,
           author: {
             id: me.data.id,
             username: me.data.username,
@@ -177,6 +204,42 @@ export function ComposeScreen({
               multiline
               style={[styles.bodyInput, { color: theme.text }]}
             />
+
+            {image ? (
+              <View style={styles.imageBox}>
+                <Image
+                  source={{ uri: image.uri }}
+                  contentFit="cover"
+                  accessible
+                  accessibilityLabel="Imagen elegida"
+                  style={[styles.imageThumb, { backgroundColor: theme.backgroundElement }]}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Quitar la imagen"
+                  onPress={() => setImage(null)}
+                  hitSlop={8}
+                  style={[styles.imageRemove, { backgroundColor: theme.background }]}>
+                  <Icon name="close" size={18} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void pickImage()}
+                style={[styles.addImage, { borderColor: theme.border }]}>
+                <Icon name="image" size={20} color="textSecondary" />
+                <ThemedText type="small" themeColor="textSecondary">
+                  Agregar imagen (opcional)
+                </ThemedText>
+              </Pressable>
+            )}
+            {imageWarning && <Callout variant="warning">{imageWarning}</Callout>}
+            {image && (
+              <ThemedText type="small" themeColor="textSecondary">
+                Antes de subir una foto, fíjate que no se vea la cara, el nombre ni datos de nadie.
+              </ThemedText>
+            )}
           </ScrollView>
 
           <View style={[styles.footer, { borderTopColor: theme.border }]}>
@@ -326,6 +389,34 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     minHeight: 160,
     textAlignVertical: 'top',
+  },
+  addImage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  imageBox: {
+    alignSelf: 'flex-start',
+  },
+  imageThumb: {
+    width: 160,
+    height: 160,
+    borderRadius: 12,
+  },
+  imageRemove: {
+    position: 'absolute',
+    top: Spacing.one,
+    right: Spacing.one,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footer: {
     flexDirection: 'row',

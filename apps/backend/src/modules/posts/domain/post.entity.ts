@@ -10,7 +10,13 @@ export class PostEntity {
     readonly createdAt: Date,
     // Cuándo lo eliminó un moderador (null = no lo eliminó).
     readonly removedAt: Date | null,
+    // Ruta de su imagen en el bucket (null = sin imagen).
+    readonly imagePath: string | null,
   ) {}
+
+  hasImage(): boolean {
+    return this.imagePath !== null;
+  }
 
   isAuthoredBy(userId: string): boolean {
     return this.authorId === userId;

@@ -21,6 +21,7 @@ import type {
   VoteValue,
 } from '@utalk/shared';
 import { InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { ImagePickerAsset } from 'expo-image-picker';
 
 import { useMyProfile } from '@/hooks/queries';
 import { api } from '@/lib/api';
@@ -199,7 +200,8 @@ export function voteComment(comment: CommentView, pressed: VoteValue) {
 export function useCreatePost() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreatePostInput) => api.createPost(input),
+    mutationFn: ({ image, ...input }: CreatePostInput & { image: ImagePickerAsset | null }) =>
+      api.createPost(input, image),
     onSuccess: (post) => {
       // El detalle se abre al instante con lo que devolvió el servidor, y los
       // feeds se vuelven a pedir para que aparezca.

@@ -37,7 +37,10 @@ describe('ModerationService', () => {
     findModeratedBy: jest.Mock<CommunitiesService['findModeratedBy']>;
     canModerate: jest.Mock<CommunitiesService['canModerate']>;
   };
-  let posts: { findByIdIncludingRemoved: jest.Mock<PostsService['findByIdIncludingRemoved']> };
+  let posts: {
+    findByIdIncludingRemoved: jest.Mock<PostsService['findByIdIncludingRemoved']>;
+    discardImage: jest.Mock<PostsService['discardImage']>;
+  };
   let comments: { findById: jest.Mock<CommentsService['findById']> };
   let profiles: { findById: jest.Mock<ProfilesService['findById']> };
   let service: ModerationService;
@@ -58,6 +61,7 @@ describe('ModerationService', () => {
       findByIdIncludingRemoved: jest
         .fn<PostsService['findByIdIncludingRemoved']>()
         .mockResolvedValue(makePost()),
+      discardImage: jest.fn<PostsService['discardImage']>().mockResolvedValue(undefined),
     };
     comments = {
       findById: jest.fn<CommentsService['findById']>().mockResolvedValue(makeComment()),
@@ -156,6 +160,36 @@ describe('ModerationService', () => {
         'remove',
         IDS.beto,
       );
+    });
+
+    it('al eliminar un post, borra también su imagen', async () => {
+      const post = makePost({ imagePath: `${IDS.ana}/foto.jpg` });
+      posts.findByIdIncludingRemoved.mockResolvedValue(post);
+
+      await service.resolve({ postId: IDS.post, commentId: null, action: 'remove' }, IDS.beto);
+
+      expect(posts.discardImage).toHaveBeenCalledWith(post);
+    });
+
+    it('dejar un post no toca su imagen', async () => {
+      await service.resolve({ postId: IDS.post, commentId: null, action: 'dismiss' }, IDS.beto);
+
+      expect(posts.discardImage).not.toHaveBeenCalled();
+    });
+
+    it('eliminar un comentario no toca la imagen de su post', async () => {
+      await service.resolve({ postId: null, commentId: COMMENT_ID, action: 'remove' }, IDS.beto);
+
+      expect(posts.discardImage).not.toHaveBeenCalled();
+    });
+
+    it('si otro moderador se adelantó, no borra la imagen', async () => {
+      repository.resolve.mockResolvedValue(0);
+
+      await expect(
+        service.resolve({ postId: IDS.post, commentId: null, action: 'remove' }, IDS.beto),
+      ).rejects.toMatchObject({ code: 'NO_PENDING_REPORTS' });
+      expect(posts.discardImage).not.toHaveBeenCalled();
     });
 
     it('descarta los reportes de un comentario, con la comunidad de su post', async () => {

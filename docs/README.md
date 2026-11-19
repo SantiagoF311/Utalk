@@ -82,7 +82,7 @@ Puntos clave que el diagrama resume:
 | Push del chat con la app cerrada | Pendiente | [chat-realtime.md](./chat-realtime.md) |
 | BullMQ + Redis (Upstash): notificaciones de publicaciones nuevas en tus comunidades (campana en Inicio, Realtime) | Implementado | [backend-y-colas.md](./backend-y-colas.md) |
 | Moderación por IA (`moderate-content`) | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
-| Imágenes en posts (Storage) | Pendiente | — |
+| Imágenes en posts: una opcional por post, en Supabase Storage (bucket público `post-images`) | Implementado | [modelo-de-datos.md](./modelo-de-datos.md#imágenes-de-posts-supabase-storage) |
 | Sentry | Pendiente | [observabilidad.md](./observabilidad.md) |
 | Deploy en Fly.io | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
 

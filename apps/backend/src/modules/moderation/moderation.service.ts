@@ -4,6 +4,7 @@ import { AppException } from '../../common/appException.js';
 import { CommentsService } from '../comments/comments.service.js';
 import { CommunitiesService } from '../communities/communities.service.js';
 import type { CommunityEntity } from '../communities/domain/community.entity.js';
+import type { PostEntity } from '../posts/domain/post.entity.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import type { ReportTarget } from '../reports/domain/report.repository.js';
@@ -65,7 +66,8 @@ export class ModerationService {
   // Resuelve todos los reportes pendientes de un contenido (eliminarlo o
   // dejarlo). Devuelve cuántos reportes cerró.
   async resolve(input: ResolveReportsInput, userId: string): Promise<number> {
-    const { target, communityId } = await this.resolveTarget(input);
+    const { target, post } = await this.resolveTarget(input);
+    const communityId = post.communityId;
     if (!(await this.communitiesService.canModerate(communityId, userId))) {
       throw new AppException(
         'NOT_COMMUNITY_MODERATOR',
@@ -79,26 +81,28 @@ export class ModerationService {
     if (resolved === 0) {
       throw new AppException('NO_PENDING_REPORTS', 'This content has no pending reports');
     }
+    // Eliminar un post se lleva su imagen del bucket (un comentario no toca
+    // la imagen de su post).
+    if (input.action === 'remove' && target.postId !== null) {
+      await this.postsService.discardImage(post);
+    }
     return resolved;
   }
 
-  // El contenido y la comunidad donde está (la que define quién lo modera).
-  // El post se busca aunque ya esté eliminado: así un segundo intento da
+  // El contenido y su post (cuya comunidad define quién lo modera). El post
+  // se busca aunque ya esté eliminado: así un segundo intento da
   // NO_PENDING_REPORTS y no un "no existe".
   private async resolveTarget(
     input: ResolveReportsInput,
-  ): Promise<{ target: ReportTarget; communityId: string }> {
+  ): Promise<{ target: ReportTarget; post: PostEntity }> {
     if (input.postId !== null && input.commentId === null) {
       const post = await this.postsService.findByIdIncludingRemoved(input.postId);
-      return { target: { postId: input.postId, commentId: null }, communityId: post.communityId };
+      return { target: { postId: input.postId, commentId: null }, post };
     }
     if (input.commentId !== null && input.postId === null) {
       const comment = await this.commentsService.findById(input.commentId);
       const post = await this.postsService.findByIdIncludingRemoved(comment.postId);
-      return {
-        target: { postId: null, commentId: input.commentId },
-        communityId: post.communityId,
-      };
+      return { target: { postId: null, commentId: input.commentId }, post };
     }
     throw new AppException('VALIDATION_FAILED', 'Exactly one of postId or commentId must be set');
   }

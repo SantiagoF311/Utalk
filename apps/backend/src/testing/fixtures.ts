@@ -117,6 +117,7 @@ export function makePost(
     authorId: string;
     score: number;
     removedAt: Date | null;
+    imagePath: string | null;
   }> = {},
 ): PostEntity {
   const p = {
@@ -125,6 +126,7 @@ export function makePost(
     authorId: IDS.ana,
     score: 0,
     removedAt: null as Date | null,
+    imagePath: null as string | null,
     ...overrides,
   };
   return new PostEntity(
@@ -137,6 +139,7 @@ export function makePost(
     0,
     CREATED_AT,
     p.removedAt,
+    p.imagePath,
   );
 }
 

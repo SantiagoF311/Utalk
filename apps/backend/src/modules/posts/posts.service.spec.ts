@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { Logger } from '@nestjs/common';
 import { AppException } from '../../common/appException.js';
 import {
   IDS,
@@ -14,10 +15,16 @@ import type { NotificationsService } from '../notifications/notifications.servic
 import type { PanelsService } from '../panels/panels.service.js';
 import type { ProfilesService } from '../profiles/profiles.service.js';
 import type { PostRepository } from './domain/post.repository.js';
+import type { PostImageStorage } from './domain/postImage.storage.js';
 import { PostsService } from './posts.service.js';
 
 const notFound = (code: 'PROFILE_NOT_FOUND' | 'COMMUNITY_NOT_FOUND' | 'PANEL_NOT_FOUND') =>
   new AppException(code, 'not found');
+
+// Los primeros bytes de un PNG real; el resto no importa para detectar el tipo.
+const PNG = { content: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]) };
+const NOT_AN_IMAGE = { content: new TextEncoder().encode('<script>alert(1)</script>') };
+const PUBLIC_URL = 'https://storage.test/post-images/';
 
 describe('PostsService', () => {
   let repository: jest.Mocked<PostRepository>;
@@ -28,6 +35,7 @@ describe('PostsService', () => {
   let communities: { findById: jest.Mock<CommunitiesService['findById']> };
   let panels: { findById: jest.Mock<PanelsService['findById']> };
   let notifications: { enqueueNewPost: jest.Mock<NotificationsService['enqueueNewPost']> };
+  let images: jest.Mocked<PostImageStorage>;
   let service: PostsService;
 
   beforeEach(() => {
@@ -61,9 +69,15 @@ describe('PostsService', () => {
         .fn<NotificationsService['enqueueNewPost']>()
         .mockResolvedValue(undefined),
     };
+    images = {
+      upload: jest.fn<PostImageStorage['upload']>().mockResolvedValue(undefined),
+      delete: jest.fn<PostImageStorage['delete']>().mockResolvedValue(undefined),
+      publicUrl: jest.fn<PostImageStorage['publicUrl']>((path) => `${PUBLIC_URL}${path}`),
+    };
 
     service = new PostsService(
       repository,
+      images,
       communities as unknown as CommunitiesService,
       panels as unknown as PanelsService,
       profiles as unknown as ProfilesService,
@@ -77,7 +91,12 @@ describe('PostsService', () => {
     it('crea el post y devuelve la vista con el autor y su universidad', async () => {
       const view = await service.create(input, IDS.ana);
 
-      expect(repository.create).toHaveBeenCalledWith({ ...input, authorId: IDS.ana });
+      expect(repository.create).toHaveBeenCalledWith({
+        ...input,
+        authorId: IDS.ana,
+        imagePath: null,
+      });
+      expect(view.imageUrl).toBeNull();
       expect(view.author).toEqual(makeAuthor());
       expect(view.author.university.slug).toBe('ustavillavo');
       expect(view.score).toBe(0);
@@ -89,6 +108,47 @@ describe('PostsService', () => {
 
       expect(view.myVote).toBeNull();
       expect(view.reportedByMe).toBe(false);
+    });
+
+    it('con imagen: la sube en la carpeta del autor y guarda la ruta', async () => {
+      repository.create.mockImplementation(async (newPost) => ({
+        post: makePost({ imagePath: newPost.imagePath }),
+        author: makeAuthor(),
+      }));
+
+      const view = await service.create(input, IDS.ana, PNG);
+
+      const [path, content, type] = images.upload.mock.calls[0];
+      expect(path).toMatch(new RegExp(`^${IDS.ana}/[0-9a-f-]{36}\\.png$`));
+      expect(content).toBe(PNG.content);
+      expect(type).toBe('image/png');
+      expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ imagePath: path }));
+      expect(view.imageUrl).toBe(`${PUBLIC_URL}${path}`);
+    });
+
+    it('INVALID_IMAGE si el archivo no es JPEG, PNG ni WebP, sin subir ni crear nada', async () => {
+      await expect(service.create(input, IDS.ana, NOT_AN_IMAGE)).rejects.toMatchObject({
+        code: 'INVALID_IMAGE',
+      });
+      expect(images.upload).not.toHaveBeenCalled();
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('no sube la imagen si no puede publicar en ese panel', async () => {
+      profiles.findById.mockResolvedValue(makeProfile({ universityId: IDS.otherUniversity }));
+
+      await expect(service.create(input, IDS.beto, PNG)).rejects.toMatchObject({
+        code: 'CANNOT_PUBLISH_IN_PANEL',
+      });
+      expect(images.upload).not.toHaveBeenCalled();
+    });
+
+    it('si el post no se pudo guardar, borra la imagen que ya subió', async () => {
+      repository.create.mockRejectedValue(new Error('db down'));
+
+      await expect(service.create(input, IDS.ana, PNG)).rejects.toThrow('db down');
+      const [path] = images.upload.mock.calls[0];
+      expect(images.delete).toHaveBeenCalledWith(path);
     });
 
     it('encola el aviso a los miembros de la comunidad', async () => {
@@ -298,6 +358,37 @@ describe('PostsService', () => {
       });
       await service.delete(IDS.post, IDS.ana);
       expect(repository.delete).toHaveBeenCalledWith(IDS.post);
+    });
+
+    it('borrar un post con imagen la saca del bucket', async () => {
+      repository.findById.mockResolvedValue(makePost({ imagePath: `${IDS.ana}/foto.png` }));
+
+      await service.delete(IDS.post, IDS.ana);
+
+      expect(images.delete).toHaveBeenCalledWith(`${IDS.ana}/foto.png`);
+    });
+
+    it('si el bucket falla al borrar, el post igual queda borrado', async () => {
+      repository.findById.mockResolvedValue(makePost({ imagePath: `${IDS.ana}/foto.png` }));
+      images.delete.mockRejectedValue(new Error('storage down'));
+      const logError = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      await expect(service.delete(IDS.post, IDS.ana)).resolves.toBeUndefined();
+      expect(repository.delete).toHaveBeenCalledWith(IDS.post);
+      logError.mockRestore();
+    });
+  });
+
+  describe('vista', () => {
+    it('arma la URL pública de la imagen a partir de la ruta guardada', async () => {
+      repository.findWithAuthorById.mockResolvedValue({
+        post: makePost({ imagePath: `${IDS.ana}/foto.png` }),
+        author: makeAuthor(),
+      });
+
+      const view = await service.findViewById(IDS.post, IDS.beto);
+
+      expect(view.imageUrl).toBe(`${PUBLIC_URL}${IDS.ana}/foto.png`);
     });
   });
 });

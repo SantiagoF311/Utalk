@@ -299,6 +299,7 @@ consulta con los ids de lo que se muestra).
 | `created_at` | timestamptz | |
 | `removed_at` | timestamptz, nullable | eliminado por moderación (ver [`reports`](#reports)) |
 | `removed_by` | uuid, FK → `profiles.id`, nullable, on delete set null | el moderador o admin que lo eliminó |
+| `image_path` | text, nullable | ruta de su imagen en el bucket `post-images` (`<author_id>/<uuid>.<ext>`); null = sin imagen. Ver [Imágenes de posts](#imágenes-de-posts-supabase-storage) |
 
 **Eliminado por moderación**: un post con `removed_at` deja de existir para
 todos. No aparece en ningún feed, la búsqueda ni los contadores del perfil
@@ -322,6 +323,42 @@ recalcularlos desde cero. `score` es también el insumo del trending.
 
 Ver [datos-y-trending.md](./datos-y-trending.md) para la fórmula de
 `hot` y por qué es una columna generada en vez de un job de BullMQ.
+
+### Imágenes de posts (Supabase Storage)
+
+Un post puede llevar **una** imagen opcional (el texto sigue siendo
+obligatorio). Viven en el bucket **`post-images`** de Supabase Storage,
+creado por la migración `post_images`.
+
+- **Solo el backend sube y borra** (service role), detrás del puerto
+  `PostImageStorage` (`modules/posts/domain/postImage.storage.ts`). El
+  mobile manda la imagen en el mismo `POST /posts`, como multipart
+  (campo `image`, `POST_IMAGE_FIELD`), y nunca escribe en Storage directo:
+  `storage.objects` no tiene políticas para este bucket, así que `anon` /
+  `authenticated` no pueden subir, cambiar ni borrar.
+- **Bucket público para leer**: la app muestra la imagen con la URL que
+  arma el backend (`imageUrl` en la vista del post). Se guarda la **ruta**,
+  no la URL, para poder cambiar de dominio o de bucket sin migrar datos.
+  Las rutas llevan un uuid (`<author_id>/<uuid>.<ext>`), así que no se
+  pueden adivinar, pero quien tenga el link la ve aunque no tenga sesión.
+  La alternativa privada (URLs firmadas que vencen) es más segura pero
+  rompe el caché de las imágenes en el celular; se descartó por ahora.
+- **Validación, en dos barreras**: el backend corta la subida en 5 MB
+  (`POST_IMAGE_MAX_BYTES`, 413 `PAYLOAD_TOO_LARGE`) y mira los **primeros
+  bytes** del archivo (`detectImageType`): solo acepta JPEG, PNG y WebP
+  (`INVALID_IMAGE` si no), sin importar el nombre ni el Content-Type que
+  manda el cliente. El bucket repite el límite de tamaño y de tipos.
+- **Orden al publicar**: primero se valida el archivo, después se
+  comprueba que la persona pueda publicar en ese panel, recién ahí se sube
+  la imagen, y por último se guarda el post. Si guardar falla, se borra la
+  imagen recién subida.
+- **La imagen se va con el post**: al borrar el post (su autor) o al
+  eliminarlo la moderación, se borra también del bucket. Importa sobre
+  todo para fotos que exponen a alguien. Si el bucket falla al borrar, la
+  acción igual se completa y el error queda en el log (queda un archivo
+  huérfano, no un error para el usuario). Eliminar un **comentario** no
+  toca la imagen de su post.
+- Editar un post no cambia su imagen (solo título y texto).
 
 **Feed paginado por cursor**: `GET /posts?communityId|panelId&sort=hot|new|top` (default `hot`)
 pagina por cursor (no por número de página), ordenando por
@@ -624,7 +661,7 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | `profile.ts` | `profileSchema` (incluye `role`, `isPrivate`, `usernameChangedAt`), `createProfileSchema`, `updateMyProfileSchema`, `authorSchema`, `profileStatsSchema` y `publicProfileSchema` (con la universidad y los contadores, sin `role`); `USERNAME_CHANGE_COOLDOWN_DAYS` |
 | `panel.ts` | `panelSchema` |
 | `community.ts` | `COMMUNITY_TOPICS`, `communitySchema`, `communityViewSchema` (con `joinedByMe`), `createCommunitySchema`, `updateCommunitySchema` |
-| `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author`, `myVote` y `reportedByMe`), `postFeedQuerySchema` (por comunidad, panel o autor), `postPageSchema` |
+| `post.ts` | `postSchema`, `createPostSchema`, `postViewSchema` (con `author`, `myVote`, `reportedByMe` e `imageUrl`), `postFeedQuerySchema` (por comunidad, panel o autor), `postPageSchema`; `POST_IMAGE_FIELD`, `POST_IMAGE_MAX_BYTES`, `POST_IMAGE_TYPES` |
 | `comment.ts` | `commentSchema`, `createCommentSchema`, `commentViewSchema` (recursivo, con `replies`, `myVote`, `reportedByMe` e `isRemoved`), `profileCommentSchema` y `profileCommentPageSchema` (comentarios de un autor, con el título de su post) |
 | `vote.ts` | `postVoteSchema`, `commentVoteSchema`, `castPostVoteSchema`, `castCommentVoteSchema` |
 | `report.ts` | `REPORT_CATEGORIES`, `REPORT_STATUSES`, `reportSchema` (con `caseNumber`, `status` y `resolvedAt`), `createReportSchema` (con `.refine()` validando el XOR de post/comment, espejando el `check` constraint de SQL; un detalle vacío se guarda como null), `myReportSchema` (un reporte en "Mis reportes", con el título de la publicación) |
