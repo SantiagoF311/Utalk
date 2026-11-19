@@ -2,6 +2,7 @@ import type { MessageView } from '@utalk/shared';
 import { useEffect } from 'react';
 
 import { useSession } from '@/hooks/useSession';
+import { notifyNewMessageInBrowser } from '@/lib/browserNotifications';
 import { addMessageToCache, refreshConversation, updateMessageInCache } from '@/lib/chatCache';
 import { supabase } from '@/lib/supabase';
 
@@ -43,6 +44,8 @@ export function useChatRealtime() {
         const message = toMessageView(payload.new as MessageRow);
         addMessageToCache(message);
         refreshConversation(message.conversationId);
+        // Solo en la web y con la pestaña oculta.
+        notifyNewMessageInBrowser(message, userId);
       })
       // El "Visto": read_at cambia cuando el otro abre la conversación.
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {

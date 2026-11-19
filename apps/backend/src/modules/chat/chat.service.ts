@@ -3,6 +3,7 @@ import type { MessagePageQuery, SendMessageInput, StartConversationInput } from 
 import { AppException } from '../../common/appException.js';
 import { BlocksService } from '../blocks/blocks.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
+import { PushService } from '../push/push.service.js';
 import { ConversationEntity } from './domain/conversation.entity.js';
 import { CONVERSATION_REPOSITORY } from './domain/conversation.repository.js';
 import type {
@@ -21,6 +22,7 @@ export class ChatService {
     @Inject(MESSAGE_REPOSITORY) private readonly messageRepository: MessageRepository,
     private readonly profilesService: ProfilesService,
     private readonly blocksService: BlocksService,
+    private readonly pushService: PushService,
   ) {}
 
   // La lista de Chats (y de solicitudes: el mobile separa por estado).
@@ -76,6 +78,8 @@ export class ChatService {
       message = await this.findMessage(started.messageId);
     }
 
+    // Si no había conversación, es una solicitud: el aviso no muestra el texto.
+    await this.notifyRecipient(message, input.recipientId, !existing);
     return { summary: await this.findSummary(conversationId, senderId), message };
   }
 
@@ -85,8 +89,13 @@ export class ChatService {
     senderId: string,
   ): Promise<MessageEntity> {
     const conversation = await this.findParticipating(conversationId, senderId);
-    await this.assertNotBlocked(senderId, conversation.otherParticipant(senderId));
-    return this.sendTo(conversation, senderId, input.body);
+    const recipientId = conversation.otherParticipant(senderId);
+    await this.assertNotBlocked(senderId, recipientId);
+    const message = await this.sendTo(conversation, senderId, input.body);
+    // Acá nunca es una solicitud: quien la mandó no puede volver a escribir
+    // hasta que la acepten, y responderla la acepta.
+    await this.notifyRecipient(message, recipientId, false);
+    return message;
   }
 
   async findMessages(
@@ -131,6 +140,24 @@ export class ChatService {
       await this.conversationRepository.accept(conversation.id);
     }
     return this.messageRepository.create({ conversationId: conversation.id, senderId, body });
+  }
+
+  // Aviso al celular del otro (si tiene la app cerrada). Solo se encola: lo
+  // manda el worker de la cola `push`, y si la cola falla el mensaje igual
+  // quedó guardado.
+  private async notifyRecipient(
+    message: MessageEntity,
+    recipientId: string,
+    isRequest: boolean,
+  ): Promise<void> {
+    const sender = await this.profilesService.findById(message.senderId);
+    await this.pushService.enqueueNewMessage({
+      conversationId: message.conversationId,
+      recipientId,
+      senderUsername: sender.username,
+      body: message.body,
+      isRequest,
+    });
   }
 
   // La conversación, si quien pregunta participa. Si no, 404 (no se

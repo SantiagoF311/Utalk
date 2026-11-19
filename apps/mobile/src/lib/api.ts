@@ -27,6 +27,7 @@ import type {
   Profile,
   ProfileCommentPage,
   PublicProfile,
+  RegisterPushTokenInput,
   Report,
   ResolveReportsInput,
   ResolveReportsResult,
@@ -368,6 +369,15 @@ export const api = {
 
   markAllNotificationsRead() {
     return authSend<void>('POST', '/notifications/read-all');
+  },
+
+  // El celular donde avisar de los mensajes nuevos (ver lib/pushNotifications.ts).
+  registerPushToken(input: RegisterPushTokenInput) {
+    return authSend<void>('PUT', '/push-tokens', input);
+  },
+
+  unregisterPushToken(token: string) {
+    return authSend<void>('DELETE', `/push-tokens/${encodeURIComponent(token)}`);
   },
 
   // Mis reportes, con su número de caso y en qué quedaron.

@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { DEFAULT_JOB_OPTIONS } from '../../common/jobs.js';
 import { NOTIFICATION_QUEUE } from './domain/notification.queue.js';
 import { NOTIFICATION_REPOSITORY } from './domain/notification.repository.js';
 import { BullmqNotificationQueue } from './infrastructure/bullmq-notification.queue.js';
@@ -11,17 +12,8 @@ import { NotificationsService } from './notifications.service.js';
 
 @Module({
   imports: [
-    BullModule.registerQueue({
-      name: NOTIFICATIONS_QUEUE,
-      defaultJobOptions: {
-        // El job es idempotente (unique en la tabla): reintentar es seguro.
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-        // Redis no es fuente de verdad: los jobs terminados no se guardan.
-        removeOnComplete: true,
-        removeOnFail: 100,
-      },
-    }),
+    // Los jobs son idempotentes (unique en la tabla): reintentar es seguro.
+    BullModule.registerQueue({ name: NOTIFICATIONS_QUEUE, defaultJobOptions: DEFAULT_JOB_OPTIONS }),
   ],
   controllers: [NotificationsController],
   providers: [

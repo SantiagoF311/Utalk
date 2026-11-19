@@ -9,6 +9,7 @@ import {
 } from '../../testing/fixtures.js';
 import type { BlocksService } from '../blocks/blocks.service.js';
 import type { ProfilesService } from '../profiles/profiles.service.js';
+import type { PushService } from '../push/push.service.js';
 import { ChatService } from './chat.service.js';
 import type { ConversationEntity } from './domain/conversation.entity.js';
 import type {
@@ -34,6 +35,7 @@ describe('ChatService', () => {
   let messages: jest.Mocked<MessageRepository>;
   let profiles: { findById: jest.Mock<ProfilesService['findById']> };
   let blocks: { isBlockedBetween: jest.Mock<BlocksService['isBlockedBetween']> };
+  let push: { enqueueNewMessage: jest.Mock<PushService['enqueueNewMessage']> };
   let service: ChatService;
 
   beforeEach(() => {
@@ -62,13 +64,19 @@ describe('ChatService', () => {
         .mockResolvedValue({ items: [], nextCursor: null }),
       markRead: jest.fn<MessageRepository['markRead']>().mockResolvedValue(undefined),
     };
+    // Cada uno con su apodo: el aviso dice quién escribió.
     profiles = {
       findById: jest
         .fn<ProfilesService['findById']>()
-        .mockResolvedValue(makeProfile({ id: IDS.beto })),
+        .mockImplementation((id) =>
+          Promise.resolve(makeProfile({ id, username: id === IDS.ana ? 'ana' : 'beto' })),
+        ),
     };
     blocks = {
       isBlockedBetween: jest.fn<BlocksService['isBlockedBetween']>().mockResolvedValue(false),
+    };
+    push = {
+      enqueueNewMessage: jest.fn<PushService['enqueueNewMessage']>().mockResolvedValue(undefined),
     };
 
     service = new ChatService(
@@ -76,7 +84,57 @@ describe('ChatService', () => {
       messages,
       profiles as unknown as ProfilesService,
       blocks as unknown as BlocksService,
+      push as unknown as PushService,
     );
+  });
+
+  describe('aviso al celular del otro', () => {
+    it('el primer mensaje a alguien es una solicitud', async () => {
+      messages.findById.mockResolvedValue(makeMessage({ id: NEW_MESSAGE_ID, body: 'hola' }));
+
+      await service.start({ recipientId: IDS.beto, body: 'hola' }, IDS.ana);
+
+      expect(push.enqueueNewMessage).toHaveBeenCalledWith({
+        conversationId: IDS.conversation,
+        recipientId: IDS.beto,
+        senderUsername: 'ana',
+        body: 'hola',
+        isRequest: true,
+      });
+    });
+
+    it('escribir en una conversación que ya existía no es una solicitud', async () => {
+      conversations.findBetween.mockResolvedValue(makeConversation({ acceptedAt: new Date() }));
+
+      await service.start({ recipientId: IDS.beto, body: 'otra vez' }, IDS.ana);
+
+      expect(push.enqueueNewMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ recipientId: IDS.beto, isRequest: false }),
+      );
+    });
+
+    it('al responder, avisa a quien mandó la solicitud', async () => {
+      await service.send(IDS.conversation, { body: 'hola!' }, IDS.beto);
+
+      expect(push.enqueueNewMessage).toHaveBeenCalledWith({
+        conversationId: IDS.conversation,
+        recipientId: IDS.ana,
+        senderUsername: 'beto',
+        body: 'hola!',
+        isRequest: false,
+      });
+    });
+
+    it('si el mensaje no se pudo mandar, no avisa', async () => {
+      // Ana mandó la solicitud y todavía no se la aceptaron.
+      await expect(service.send(IDS.conversation, { body: 'hola?' }, IDS.ana)).rejects.toThrow();
+      blocks.isBlockedBetween.mockResolvedValue(true);
+      await expect(
+        service.start({ recipientId: IDS.beto, body: 'hola' }, IDS.ana),
+      ).rejects.toThrow();
+
+      expect(push.enqueueNewMessage).not.toHaveBeenCalled();
+    });
   });
 
   describe('start', () => {
