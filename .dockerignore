@@ -1,0 +1,23 @@
+# Lo que NO viaja a la imagen del backend (apps/backend/Dockerfile, que se
+# construye desde la raíz).
+
+# Secretos: en producción van como variables del hosting, nunca en la imagen.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Se instalan / compilan adentro de la imagen.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+
+# Del mobile solo hace falta su package.json (lo pide npm por el lockfile).
+apps/mobile/*
+!apps/mobile/package.json
+
+# No son parte del backend en producción.
+.git
+docs
+supabase
+apps/backend/scripts
+**/*.spec.ts
