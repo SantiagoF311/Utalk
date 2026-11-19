@@ -83,7 +83,7 @@ Puntos clave que el diagrama resume:
 | BullMQ + Redis (Upstash): notificaciones de publicaciones nuevas en tus comunidades y avisos de moderación (en qué quedó tu reporte, o que se eliminó algo tuyo), en la campana de Inicio por Realtime | Implementado | [backend-y-colas.md](./backend-y-colas.md) |
 | Moderación por IA (`moderate-content`) | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
 | Imágenes en posts: una opcional por post, en Supabase Storage (bucket público `post-images`) | Implementado | [modelo-de-datos.md](./modelo-de-datos.md#imágenes-de-posts-supabase-storage) |
-| Sentry | Pendiente | [observabilidad.md](./observabilidad.md) |
+| Sentry: errores del backend (5xx y jobs fallidos) y de la app mobile, sin datos de contenido | Implementado | [observabilidad.md](./observabilidad.md#sentry) |
 | Deploy en Fly.io | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
 
 ## Principios de diseño seguidos

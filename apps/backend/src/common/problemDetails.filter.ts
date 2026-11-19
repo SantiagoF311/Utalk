@@ -1,4 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import type { ErrorCode, FieldError, ProblemDetails } from '@utalk/shared';
 import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
@@ -31,9 +32,16 @@ function detailOf(exception: HttpException): string {
 // AppException lanzada por un service, ZodError de un `schema.parse(...)`,
 // una excepción propia de Nest (ParseUUIDPipe, ruta inexistente, JSON
 // inválido) o un error inesperado.
+//
+// Todo lo que sale con status 5xx se reporta a Sentry (falla nuestra); los
+// 4xx no (validación, permisos, no existe: son respuestas esperables).
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {
   private readonly logger = new Logger(ProblemDetailsFilter.name);
+
+  constructor(
+    private readonly reportError: (error: unknown) => unknown = Sentry.captureException,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const http = host.switchToHttp();
@@ -75,6 +83,10 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       exception instanceof HttpException && !(exception instanceof AppException)
         ? exception.getStatus()
         : ERROR_CATALOG[code].status;
+
+    if (status >= 500) {
+      this.reportError(exception);
+    }
 
     const problem: ProblemDetails = {
       type: typeFor(code),

@@ -255,6 +255,7 @@ todas está en `apps/backend/.env.example`):
 |---|---|
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` | Acceso a Supabase |
 | `REDIS_URL` | Redis de Upstash para las colas de BullMQ (`rediss://default:<password>@<host>.upstash.io:6379`, la de la pestaña TCP). Sin ella el backend no arranca |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Sentry (proyecto `utalk-backend`). Opcionales: sin el DSN, Sentry queda apagado. En producción, `SENTRY_ENVIRONMENT=production`. Ver [observabilidad.md](./observabilidad.md#sentry) |
 | `PORT` | Puerto HTTP (default 3000) |
 | `CORS_ORIGINS` | Orígenes web que pueden llamar a la API, separados por coma (ej. `https://utalk.app`) |
 
