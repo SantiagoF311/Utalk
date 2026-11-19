@@ -58,6 +58,16 @@ Se usa la **misma instancia de Upstash en desarrollo y producción** — evita
 instalar Redis localmente (Docker/WSL/Memurai en Windows) y mantiene el
 comportamiento idéntico entre ambos entornos.
 
+**Configuración de la base en Upstash**:
+
+- Se conecta por **TCP** (`REDIS_URL`, `rediss://…`, con TLS), no por la
+  API REST de Upstash (`UPSTASH_REDIS_REST_URL` / `_TOKEN`): BullMQ habla el
+  protocolo de Redis a través de `ioredis`.
+- **Eviction desactivado.** Con eviction, cuando se llena la memoria Upstash
+  borra claves para hacer lugar, y en BullMQ esas claves son los jobs: se
+  perderían en silencio. Sin eviction, si se llenara, la escritura falla con
+  un error visible.
+
 ### Qué es cada pieza (para evitar confusión de términos)
 
 - **Redis**: base de datos en memoria, clave-valor, con estructuras como
@@ -73,12 +83,56 @@ comportamiento idéntico entre ambos entornos.
 
 ### Colas identificadas
 
-| Cola | Disparada por | Qué hace el worker |
-|---|---|---|
-| `notify-subscribers` | Se crea un post en un panel | Busca suscriptores del panel, genera notificaciones (inserta en tabla `notifications`, que Supabase Realtime empuja a los clientes conectados) |
-| `notify-new-message` | Se envía un mensaje de chat | Si el destinatario no tiene sesión Realtime activa, dispara una push notification vía Expo Push Notifications |
-| `moderate-content` | Se crea un post (o mensaje, según alcance final) | Llama al servicio de moderación por IA; si el contenido viola reglas, oculta/elimina el post retroactivamente (ver "Publicación optimista" abajo) |
-| ~~`recalculate-score`~~ | — | **Descartada**: el trending (`hot`) es una columna generada de Postgres con la fórmula de Reddit, sin cola ni cron — ver [datos-y-trending.md](./datos-y-trending.md) |
+| Job | Estado | Disparado por | Qué hace el worker |
+|---|---|---|---|
+| `notify-subscribers` (cola `notifications`) | Implementado | Se crea un post en una comunidad | Crea una notificación (tabla `notifications`) por cada **miembro de la comunidad**, salvo el autor y quien lo bloqueó. Supabase Realtime se la empuja al mobile conectado |
+| `notify-new-message` | Pendiente | Se envía un mensaje de chat | Si el destinatario no tiene sesión Realtime activa, dispara una push notification vía Expo Push Notifications |
+| `moderate-content` | Pendiente | Se crea un post (o mensaje, según alcance final) | Llama al servicio de moderación por IA; si el contenido viola reglas, oculta/elimina el post retroactivamente (ver "Publicación optimista" abajo) |
+| ~~`recalculate-score`~~ | Descartado | — | El trending (`hot`) es una columna generada de Postgres con la fórmula de Reddit, sin cola ni cron — ver [datos-y-trending.md](./datos-y-trending.md) |
+
+**Destinatarios de `notify-subscribers`: miembros de la comunidad, no del
+panel.** El diseño original hablaba de "suscriptores del panel", pero los
+paneles no tienen suscripción (son fijos: uno por universidad más el
+general). Lo que existe es unirse a una comunidad, y unirse es seguir
+(`community_members`, ver [modelo-de-datos.md](./modelo-de-datos.md)).
+
+### Cómo está implementado (`modules/notifications`)
+
+```
+POST /posts ──▶ PostsService.create ──▶ guarda el post
+                     │
+                     └─▶ NotificationsService.enqueueNewPost ──▶ BullMQ (Redis)
+                                                                     │
+       NotificationsProcessor (worker, mismo proceso) ◀──────────────┘
+                     │
+                     └─▶ notify_new_post(post_id) en Postgres ──▶ notifications
+                                                                     │
+                                         Realtime ──▶ mobile (campana) ◀┘
+```
+
+- **Puertos y adaptadores, como el resto**: `PostsService` no sabe nada de
+  BullMQ. El puerto `NotificationQueue` (`domain/notification.queue.ts`) lo
+  implementa `BullmqNotificationQueue`; el worker
+  (`notifications.processor.ts`) es un adaptador de entrada, como un
+  controller.
+- **El fan-out es un solo `insert … select`** en la función SQL
+  `notify_new_post`, en vez de traer los miembros al backend e insertar de a
+  uno: una comunidad grande no son miles de round-trips.
+- **Si encolar falla, el post se publica igual.** `enqueueNewPost` atrapa el
+  error y lo loguea: se pierde el aviso, nunca la publicación. Ojo: con la
+  configuración por defecto de `ioredis`, si Upstash no responde, encolar
+  puede tardar varios segundos en fallar (reintenta la conexión) y el
+  request espera ese tiempo. El worker hereda la conexión de la cola, así
+  que hacer que el productor falle rápido sin afectar al worker queda
+  pendiente.
+- **Opciones de los jobs** (`notifications.module.ts`): 3 intentos con
+  backoff exponencial (5 s, 10 s, 20 s), los terminados se borran de Redis
+  (`removeOnComplete`) y de los fallidos se guardan los últimos 100.
+- **El payload** (`{ postId }`) es `notifySubscribersJobSchema` en
+  `@utalk/shared`: lo usan el que encola y el worker, que además lo valida.
+- **Lectura**: `GET /notifications` (las 50 más nuevas, sin las de posts
+  eliminados por moderación), `GET /notifications/unread-count`,
+  `POST /notifications/:id/read` y `POST /notifications/read-all`.
 
 ### Por qué el trabajo secundario nunca bloquea la respuesta al usuario
 
@@ -88,14 +142,10 @@ el trabajo secundario (notificar, moderar, recalcular rankings) se encola
 y se procesa después, de forma completamente desacoplada.
 
 ```ts
-async createPost(dto: CreatePostDto) {
-  const post = await this.postsRepo.insert(dto); // lo único que bloquea
-
-  await this.notificationsQueue.add('notify-subscribers', { postId: post.id });
-  await this.moderationQueue.add('moderate-content', { postId: post.id });
-
-  return post; // responde ya, sin esperar el procesamiento de los jobs
-}
+// PostsService.create (simplificado)
+const item = await this.postRepository.create({ ... }); // lo único que bloquea
+await this.notificationsService.enqueueNewPost(item.post.id); // solo escribe en Redis
+return toPostView(item, null, false); // responde ya, sin esperar al worker
 ```
 
 Encolar un job (`queue.add(...)`) es una operación barata (solo escribe en
@@ -138,6 +188,12 @@ handlers deben diseñarse para producir el mismo resultado si se ejecutan
 más de una vez con el mismo payload (ej. no duplicar notificaciones si
 `notify-subscribers` se reintenta).
 
+En `notify-subscribers` lo garantiza Postgres: `notifications` tiene un
+unique `(user_id, post_id, type)` y la función inserta con `on conflict do
+nothing`, así que un reintento no crea nada nuevo. Además, el job se encola
+con un `jobId` fijo por post, para que BullMQ ignore un segundo encolado
+del mismo post mientras el primero sigue en la cola.
+
 ## Rate limiting anti-spam (distinto de la moderación de contenido)
 
 Para evitar abuso de la API en sí (fuerza bruta de contraseñas, spam de
@@ -162,10 +218,11 @@ Fly.io, el backend usa `trust proxy` para ver la IP real del cliente — si
 no, todas las requests parecerían venir de la IP del proxy.
 
 **Almacenamiento del contador: en memoria (por ahora)**. La decisión
-original era guardarlo en el Redis de Upstash, pero Redis todavía no
-existe en el proyecto (llega con BullMQ). Mientras el backend corra en una
-**sola instancia**, contar en memoria es equivalente. **Pasar a Redis**
-cuando se agregue Redis o cuando el backend corra en más de una instancia:
+original era guardarlo en el Redis de Upstash. Redis ya está en el
+proyecto (lo usa BullMQ), pero mientras el backend corra en una **sola
+instancia**, contar en memoria es equivalente y no gasta comandos de
+Upstash (que se cobran por comando). **Pasar a Redis** cuando el backend
+corra en más de una instancia:
 si no, cada instancia contaría por su lado y el límite real se
 multiplicaría por la cantidad de instancias. El cambio es solo de
 configuración del `ThrottlerModule` (otro storage), sin tocar los límites
@@ -180,6 +237,7 @@ todas está en `apps/backend/.env.example`):
 | Variable | Para qué |
 |---|---|
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` | Acceso a Supabase |
+| `REDIS_URL` | Redis de Upstash para las colas de BullMQ (`rediss://default:<password>@<host>.upstash.io:6379`, la de la pestaña TCP). Sin ella el backend no arranca |
 | `PORT` | Puerto HTTP (default 3000) |
 | `CORS_ORIGINS` | Orígenes web que pueden llamar a la API, separados por coma (ej. `https://utalk.app`) |
 

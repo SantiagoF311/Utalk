@@ -145,6 +145,24 @@ export function useMyReports() {
   });
 }
 
+// Realtime las invalida cuando llega una nueva (useNotificationsRealtime).
+export function useNotifications() {
+  return useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: () => api.getNotifications(),
+    select: (list) => list.items,
+  });
+}
+
+// El número de la campana de Inicio.
+export function useUnreadNotificationCount() {
+  return useQuery({
+    queryKey: queryKeys.unreadNotifications,
+    queryFn: () => api.getUnreadNotificationCount(),
+    select: (result) => result.count,
+  });
+}
+
 // Qué modera el usuario. `canModerate` decide si se muestra la entrada a
 // moderación (sidebar y ajustes).
 export function useModerationScope() {

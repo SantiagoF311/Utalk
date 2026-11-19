@@ -118,6 +118,10 @@ function RootNavigator() {
             options={{ headerShown: true, title: 'Mis reportes', headerBackTitle: 'Atrás' }}
           />
           <Stack.Screen
+            name="notifications"
+            options={{ headerShown: true, title: 'Notificaciones', headerBackTitle: 'Atrás' }}
+          />
+          <Stack.Screen
             name="moderation"
             options={{ headerShown: true, title: 'Moderación', headerBackTitle: 'Atrás' }}
           />

@@ -8,6 +8,7 @@ import type {
   List,
   ModerationAction,
   ModerationCase,
+  NotificationView,
   PostPage,
   PostView,
   ProfileComment,
@@ -15,6 +16,7 @@ import type {
   PublicProfile,
   ReportCategory,
   StartConversationInput,
+  UnreadNotificationCount,
   UpdateMyProfileInput,
   VoteValue,
 } from '@utalk/shared';
@@ -399,6 +401,49 @@ export function markConversationRead(conversation: ConversationView) {
   );
   queryClient.setQueryData<ConversationView>(queryKeys.conversation(conversation.id), (c) => (c ? clear(c) : c));
   void api.markConversationRead(conversation.id).catch(() => refreshConversation(conversation.id));
+}
+
+// Marcar como leídas: la lista y la campana cambian al instante. Si la API
+// falla, se vuelven a pedir las dos (quedan como estaban en el servidor).
+function refreshNotifications() {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications });
+}
+
+function markNotificationsReadInCache(isTarget: (notification: NotificationView) => boolean) {
+  const readAt = new Date().toISOString();
+  let marked = 0;
+  queryClient.setQueryData<List<NotificationView>>(queryKeys.notifications, (list) =>
+    list
+      ? {
+          ...list,
+          items: list.items.map((notification) => {
+            if (notification.readAt !== null || !isTarget(notification)) return notification;
+            marked += 1;
+            return { ...notification, readAt };
+          }),
+        }
+      : list,
+  );
+  queryClient.setQueryData<UnreadNotificationCount>(queryKeys.unreadNotifications, (result) =>
+    result ? { count: Math.max(0, result.count - marked) } : result,
+  );
+}
+
+// Al tocar una notificación (antes de abrir el post).
+export function markNotificationRead(notification: NotificationView) {
+  if (notification.readAt !== null) return;
+  markNotificationsReadInCache((n) => n.id === notification.id);
+  void api.markNotificationRead(notification.id).catch(refreshNotifications);
+}
+
+export function markAllNotificationsRead() {
+  markNotificationsReadInCache(() => true);
+  // La campana también cuenta las que no entraron en la lista (más viejas).
+  queryClient.setQueryData<UnreadNotificationCount>(queryKeys.unreadNotifications, (result) =>
+    result ? { count: 0 } : result,
+  );
+  void api.markAllNotificationsRead().catch(refreshNotifications);
 }
 
 // Bloquear / desbloquear. Como WhatsApp, la conversación se queda en la lista

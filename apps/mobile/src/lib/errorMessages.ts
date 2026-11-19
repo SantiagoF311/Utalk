@@ -20,6 +20,7 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   CANNOT_MESSAGE_USER: 'No puedes escribirle a esta persona.',
   MESSAGE_REQUEST_PENDING: 'Espera a que acepte tu solicitud para mandarle otro mensaje.',
   CANNOT_BLOCK_SELF: 'No puedes bloquearte a ti mismo.',
+  NOTIFICATION_NOT_FOUND: 'Esta notificación ya no existe.',
   CANNOT_PUBLISH_IN_PANEL: 'Solo puedes publicar en el panel de tu universidad o en el general.',
   NOT_POST_AUTHOR: 'Solo quien la publicó puede hacer eso.',
   COMMENT_NOT_FOUND: 'Este comentario ya no existe.',

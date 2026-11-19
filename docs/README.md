@@ -34,7 +34,7 @@ alternativas se descartaron y por qué.
 | Hosting backend | Fly.io | Proceso persistente 24/7 (necesario para los workers de colas) |
 | Base de datos | Supabase (Postgres) | Fuente de verdad de todos los datos |
 | Auth | Supabase Auth | Login sin contraseña vía código al correo institucional |
-| Tiempo real | Supabase Realtime (`postgres_changes` + Broadcast) | Mensajes del chat, "Visto" y "escribiendo..." |
+| Tiempo real | Supabase Realtime (`postgres_changes` + Broadcast) | Mensajes del chat, "Visto", "escribiendo..." y notificaciones nuevas |
 | Almacenamiento de archivos | Supabase Storage | Imágenes de posts |
 | Colas de trabajo | BullMQ | Notificaciones, moderación |
 | Backing store de colas / cache | Redis (Upstash, serverless) | Almacenamiento de BullMQ (y del rate limiting cuando el backend tenga más de una instancia) |
@@ -54,7 +54,8 @@ Puntos clave que el diagrama resume:
 
 - **El mobile habla con el backend para casi todo.** Solo va directo a
   Supabase para el registro/verificación de correo (Auth) y para **leer**
-  el chat por Realtime (escribir mensajes también va por el backend). Ver
+  el chat y las notificaciones por Realtime (escribir mensajes y marcar
+  notificaciones como leídas también va por el backend). Ver
   [auth.md](./auth.md) y [chat-realtime.md](./chat-realtime.md).
 - **El backend usa la service role key** (bypassa RLS) y es el único punto
   de control de acceso de las tablas de contenido. Por eso esas tablas
@@ -79,7 +80,8 @@ Puntos clave que el diagrama resume:
 | Tests unitarios + CI (`npm run check`) | Implementado | [testing.md](./testing.md) |
 | Chat 1 a 1: solicitudes de mensaje, bloqueo, "Visto" y "escribiendo…" (Realtime + Broadcast) | Implementado | [chat-realtime.md](./chat-realtime.md) |
 | Push del chat con la app cerrada | Pendiente | [chat-realtime.md](./chat-realtime.md) |
-| BullMQ + Redis (notificaciones, moderación por IA) | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
+| BullMQ + Redis (Upstash): notificaciones de publicaciones nuevas en tus comunidades (campana en Inicio, Realtime) | Implementado | [backend-y-colas.md](./backend-y-colas.md) |
+| Moderación por IA (`moderate-content`) | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
 | Imágenes en posts (Storage) | Pendiente | — |
 | Sentry | Pendiente | [observabilidad.md](./observabilidad.md) |
 | Deploy en Fly.io | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |

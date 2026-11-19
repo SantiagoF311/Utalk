@@ -81,6 +81,8 @@ export const ERROR_CATALOG = {
     title: 'Message request not accepted yet',
   },
   CANNOT_BLOCK_SELF: { status: HttpStatus.BAD_REQUEST, title: 'Cannot block yourself' },
+
+  NOTIFICATION_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Notification not found' },
 } satisfies Record<ErrorCode, ErrorDefinition>;
 
 // Para las excepciones de Nest que no son AppException (ParseUUIDPipe,

@@ -65,6 +65,9 @@ export const ERROR_CODES = [
   'CANNOT_MESSAGE_USER',
   'MESSAGE_REQUEST_PENDING',
   'CANNOT_BLOCK_SELF',
+
+  // Notificaciones
+  'NOTIFICATION_NOT_FOUND',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

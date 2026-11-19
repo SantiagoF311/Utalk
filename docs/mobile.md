@@ -37,6 +37,7 @@ app/
 ├── chat/new                     │ primer mensaje a alguien: desde su perfil (?userId=&username=)
 ├── blocked-users                │ Bloqueados: desde Ajustes
 ├── my-reports                   │ Mis reportes: desde Ajustes
+├── notifications                │ Notificaciones: desde la campana de Inicio
 ├── moderation                   │ cola de moderación: desde el sidebar o Ajustes (solo moderadores y admins)
 ├── search                       │ buscar: desde Inicio (?panelId=) o desde una comunidad (?communityId=)
 ├── compose                      │ publicar: modal del "+" de Inicio o de una comunidad (?communityId=, ?title=)
@@ -55,7 +56,11 @@ arriba un selector de panel: el de tu universidad, el general y el resto
 - **Inicio**: el feed del panel elegido. Arriba, como en Reddit, una barra
   "Buscar en <panel>" siempre visible (abre la búsqueda, ver
   [busqueda.md](./busqueda.md)), que además dice en qué panel estás, y a su
-  lado el **"+" para publicar**; el panel se cambia desde el ☰.
+  lado la **campana de notificaciones** (con el número de no leídas) y el
+  **"+" para publicar**; el panel se cambia desde el ☰.
+- **Notificaciones** (la campana): publicaciones nuevas en comunidades a
+  las que te uniste, las más nuevas primero. Tocar una la marca como leída
+  y abre la publicación; arriba, "Marcar todas como leídas".
 - **Comunidades**: las del panel elegido, con chips por tema y un buscador
   (filtran en el celular; el buscador sin tildes ni mayúsculas). Cada
   tarjeta tiene descripción, miembros y "Unirse / Te uniste".
@@ -292,6 +297,7 @@ refresco.
 | Primer mensaje a alguien | También optimista, en la pantalla `chat/new`. Cuando el servidor crea la conversación, se guarda el mensaje en su caché (`seedFirstMessage`) y se reemplaza la pantalla por la de la conversación, que lo muestra sin cargar |
 | Abrir una conversación con no leídos | El contador baja al instante y se avisa a la API (`POST /conversations/:id/read`); el otro ve "Visto" por Realtime. En una solicitud recibida no se hace |
 | Bloquear / desbloquear | Invalida la lista de bloqueados, la de chats y la conversación con esa persona |
+| Tocar una notificación / "Marcar todas como leídas" | **Optimista**: la notificación (o todas) queda leída y el número de la campana baja al instante; se avisa a la API (`POST /notifications/:id/read` o `/read-all`). Si falla, se vuelven a pedir la lista y el contador |
 | Resolver un caso (moderación) | **No optimista.** Al eliminar un post, lo saca de todos los feeds como "Borrar post"; al eliminar un comentario, invalida el árbol de su post. Siempre vuelve a pedir la cola, también si falló (otro moderador pudo haberse adelantado: `NO_PENDING_REPORTS`) |
 
 **Tocar la flecha que ya está marcada quita el voto** (`DELETE
@@ -336,14 +342,19 @@ deja el spinner trabado arriba hasta volver a deslizar. Con el hook, el
 spinner aparece solo cuando el usuario tira la lista y se apaga cuando
 termina esa recarga.
 
-**Lo que llega por Realtime también pasa por la caché.** El chat es lo
-único que el mobile lee directo de Supabase: `hooks/useChatRealtime.ts`
-(montado en el layout del drawer mientras hay sesión) recibe los mensajes
-nuevos, los "Visto" y las solicitudes aceptadas, y los aplica a las mismas
-cachés que usa TanStack Query (`lib/chatCache.ts`). Así la pantalla no
-distingue si un mensaje vino de la API o de Realtime. "Escribiendo…" no
-pasa por la caché: es estado local de la pantalla
-(`hooks/useTypingIndicator.ts`).
+**Lo que llega por Realtime también pasa por la caché.** El chat y las
+notificaciones son lo único que el mobile lee directo de Supabase, con dos
+suscripciones montadas en el layout del drawer mientras hay sesión:
+
+- `hooks/useChatRealtime.ts` recibe los mensajes nuevos, los "Visto" y las
+  solicitudes aceptadas, y los aplica a las mismas cachés que usa TanStack
+  Query (`lib/chatCache.ts`). Así la pantalla no distingue si un mensaje
+  vino de la API o de Realtime. "Escribiendo…" no pasa por la caché: es
+  estado local de la pantalla (`hooks/useTypingIndicator.ts`).
+- `hooks/useNotificationsRealtime.ts` escucha las notificaciones nuevas.
+  La fila de Realtime no trae el post ni la comunidad, así que no se arma
+  a mano: invalida la lista y el contador de la campana, que se vuelven a
+  pedir a la API.
 
 **No confundir con la caché del backend**: esta caché vive en el celular
 de cada usuario y ahorra requests al backend. Una caché del servidor

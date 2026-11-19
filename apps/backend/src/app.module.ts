@@ -1,5 +1,6 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller.js';
@@ -13,6 +14,7 @@ import { CommunitiesModule } from './modules/communities/communities.module.js';
 import { BlocksModule } from './modules/blocks/blocks.module.js';
 import { ChatModule } from './modules/chat/chat.module.js';
 import { ModerationModule } from './modules/moderation/moderation.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { PanelsModule } from './modules/panels/panels.module.js';
 import { PostsModule } from './modules/posts/posts.module.js';
 import { ProfilesModule } from './modules/profiles/profiles.module.js';
@@ -26,6 +28,13 @@ import { SupabaseModule } from './supabase/supabase.module.js';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([DEFAULT_RATE_LIMIT]),
+    // Redis (Upstash) solo guarda las colas: nunca es fuente de verdad.
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: { url: config.getOrThrow<string>('REDIS_URL') },
+      }),
+    }),
     SupabaseModule,
     UniversitiesModule,
     ProfilesModule,
@@ -40,6 +49,7 @@ import { SupabaseModule } from './supabase/supabase.module.js';
     BlocksModule,
     ChatModule,
     SearchModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   // El orden importa: el rate limiting va primero (frena también a quien

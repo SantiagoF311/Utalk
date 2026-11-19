@@ -10,6 +10,7 @@ import {
   makeProfile,
 } from '../../testing/fixtures.js';
 import type { CommunitiesService } from '../communities/communities.service.js';
+import type { NotificationsService } from '../notifications/notifications.service.js';
 import type { PanelsService } from '../panels/panels.service.js';
 import type { ProfilesService } from '../profiles/profiles.service.js';
 import type { PostRepository } from './domain/post.repository.js';
@@ -26,6 +27,7 @@ describe('PostsService', () => {
   };
   let communities: { findById: jest.Mock<CommunitiesService['findById']> };
   let panels: { findById: jest.Mock<PanelsService['findById']> };
+  let notifications: { enqueueNewPost: jest.Mock<NotificationsService['enqueueNewPost']> };
   let service: PostsService;
 
   beforeEach(() => {
@@ -54,12 +56,18 @@ describe('PostsService', () => {
       findById: jest.fn<CommunitiesService['findById']>().mockResolvedValue(makeCommunity()),
     };
     panels = { findById: jest.fn<PanelsService['findById']>().mockResolvedValue(makePanel()) };
+    notifications = {
+      enqueueNewPost: jest
+        .fn<NotificationsService['enqueueNewPost']>()
+        .mockResolvedValue(undefined),
+    };
 
     service = new PostsService(
       repository,
       communities as unknown as CommunitiesService,
       panels as unknown as PanelsService,
       profiles as unknown as ProfilesService,
+      notifications as unknown as NotificationsService,
     );
   });
 
@@ -81,6 +89,19 @@ describe('PostsService', () => {
 
       expect(view.myVote).toBeNull();
       expect(view.reportedByMe).toBe(false);
+    });
+
+    it('encola el aviso a los miembros de la comunidad', async () => {
+      await service.create(input, IDS.ana);
+
+      expect(notifications.enqueueNewPost).toHaveBeenCalledWith(IDS.post);
+    });
+
+    it('no encola nada si no puede publicar', async () => {
+      profiles.findById.mockResolvedValue(makeProfile({ universityId: IDS.otherUniversity }));
+
+      await expect(service.create(input, IDS.beto)).rejects.toBeDefined();
+      expect(notifications.enqueueNewPost).not.toHaveBeenCalled();
     });
 
     it('no relee el post ni busca su voto: el insert ya devuelve el autor', async () => {

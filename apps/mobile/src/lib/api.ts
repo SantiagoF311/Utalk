@@ -19,6 +19,7 @@ import type {
   ModerationCase,
   ModerationScope,
   MyReport,
+  NotificationView,
   Panel,
   PostPage,
   PostSort,
@@ -32,6 +33,7 @@ import type {
   UpdateMyProfileInput,
   SearchPage,
   SearchSort,
+  UnreadNotificationCount,
   VoteValue,
 } from '@utalk/shared';
 
@@ -317,6 +319,25 @@ export const api = {
 
   unblockUser(userId: string) {
     return authSend<void>('DELETE', `/blocks/${encodeURIComponent(userId)}`);
+  },
+
+  // Las más nuevas primero. Las nuevas además llegan por Realtime (ver
+  // hooks/useNotificationsRealtime.ts).
+  getNotifications() {
+    return authGet<List<NotificationView>>('/notifications');
+  },
+
+  getUnreadNotificationCount() {
+    return authGet<UnreadNotificationCount>('/notifications/unread-count');
+  },
+
+  // Idempotentes.
+  markNotificationRead(notificationId: string) {
+    return authSend<void>('POST', `/notifications/${encodeURIComponent(notificationId)}/read`);
+  },
+
+  markAllNotificationsRead() {
+    return authSend<void>('POST', '/notifications/read-all');
   },
 
   // Mis reportes, con su número de caso y en qué quedaron.

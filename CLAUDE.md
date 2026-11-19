@@ -106,7 +106,7 @@ archivo (`*.spec.ts`), con repositorios falsos y los builders de
 El backend NestJS accede a Supabase con la service role key (bypassa RLS) y
 es el punto central de control de acceso para la mayoría de las tablas.
 El cliente mobile solo habla directo con Supabase (vía `anon key`) para
-**Realtime** — por ahora eso es exclusivamente el dominio de chat.
+**Realtime** — por ahora el chat y las notificaciones (solo lectura).
 
 **Toda tabla nueva lleva RLS activo.** Las que el mobile solo usa a través
 de la API de NestJS (`posts`, `comments`, `votes`, `reports`, tablas
@@ -115,8 +115,8 @@ se lo salta, y si algún día `anon` / `authenticated` recibieran permisos por
 error, igual no verían nada. Esos roles tampoco tienen permisos sobre esas
 tablas, y a cada función SQL nueva hay que quitarle el `EXECUTE` de `PUBLIC`.
 Las tablas que el cliente mobile suscriba/lea directo vía Realtime
-(`messages`, `conversations`, `notifications` si se implementa vía
-suscripción directa) necesitan RLS **con políticas**. Ver
+(`messages`, `conversations`, `notifications`) necesitan RLS **con
+políticas**. Ver
 [docs/modelo-de-datos.md](docs/modelo-de-datos.md) (sección de acceso) y
 [docs/chat-realtime.md](docs/chat-realtime.md) para el razonamiento
 completo.

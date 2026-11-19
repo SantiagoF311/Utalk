@@ -22,7 +22,8 @@ capas (migración `harden_public_tables`):
 Al crear una tabla nueva del backend: activarle RLS (sin políticas) en su
 migración. Las tablas que el cliente sí lea directo (vía Realtime) necesitan
 RLS **con políticas**: hoy son `conversations` y `messages` (ver
-[Chat](#chat) y [chat-realtime.md](./chat-realtime.md)).
+[Chat](#chat) y [chat-realtime.md](./chat-realtime.md)) y `notifications`
+(ver [Notificaciones](#notificaciones)).
 
 ## Diagrama de relaciones
 
@@ -39,6 +40,7 @@ universities ──< panels ──< communities ──< posts ──< comments (
 
 profiles ──< conversations (user_a < user_b) ──< messages
 profiles ──< user_blocks (blocker_id, blocked_id)
+profiles ──< notifications >── posts
 ```
 
 ## `universities`
@@ -572,6 +574,44 @@ Solo `service_role` las ejecuta.
   `chat_blocked_conversations_visible`, que la borra y la vuelve a crear
   porque cambió lo que devuelve.
 
+## Notificaciones
+
+Avisos dentro de la app (la campana de Inicio). Por ahora un solo tipo:
+alguien publicó en una comunidad a la que te uniste. Las crea el worker de
+BullMQ, nunca el request que crea el post (ver
+[backend-y-colas.md](./backend-y-colas.md)). **Acceso como el chat**: el
+mobile las lee directo por Realtime para enterarse de las nuevas, así que
+`notifications` tiene RLS **con una política** de `SELECT` para su
+destinatario (y `SELECT` para `authenticated`, sin permisos de escritura).
+Marcarlas como leídas va por la API.
+
+### `notifications`
+
+| columna | tipo | notas |
+|---|---|---|
+| `id` | uuid, PK | |
+| `user_id` | uuid, FK → `profiles.id`, on delete cascade | el destinatario |
+| `type` | text | check: `'new_post_in_community'` (`NOTIFICATION_TYPES` en `@utalk/shared`) |
+| `post_id` | uuid, FK → `posts.id`, on delete cascade | el post del que avisa; si el autor lo borra, la notificación se va con él |
+| `read_at` | timestamptz, nullable | null = sin leer |
+| `created_at` | timestamptz | |
+
+**Una por destinatario y post** (unique `notifications_one_per_post` sobre
+`user_id, post_id, type`): es lo que hace idempotente al job, que inserta
+con `on conflict do nothing`. Índices: `notifications_by_user` (`user_id,
+created_at desc, id desc`: la lista) y `notifications_unread` (parcial,
+`read_at is null`: el contador de la campana).
+
+Las de un post **eliminado por moderación** (`removed_at`) se quedan en la
+tabla, pero la API no las lista ni las cuenta.
+
+### Función
+
+- `notify_new_post(p_post_id)`: una notificación por cada miembro de la
+  comunidad del post (`community_members`), salvo el autor y quien lo
+  bloqueó (`user_blocks`). Un post ya eliminado por moderación no notifica.
+  Devuelve cuántas creó (0 en un reintento). Solo `service_role` la ejecuta.
+
 ## Schemas compartidos (`packages/shared`)
 
 Cada tabla tiene un schema Zod equivalente en `packages/shared/src/`,
@@ -591,6 +631,7 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | `moderation.ts` | `moderationScopeSchema` (si es admin y qué comunidades modera), `moderationQueueQuerySchema`, `moderationCaseSchema` (un contenido con sus reportes pendientes), `MODERATION_ACTIONS`, `resolveReportsSchema`, `resolveReportsResultSchema` |
 | `chat.ts` | `MESSAGE_MAX_LENGTH`, `messageViewSchema` (con `senderId`, misma forma que la fila de Realtime), `CONVERSATION_STATUSES`, `conversationViewSchema` (con `otherUser`, `status` para quien mira, último mensaje, `unreadCount`, `blockedByMe` y `blockedByOther`), `startConversationSchema`, `startConversationResultSchema`, `sendMessageSchema`, `messagePageQuerySchema`, `messagePageSchema` |
 | `block.ts` | `blockedUserSchema` (alguien que bloqueaste, para Ajustes) |
+| `notification.ts` | `NOTIFICATION_TYPES`, `NOTIFICATIONS_LIMIT`, `notificationSchema` (con el `post` y su `community`), `unreadNotificationCountSchema`, `notifySubscribersJobSchema` (payload del job de BullMQ) |
 
 **Convención seguida**: cada dominio tiene un schema de la fila completa
 (ej. `profileSchema`, representa la tabla tal cual) y, cuando aplica, un
