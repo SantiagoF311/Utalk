@@ -4,6 +4,7 @@ import { AppException } from '../../common/appException.js';
 import { CommentsService } from '../comments/comments.service.js';
 import { CommunitiesService } from '../communities/communities.service.js';
 import type { CommunityEntity } from '../communities/domain/community.entity.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import type { PostEntity } from '../posts/domain/post.entity.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
@@ -26,6 +27,7 @@ export class ModerationService {
     private readonly postsService: PostsService,
     private readonly commentsService: CommentsService,
     private readonly profilesService: ProfilesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async findScope(userId: string): Promise<ModerationScope> {
@@ -86,6 +88,9 @@ export class ModerationService {
     if (input.action === 'remove' && target.postId !== null) {
       await this.postsService.discardImage(post);
     }
+    // Avisar a quienes reportaron (y al autor, si se eliminó) lo hace el
+    // worker después; acá solo se encola.
+    await this.notificationsService.enqueueModerationResult(target);
     return resolved;
   }
 

@@ -14,6 +14,9 @@ describe('NotificationsService', () => {
   beforeEach(() => {
     repository = {
       createForNewPost: jest.fn<NotificationRepository['createForNewPost']>().mockResolvedValue(2),
+      createForModerationResult: jest
+        .fn<NotificationRepository['createForModerationResult']>()
+        .mockResolvedValue(3),
       findById: jest.fn<NotificationRepository['findById']>().mockResolvedValue(makeNotification()),
       findLatestByUser: jest.fn<NotificationRepository['findLatestByUser']>().mockResolvedValue([]),
       countUnread: jest.fn<NotificationRepository['countUnread']>().mockResolvedValue(3),
@@ -22,8 +25,35 @@ describe('NotificationsService', () => {
     };
     queue = {
       enqueueNewPost: jest.fn<NotificationQueue['enqueueNewPost']>().mockResolvedValue(undefined),
+      enqueueModerationResult: jest
+        .fn<NotificationQueue['enqueueModerationResult']>()
+        .mockResolvedValue(undefined),
     };
     service = new NotificationsService(repository, queue);
+  });
+
+  describe('avisos de moderación', () => {
+    const removedPost = { postId: IDS.post, commentId: null };
+
+    it('encola el contenido resuelto', async () => {
+      await service.enqueueModerationResult(removedPost);
+
+      expect(queue.enqueueModerationResult).toHaveBeenCalledWith(removedPost);
+    });
+
+    it('no falla si la cola no responde: la resolución ya quedó hecha', async () => {
+      queue.enqueueModerationResult.mockRejectedValue(new Error('Redis down'));
+      const logError = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      await expect(service.enqueueModerationResult(removedPost)).resolves.toBeUndefined();
+      expect(logError).toHaveBeenCalled();
+      logError.mockRestore();
+    });
+
+    it('el worker crea los avisos y devuelve cuántos', async () => {
+      await expect(service.notifyModerationResult(removedPost)).resolves.toBe(3);
+      expect(repository.createForModerationResult).toHaveBeenCalledWith(removedPost);
+    });
   });
 
   describe('enqueueNewPost', () => {

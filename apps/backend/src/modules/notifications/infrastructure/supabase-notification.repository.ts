@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { NotificationType } from '@utalk/shared';
+import type { NotificationType, NotifyModerationResultJob } from '@utalk/shared';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import { NotificationEntity } from '../domain/notification.entity.js';
 import type {
@@ -12,16 +12,19 @@ interface NotificationRow {
   user_id: string;
   type: NotificationType;
   post_id: string;
+  comment_id: string | null;
   read_at: string | null;
   created_at: string;
 }
 
-interface NotificationWithTargetRow extends NotificationRow {
-  post: {
-    id: string;
-    title: string;
-    community: { id: string; slug: string; name: string };
-  };
+// Fila de `notification_list` (ver la migración `moderation_notifications`).
+interface NotificationListRow extends NotificationRow {
+  post_title: string;
+  community_id: string;
+  community_slug: string;
+  community_name: string;
+  report_case_number: number | null;
+  report_status: 'removed' | 'dismissed' | null;
 }
 
 function toEntity(row: NotificationRow): NotificationEntity {
@@ -30,9 +33,22 @@ function toEntity(row: NotificationRow): NotificationEntity {
     row.user_id,
     row.type,
     row.post_id,
+    row.comment_id,
     row.read_at ? new Date(row.read_at) : null,
     new Date(row.created_at),
   );
+}
+
+function toNotificationWithTarget(row: NotificationListRow): NotificationWithTarget {
+  return {
+    notification: toEntity(row),
+    post: { id: row.post_id, title: row.post_title },
+    community: { id: row.community_id, slug: row.community_slug, name: row.community_name },
+    report:
+      row.report_case_number !== null && row.report_status !== null
+        ? { caseNumber: row.report_case_number, status: row.report_status }
+        : null,
+  };
 }
 
 @Injectable()
@@ -42,6 +58,16 @@ export class SupabaseNotificationRepository implements NotificationRepository {
   async createForNewPost(postId: string): Promise<number> {
     const { data, error } = await this.supabase.client.rpc('notify_new_post', {
       p_post_id: postId,
+    });
+
+    if (error) throw new Error(error.message);
+    return data as number;
+  }
+
+  async createForModerationResult(content: NotifyModerationResultJob): Promise<number> {
+    const { data, error } = await this.supabase.client.rpc('notify_moderation_result', {
+      p_post_id: content.postId,
+      p_comment_id: content.commentId,
     });
 
     if (error) throw new Error(error.message);
@@ -60,36 +86,22 @@ export class SupabaseNotificationRepository implements NotificationRepository {
   }
 
   async findLatestByUser(userId: string, limit: number): Promise<NotificationWithTarget[]> {
-    // !inner: sin el post (eliminado por moderación) no hay notificación que mostrar.
-    const { data, error } = await this.supabase.client
-      .from('notifications')
-      .select(
-        '*, post:posts!inner(id, title, removed_at, community:communities!inner(id, slug, name))',
-      )
-      .eq('user_id', userId)
-      .is('post.removed_at', null)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(limit);
+    const { data, error } = await this.supabase.client.rpc('notification_list', {
+      p_user_id: userId,
+      p_limit: limit,
+    });
 
     if (error) throw new Error(error.message);
-    return (data as NotificationWithTargetRow[]).map((row) => ({
-      notification: toEntity(row),
-      post: { id: row.post.id, title: row.post.title },
-      community: row.post.community,
-    }));
+    return (data as NotificationListRow[]).map(toNotificationWithTarget);
   }
 
   async countUnread(userId: string): Promise<number> {
-    const { count, error } = await this.supabase.client
-      .from('notifications')
-      .select('id, post:posts!inner(removed_at)', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .is('read_at', null)
-      .is('post.removed_at', null);
+    const { data, error } = await this.supabase.client.rpc('unread_notification_count', {
+      p_user_id: userId,
+    });
 
     if (error) throw new Error(error.message);
-    return count ?? 0;
+    return data as number;
   }
 
   async markRead(id: string): Promise<void> {

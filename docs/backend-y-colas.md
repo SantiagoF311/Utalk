@@ -86,6 +86,7 @@ comportamiento idéntico entre ambos entornos.
 | Job | Estado | Disparado por | Qué hace el worker |
 |---|---|---|---|
 | `notify-subscribers` (cola `notifications`) | Implementado | Se crea un post en una comunidad | Crea una notificación (tabla `notifications`) por cada **miembro de la comunidad**, salvo el autor y quien lo bloqueó. Supabase Realtime se la empuja al mobile conectado |
+| `notify-moderation-result` (cola `notifications`) | Implementado | Un moderador resuelve un contenido reportado (`POST /moderation/resolve`) | Avisa a cada persona que lo reportó (su caso y en qué quedó) y, si se eliminó, a su autor. Ver [modelo-de-datos.md](./modelo-de-datos.md#notificaciones) |
 | `notify-new-message` | Pendiente | Se envía un mensaje de chat | Si el destinatario no tiene sesión Realtime activa, dispara una push notification vía Expo Push Notifications |
 | `moderate-content` | Pendiente | Se crea un post (o mensaje, según alcance final) | Llama al servicio de moderación por IA; si el contenido viola reglas, oculta/elimina el post retroactivamente (ver "Publicación optimista" abajo) |
 | ~~`recalculate-score`~~ | Descartado | — | El trending (`hot`) es una columna generada de Postgres con la fórmula de Reddit, sin cola ni cron — ver [datos-y-trending.md](./datos-y-trending.md) |
@@ -110,6 +111,12 @@ POST /posts ──▶ PostsService.create ──▶ guarda el post
                                          Realtime ──▶ mobile (campana) ◀┘
 ```
 
+Los avisos de moderación siguen el mismo camino: `ModerationService.resolve`
+encola `notify-moderation-result` (con el post o el comentario resuelto)
+recién cuando efectivamente cerró reportes. Si otro moderador se adelantó
+(`NO_PENDING_REPORTS`) o quien resuelve no modera esa comunidad, no se
+encola nada. El worker llama a `notify_moderation_result`.
+
 - **Puertos y adaptadores, como el resto**: `PostsService` no sabe nada de
   BullMQ. El puerto `NotificationQueue` (`domain/notification.queue.ts`) lo
   implementa `BullmqNotificationQueue`; el worker
@@ -118,8 +125,10 @@ POST /posts ──▶ PostsService.create ──▶ guarda el post
 - **El fan-out es un solo `insert … select`** en la función SQL
   `notify_new_post`, en vez de traer los miembros al backend e insertar de a
   uno: una comunidad grande no son miles de round-trips.
-- **Si encolar falla, el post se publica igual.** `enqueueNewPost` atrapa el
-  error y lo loguea: se pierde el aviso, nunca la publicación. Ojo: con la
+- **Si encolar falla, el post se publica igual** (y la resolución de
+  moderación queda hecha igual). `enqueueNewPost` y
+  `enqueueModerationResult` atrapan el error y lo loguean: se pierde el
+  aviso, nunca la acción. Ojo: con la
   configuración por defecto de `ioredis`, si Upstash no responde, encolar
   puede tardar varios segundos en fallar (reintenta la conexión) y el
   request espera ese tiempo. El worker hereda la conexión de la cola, así
@@ -128,11 +137,15 @@ POST /posts ──▶ PostsService.create ──▶ guarda el post
 - **Opciones de los jobs** (`notifications.module.ts`): 3 intentos con
   backoff exponencial (5 s, 10 s, 20 s), los terminados se borran de Redis
   (`removeOnComplete`) y de los fallidos se guardan los últimos 100.
-- **El payload** (`{ postId }`) es `notifySubscribersJobSchema` en
-  `@utalk/shared`: lo usan el que encola y el worker, que además lo valida.
-- **Lectura**: `GET /notifications` (las 50 más nuevas, sin las de posts
-  eliminados por moderación), `GET /notifications/unread-count`,
-  `POST /notifications/:id/read` y `POST /notifications/read-all`.
+- **Los payloads** (`{ postId }` y `{ postId, commentId }`) son
+  `notifySubscribersJobSchema` y `notifyModerationResultJobSchema` en
+  `@utalk/shared`: los usan el que encola y el worker, que además los valida.
+- **Lectura**: `GET /notifications` (las 50 más nuevas; las de post nuevo
+  no aparecen si el post se eliminó por moderación, las de moderación sí),
+  `GET /notifications/unread-count`, `POST /notifications/:id/read` y
+  `POST /notifications/read-all`. La vista es una unión por `type`: cada
+  tipo trae solo lo que muestra (el de reporte, el número de caso y en qué
+  quedó).
 
 ### Por qué el trabajo secundario nunca bloquea la respuesta al usuario
 
@@ -188,11 +201,15 @@ handlers deben diseñarse para producir el mismo resultado si se ejecutan
 más de una vez con el mismo payload (ej. no duplicar notificaciones si
 `notify-subscribers` se reintenta).
 
-En `notify-subscribers` lo garantiza Postgres: `notifications` tiene un
-unique `(user_id, post_id, type)` y la función inserta con `on conflict do
-nothing`, así que un reintento no crea nada nuevo. Además, el job se encola
-con un `jobId` fijo por post, para que BullMQ ignore un segundo encolado
-del mismo post mientras el primero sigue en la cola.
+En la cola `notifications` lo garantiza Postgres: hay un unique por tipo
+de aviso (ver [modelo-de-datos.md](./modelo-de-datos.md#notificaciones)) y
+las funciones insertan con `on conflict do nothing`, así que un reintento
+no crea nada nuevo. Además, `notify-subscribers` se encola con un `jobId`
+fijo por post, para que BullMQ ignore un segundo encolado del mismo post
+mientras el primero sigue en la cola. `notify-moderation-result` no lleva
+`jobId` fijo: el mismo contenido puede resolverse otra vez más adelante
+(reportes nuevos sobre algo que se dejó), y ese segundo job tiene que
+correr.
 
 ## Rate limiting anti-spam (distinto de la moderación de contenido)
 

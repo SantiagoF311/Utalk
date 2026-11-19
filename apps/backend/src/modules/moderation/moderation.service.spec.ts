@@ -4,6 +4,7 @@ import { AppException } from '../../common/appException.js';
 import { IDS, makeComment, makeCommunity, makePost, makeProfile } from '../../testing/fixtures.js';
 import type { CommentsService } from '../comments/comments.service.js';
 import type { CommunitiesService } from '../communities/communities.service.js';
+import type { NotificationsService } from '../notifications/notifications.service.js';
 import type { PostsService } from '../posts/posts.service.js';
 import type { ProfilesService } from '../profiles/profiles.service.js';
 import type { ModerationRepository } from './domain/moderation.repository.js';
@@ -43,6 +44,9 @@ describe('ModerationService', () => {
   };
   let comments: { findById: jest.Mock<CommentsService['findById']> };
   let profiles: { findById: jest.Mock<ProfilesService['findById']> };
+  let notifications: {
+    enqueueModerationResult: jest.Mock<NotificationsService['enqueueModerationResult']>;
+  };
   let service: ModerationService;
 
   beforeEach(() => {
@@ -71,6 +75,11 @@ describe('ModerationService', () => {
         .fn<ProfilesService['findById']>()
         .mockResolvedValue(makeProfile({ id: IDS.beto })),
     };
+    notifications = {
+      enqueueModerationResult: jest
+        .fn<NotificationsService['enqueueModerationResult']>()
+        .mockResolvedValue(undefined),
+    };
 
     service = new ModerationService(
       repository,
@@ -78,6 +87,7 @@ describe('ModerationService', () => {
       posts as unknown as PostsService,
       comments as unknown as CommentsService,
       profiles as unknown as ProfilesService,
+      notifications as unknown as NotificationsService,
     );
   });
 
@@ -160,6 +170,38 @@ describe('ModerationService', () => {
         'remove',
         IDS.beto,
       );
+    });
+
+    it('encola los avisos del contenido resuelto (post o comentario)', async () => {
+      await service.resolve({ postId: IDS.post, commentId: null, action: 'remove' }, IDS.beto);
+      expect(notifications.enqueueModerationResult).toHaveBeenLastCalledWith({
+        postId: IDS.post,
+        commentId: null,
+      });
+
+      await service.resolve({ postId: null, commentId: COMMENT_ID, action: 'dismiss' }, IDS.beto);
+      expect(notifications.enqueueModerationResult).toHaveBeenLastCalledWith({
+        postId: null,
+        commentId: COMMENT_ID,
+      });
+    });
+
+    it('no avisa nada si otro moderador ya lo había resuelto', async () => {
+      repository.resolve.mockResolvedValue(0);
+
+      await expect(
+        service.resolve({ postId: IDS.post, commentId: null, action: 'remove' }, IDS.beto),
+      ).rejects.toMatchObject({ code: 'NO_PENDING_REPORTS' });
+      expect(notifications.enqueueModerationResult).not.toHaveBeenCalled();
+    });
+
+    it('no avisa nada si quien resuelve no modera esa comunidad', async () => {
+      communities.canModerate.mockResolvedValue(false);
+
+      await expect(
+        service.resolve({ postId: IDS.post, commentId: null, action: 'remove' }, IDS.beto),
+      ).rejects.toMatchObject({ code: 'NOT_COMMUNITY_MODERATOR' });
+      expect(notifications.enqueueModerationResult).not.toHaveBeenCalled();
     });
 
     it('al eliminar un post, borra también su imagen', async () => {

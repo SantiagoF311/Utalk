@@ -58,9 +58,19 @@ arriba un selector de panel: el de tu universidad, el general y el resto
   [busqueda.md](./busqueda.md)), que además dice en qué panel estás, y a su
   lado la **campana de notificaciones** (con el número de no leídas) y el
   **"+" para publicar**; el panel se cambia desde el ☰.
-- **Notificaciones** (la campana): publicaciones nuevas en comunidades a
-  las que te uniste, las más nuevas primero. Tocar una la marca como leída
-  y abre la publicación; arriba, "Marcar todas como leídas".
+- **Notificaciones** (la campana), las más nuevas primero; arriba, "Marcar
+  todas como leídas". Tocar una la marca como leída y lleva a lo que
+  corresponde:
+
+  | Aviso | Qué dice | Al tocarlo |
+  |---|---|---|
+  | Publicación nueva en una comunidad tuya | c/comunidad y el título | abre la publicación |
+  | Tu reporte se resolvió | "Tu reporte · caso #N" y si se eliminó o se dejó | abre "Mis reportes" |
+  | Eliminaron tu publicación | "Un moderador eliminó tu publicación «…»" | nada: ya no se puede abrir |
+  | Eliminaron tu comentario | "Un moderador eliminó tu comentario en «…»" | abre la publicación |
+
+  Los textos se arman en `screens/notifications` según el `type` (la vista
+  es una unión discriminada: TypeScript obliga a cubrir los tres).
 - **Comunidades**: las del panel elegido, con chips por tema y un buscador
   (filtran en el celular; el buscador sin tildes ni mayúsculas). Cada
   tarjeta tiene descripción, miembros y "Unirse / Te uniste".
@@ -371,7 +381,8 @@ suscripciones montadas en el layout del drawer mientras hay sesión:
 - `hooks/useNotificationsRealtime.ts` escucha las notificaciones nuevas.
   La fila de Realtime no trae el post ni la comunidad, así que no se arma
   a mano: invalida la lista y el contador de la campana, que se vuelven a
-  pedir a la API.
+  pedir a la API. También invalida "Mis reportes", porque un aviso de
+  moderación cambia el estado de un reporte.
 
 **No confundir con la caché del backend**: esta caché vive en el celular
 de cada usuario y ahorra requests al backend. Una caché del servidor

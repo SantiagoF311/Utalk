@@ -1,7 +1,11 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { notifySubscribersJobSchema } from '@utalk/shared';
+import { notifyModerationResultJobSchema, notifySubscribersJobSchema } from '@utalk/shared';
 import type { Job } from 'bullmq';
-import { NOTIFICATIONS_QUEUE, NOTIFY_SUBSCRIBERS_JOB } from './notifications.jobs.js';
+import {
+  NOTIFICATIONS_QUEUE,
+  NOTIFY_MODERATION_RESULT_JOB,
+  NOTIFY_SUBSCRIBERS_JOB,
+} from './notifications.jobs.js';
 import { NotificationsService } from './notifications.service.js';
 
 // Worker de la cola `notifications`: corre en el mismo proceso que la API.
@@ -17,6 +21,10 @@ export class NotificationsProcessor extends WorkerHost {
         const { postId } = notifySubscribersJobSchema.parse(job.data);
         return this.notificationsService.notifySubscribers(postId);
       }
+      case NOTIFY_MODERATION_RESULT_JOB:
+        return this.notificationsService.notifyModerationResult(
+          notifyModerationResultJobSchema.parse(job.data),
+        );
       default:
         throw new Error(`Unknown job "${job.name}" in queue ${NOTIFICATIONS_QUEUE}`);
     }
