@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { NOTIFICATIONS_LIMIT } from '@utalk/shared';
+import type { NotifyModerationResultJob } from '@utalk/shared';
 import { AppException } from '../../common/appException.js';
 import { NOTIFICATION_QUEUE } from './domain/notification.queue.js';
 import type { NotificationQueue } from './domain/notification.queue.js';
@@ -29,9 +30,25 @@ export class NotificationsService {
     }
   }
 
-  // Lo corre el worker de la cola.
+  // Lo llama la moderación al resolver un contenido. Igual que con los
+  // posts: si la cola falla, la resolución ya quedó hecha y solo se pierde
+  // el aviso.
+  async enqueueModerationResult(content: NotifyModerationResultJob): Promise<void> {
+    try {
+      await this.notificationQueue.enqueueModerationResult(content);
+    } catch (error) {
+      const id = content.postId ?? content.commentId;
+      this.logger.error(`Could not enqueue moderation notifications for ${id}`, error);
+    }
+  }
+
+  // Los corre el worker de la cola.
   async notifySubscribers(postId: string): Promise<number> {
     return this.notificationRepository.createForNewPost(postId);
+  }
+
+  async notifyModerationResult(content: NotifyModerationResultJob): Promise<number> {
+    return this.notificationRepository.createForModerationResult(content);
   }
 
   async findMine(userId: string): Promise<NotificationWithTarget[]> {

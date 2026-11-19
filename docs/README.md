@@ -76,11 +76,11 @@ Puntos clave que el diagrama resume:
 | Postgres: contadores por trigger, `hot` generado, soft delete, FTS + `pg_trgm` | Implementado | [datos-y-trending.md](./datos-y-trending.md), [busqueda.md](./busqueda.md) |
 | Seguridad de la API: JWT local, rate limiting en memoria, CORS, helmet, Problem Details | Implementado | [auth.md](./auth.md), [backend-y-colas.md](./backend-y-colas.md), [observabilidad.md](./observabilidad.md) |
 | App mobile: feeds, detalle, interacción, reportes, búsqueda, comunidades, perfil | Implementado | [mobile.md](./mobile.md) |
-| Moderación manual: estado y número de caso de los reportes, cola por comunidad, eliminar o dejar, "Mis reportes" | Implementado | [modelo-de-datos.md](./modelo-de-datos.md#moderación) |
+| Moderación manual: estado y número de caso de los reportes, cola por comunidad, eliminar o dejar, "Mis reportes", avisos a quien reportó y al autor | Implementado | [modelo-de-datos.md](./modelo-de-datos.md#moderación) |
 | Tests unitarios + CI (`npm run check`) | Implementado | [testing.md](./testing.md) |
 | Chat 1 a 1: solicitudes de mensaje, bloqueo, "Visto" y "escribiendo…" (Realtime + Broadcast) | Implementado | [chat-realtime.md](./chat-realtime.md) |
 | Push del chat con la app cerrada | Pendiente | [chat-realtime.md](./chat-realtime.md) |
-| BullMQ + Redis (Upstash): notificaciones de publicaciones nuevas en tus comunidades (campana en Inicio, Realtime) | Implementado | [backend-y-colas.md](./backend-y-colas.md) |
+| BullMQ + Redis (Upstash): notificaciones de publicaciones nuevas en tus comunidades y avisos de moderación (en qué quedó tu reporte, o que se eliminó algo tuyo), en la campana de Inicio por Realtime | Implementado | [backend-y-colas.md](./backend-y-colas.md) |
 | Moderación por IA (`moderate-content`) | Pendiente | [backend-y-colas.md](./backend-y-colas.md) |
 | Imágenes en posts: una opcional por post, en Supabase Storage (bucket público `post-images`) | Implementado | [modelo-de-datos.md](./modelo-de-datos.md#imágenes-de-posts-supabase-storage) |
 | Sentry | Pendiente | [observabilidad.md](./observabilidad.md) |

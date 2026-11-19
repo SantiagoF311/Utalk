@@ -45,7 +45,7 @@ de infraestructura está en [backend-y-colas.md](./backend-y-colas.md).
 | Supabase Postgres | En uso | Fuente de verdad; triggers, columnas generadas, FTS + `pg_trgm`. Migraciones en `supabase/migrations/` |
 | Supabase Auth (+ Auth Hook) | En uso | Cuentas, sesiones y emisión de JWT; el hook valida el dominio del correo |
 | Fly.io | Pendiente | Hosting del proceso de la API (y de los workers) |
-| BullMQ + Redis (Upstash) | En uso | Cola `notifications` (job `notify-subscribers`, ver [backend-y-colas.md](./backend-y-colas.md)). Pendiente: moderación por IA, push del chat y rate limiting compartido cuando haya más de una instancia |
+| BullMQ + Redis (Upstash) | En uso | Cola `notifications` (jobs `notify-subscribers` y `notify-moderation-result`, ver [backend-y-colas.md](./backend-y-colas.md)). Pendiente: moderación por IA, push del chat y rate limiting compartido cuando haya más de una instancia |
 | Sentry (`@sentry/nestjs`) | Pendiente | Captura de excepciones en producción |
 | Supabase Storage | En uso | Imágenes de posts (bucket `post-images`): las sube y borra solo el backend, detrás del puerto `PostImageStorage` |
 

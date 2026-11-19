@@ -529,11 +529,14 @@ SQL): primero lo más grave según el motivo más grave de sus reportes
 (amenazas y lo que expone a alguien; después acoso; después el resto) y, a
 igual gravedad, lo que lleva más tiempo esperando.
 
+**Avisos**: al resolver, se avisa a cada persona que reportó ese contenido
+(su número de caso y en qué quedó) y, si se eliminó, a su autor, sin decirle
+quién lo reportó. Los crea el worker de BullMQ (ver
+[Notificaciones](#notificaciones)). Quien reportó lo ve además en "Mis
+reportes".
+
 **Pendiente**:
 
-- **Avisos**: ni quien reportó ni el autor reciben una notificación cuando
-  se resuelve. Quien reportó lo ve en "Mis reportes"; el aviso llega con
-  BullMQ (ver [backend-y-colas.md](./backend-y-colas.md)).
 - **El autor que borra su post reportado borra los reportes**: el autor
   borra su post de verdad, y el `on delete cascade` de `reports.post_id` se
   lleva sus reportes (se pierde la evidencia y el caso desaparece de "Mis
@@ -613,10 +616,18 @@ Solo `service_role` las ejecuta.
 
 ## Notificaciones
 
-Avisos dentro de la app (la campana de Inicio). Por ahora un solo tipo:
-alguien publicó en una comunidad a la que te uniste. Las crea el worker de
-BullMQ, nunca el request que crea el post (ver
-[backend-y-colas.md](./backend-y-colas.md)). **Acceso como el chat**: el
+Avisos dentro de la app (la campana de Inicio). Tres tipos
+(`NOTIFICATION_TYPES` en `@utalk/shared`):
+
+| `type` | Para quién | Cuándo |
+|---|---|---|
+| `new_post_in_community` | cada miembro de la comunidad (salvo el autor y quien lo bloqueó) | alguien publicó en una comunidad a la que te uniste |
+| `report_resolved` | cada persona que reportó el contenido | un moderador lo resolvió: dice el número de caso y si se eliminó o se dejó |
+| `content_removed` | el autor | un moderador eliminó su publicación o su comentario. No dice quién lo reportó |
+
+Las crea el worker de BullMQ, nunca el request que crea el post o que
+resuelve el reporte (ver [backend-y-colas.md](./backend-y-colas.md)).
+**Acceso como el chat**: el
 mobile las lee directo por Realtime para enterarse de las nuevas, así que
 `notifications` tiene RLS **con una política** de `SELECT` para su
 destinatario (y `SELECT` para `authenticated`, sin permisos de escritura).
@@ -628,26 +639,58 @@ Marcarlas como leídas va por la API.
 |---|---|---|
 | `id` | uuid, PK | |
 | `user_id` | uuid, FK → `profiles.id`, on delete cascade | el destinatario |
-| `type` | text | check: `'new_post_in_community'` (`NOTIFICATION_TYPES` en `@utalk/shared`) |
-| `post_id` | uuid, FK → `posts.id`, on delete cascade | el post del que avisa; si el autor lo borra, la notificación se va con él |
+| `type` | text | check: uno de los tres de arriba |
+| `post_id` | uuid, FK → `posts.id`, on delete cascade | el post del que avisa (en un comentario, el post donde está); si el autor lo borra, la notificación se va con él |
+| `comment_id` | uuid, FK → `comments.id`, nullable, on delete cascade | solo en los avisos de moderación sobre un comentario; null = sobre el post |
+| `report_id` | uuid, FK → `reports.id`, nullable, on delete cascade | solo en `report_resolved` (check `notifications_report_only_when_resolved`: lo tiene ese tipo y ningún otro) |
 | `read_at` | timestamptz, nullable | null = sin leer |
 | `created_at` | timestamptz | |
 
-**Una por destinatario y post** (unique `notifications_one_per_post` sobre
-`user_id, post_id, type`): es lo que hace idempotente al job, que inserta
-con `on conflict do nothing`. Índices: `notifications_by_user` (`user_id,
-created_at desc, id desc`: la lista) y `notifications_unread` (parcial,
-`read_at is null`: el contador de la campana).
+**Idempotencia, un unique por tipo** (índices parciales): es lo que hace
+que un reintento del job no duplique avisos, porque las funciones insertan
+con `on conflict do nothing`.
 
-Las de un post **eliminado por moderación** (`removed_at`) se quedan en la
-tabla, pero la API no las lista ni las cuenta.
+- `notifications_one_new_post`: `(user_id, post_id)` en los de post nuevo.
+- `notifications_one_per_report`: `(report_id)` en los de reporte. No
+  sirve uno por post: alguien puede haber reportado dos comentarios del
+  mismo post.
+- `notifications_one_removal`: `(post_id, comment_id)` con `nulls not
+  distinct` en los de contenido eliminado, para que "el post" (comment_id
+  null) también cuente una sola vez.
 
-### Función
+Otros índices: `notifications_by_user` (`user_id, created_at desc, id
+desc`: la lista) y `notifications_unread` (parcial, `read_at is null`: el
+contador de la campana).
+
+**Qué se muestra**: un aviso de post nuevo no aparece (ni cuenta en la
+campana) si el post se eliminó por moderación. Los de moderación,
+justamente en ese caso, sí. La fila queda en la tabla igual.
+
+### Funciones
+
+Solo `service_role` las ejecuta.
 
 - `notify_new_post(p_post_id)`: una notificación por cada miembro de la
   comunidad del post (`community_members`), salvo el autor y quien lo
   bloqueó (`user_blocks`). Un post ya eliminado por moderación no notifica.
-  Devuelve cuántas creó (0 en un reintento). Solo `service_role` la ejecuta.
+  Devuelve cuántas creó (0 en un reintento).
+- `notify_moderation_result(p_post_id, p_comment_id)`: los avisos de una
+  resolución (exactamente uno de los dos ids). Mira lo ya guardado:
+  - un `report_resolved` por cada reporte cerrado de ese contenido, y si
+    se eliminó un post, también por los de sus comentarios
+    (`resolve_reports` los cierra con él);
+  - un `content_removed` para el autor, si el contenido quedó eliminado.
+
+  Devuelve cuántas creó. Como mira el estado guardado, un reporte que se
+  cerró antes de que existieran estos avisos recibe el suyo recién si el
+  mismo contenido se vuelve a resolver (por reportes nuevos sobre algo que
+  se dejó).
+- `notification_list(p_user_id, p_limit)` y `unread_notification_count(p_user_id)`:
+  la lista (con el título del post, su comunidad y, en los de reporte, el
+  número de caso y en qué quedó) y el contador de la campana. Son
+  funciones y no consultas de PostgREST porque el filtro "ocultar los de
+  post nuevo si el post se eliminó, pero no los de moderación" depende del
+  tipo, y eso no se puede expresar con los filtros de supabase-js.
 
 ## Schemas compartidos (`packages/shared`)
 
@@ -668,7 +711,7 @@ usado tanto por el backend (validar entrada/salida) como por el mobile
 | `moderation.ts` | `moderationScopeSchema` (si es admin y qué comunidades modera), `moderationQueueQuerySchema`, `moderationCaseSchema` (un contenido con sus reportes pendientes), `MODERATION_ACTIONS`, `resolveReportsSchema`, `resolveReportsResultSchema` |
 | `chat.ts` | `MESSAGE_MAX_LENGTH`, `messageViewSchema` (con `senderId`, misma forma que la fila de Realtime), `CONVERSATION_STATUSES`, `conversationViewSchema` (con `otherUser`, `status` para quien mira, último mensaje, `unreadCount`, `blockedByMe` y `blockedByOther`), `startConversationSchema`, `startConversationResultSchema`, `sendMessageSchema`, `messagePageQuerySchema`, `messagePageSchema` |
 | `block.ts` | `blockedUserSchema` (alguien que bloqueaste, para Ajustes) |
-| `notification.ts` | `NOTIFICATION_TYPES`, `NOTIFICATIONS_LIMIT`, `notificationSchema` (con el `post` y su `community`), `unreadNotificationCountSchema`, `notifySubscribersJobSchema` (payload del job de BullMQ) |
+| `notification.ts` | `NOTIFICATION_TYPES`, `NOTIFICATIONS_LIMIT`, `notificationSchema` (unión discriminada por `type`: todas con el `post` y su `community`; las de moderación además con `target` y, la de reporte, `report`), `unreadNotificationCountSchema`, `notifySubscribersJobSchema` y `notifyModerationResultJobSchema` (payloads de los jobs de BullMQ) |
 
 **Convención seguida**: cada dominio tiene un schema de la fila completa
 (ej. `profileSchema`, representa la tabla tal cual) y, cuando aplica, un

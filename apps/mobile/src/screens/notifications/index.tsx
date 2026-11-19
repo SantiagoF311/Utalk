@@ -14,9 +14,10 @@ import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
 import { relativeTime } from '@/lib/relativeTime';
 
-// Notificaciones (desde la campana de Inicio): por ahora, publicaciones
-// nuevas en comunidades a las que te uniste. Tocar una la marca como leída
-// y abre la publicación.
+// Notificaciones (desde la campana de Inicio): publicaciones nuevas en
+// comunidades a las que te uniste y avisos de moderación (en qué quedó lo
+// que reportaste, o que se eliminó algo tuyo). Tocar una la marca como leída
+// y abre lo que corresponda.
 export function NotificationsScreen() {
   const theme = useTheme();
   const notifications = useNotifications();
@@ -35,7 +36,7 @@ export function NotificationsScreen() {
     <StateMessage
       kind="empty"
       title="No tienes notificaciones"
-      description="Únete a comunidades y te avisamos cuando alguien publique."
+      description="Únete a comunidades y te avisamos cuando alguien publique. También te avisamos en qué quedan tus reportes."
     />
   );
 
@@ -69,28 +70,74 @@ export function NotificationsScreen() {
   );
 }
 
+// Qué dice cada aviso y adónde lleva tocarlo (null = a ningún lado: una
+// publicación tuya eliminada ya no se puede abrir).
+type RowContent = { kicker: string; text: string; open: (() => void) | null };
+
+function openPost(postId: string) {
+  router.push({ pathname: '/post/[postId]', params: { postId } });
+}
+
+function rowContent(notification: NotificationView): RowContent {
+  const title = `«${notification.post.title}»`;
+
+  switch (notification.type) {
+    case 'new_post_in_community':
+      return {
+        kicker: `Nueva publicación en c/${notification.community.slug}`,
+        text: notification.post.title,
+        open: () => openPost(notification.post.id),
+      };
+    case 'report_resolved': {
+      const { caseNumber, outcome } = notification.report;
+      const onComment = notification.target === 'comment';
+      const text =
+        outcome === 'removed'
+          ? onComment
+            ? `Eliminamos el comentario que reportaste en ${title}.`
+            : `Eliminamos la publicación ${title}.`
+          : onComment
+            ? `Revisamos el comentario que reportaste en ${title} y lo dejamos: no incumple las normas.`
+            : `Revisamos ${title} y la dejamos: no incumple las normas.`;
+      // En "Mis reportes" está el caso completo.
+      return { kicker: `Tu reporte · caso #${caseNumber}`, text, open: () => router.push('/my-reports') };
+    }
+    case 'content_removed':
+      return notification.target === 'comment'
+        ? {
+            kicker: 'Moderación',
+            text: `Un moderador eliminó tu comentario en ${title} por no cumplir las normas.`,
+            open: () => openPost(notification.post.id),
+          }
+        : {
+            kicker: 'Moderación',
+            text: `Un moderador eliminó tu publicación ${title} por no cumplir las normas.`,
+            open: null,
+          };
+  }
+}
+
 function NotificationRow({ notification }: { notification: NotificationView }) {
   const theme = useTheme();
   const unread = notification.readAt === null;
-
-  const open = () => {
-    markNotificationRead(notification);
-    router.push({ pathname: '/post/[postId]', params: { postId: notification.post.id } });
-  };
+  const { kicker, text, open } = rowContent(notification);
 
   return (
     <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={`${unread ? 'Sin leer. ' : ''}Nueva publicación en c/${notification.community.slug}: ${notification.post.title}`}
-      onPress={open}
+      accessibilityRole={open ? 'link' : 'button'}
+      accessibilityLabel={`${unread ? 'Sin leer. ' : ''}${kicker}: ${text}`}
+      onPress={() => {
+        markNotificationRead(notification);
+        open?.();
+      }}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.backgroundElement }]}>
       <View style={[styles.dot, unread && { backgroundColor: theme.primary }]} />
       <View style={styles.rowBody}>
         <ThemedText type="small" themeColor="textSecondary">
-          Nueva publicación en c/{notification.community.slug} · {relativeTime(notification.createdAt)}
+          {kicker} · {relativeTime(notification.createdAt)}
         </ThemedText>
-        <ThemedText type={unread ? 'smallBold' : 'small'} numberOfLines={2}>
-          {notification.post.title}
+        <ThemedText type={unread ? 'smallBold' : 'small'} numberOfLines={3}>
+          {text}
         </ThemedText>
       </View>
     </Pressable>
