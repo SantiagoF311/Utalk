@@ -12,10 +12,22 @@ export class PostEntity {
     readonly removedAt: Date | null,
     // Ruta de su imagen en el bucket (null = sin imagen).
     readonly imagePath: string | null,
+    // Cuándo lo retuvo la moderación por IA (null = no está retenido).
+    readonly heldAt: Date | null = null,
   ) {}
 
   hasImage(): boolean {
     return this.imagePath !== null;
+  }
+
+  // Retenido por la IA hasta que un moderador lo revise.
+  isHeld(): boolean {
+    return this.heldAt !== null;
+  }
+
+  // Uno retenido lo ve solo su autor (con "En revisión"); el resto, nadie.
+  isVisibleTo(viewerId: string): boolean {
+    return !this.isRemoved() && (!this.isHeld() || this.isAuthoredBy(viewerId));
   }
 
   isAuthoredBy(userId: string): boolean {

@@ -18,6 +18,7 @@ const savedReport = (report: NewReport) =>
     report.postId,
     report.commentId,
     report.reportedBy,
+    'user',
     report.category,
     report.reason,
     'pending',

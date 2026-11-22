@@ -3,10 +3,13 @@ import { z } from 'zod';
 // new_post_in_community: alguien publicó en una comunidad a la que te uniste.
 // report_resolved: un moderador resolvió algo que reportaste.
 // content_removed: un moderador eliminó algo tuyo.
+// content_held: la moderación por IA retuvo tu publicación hasta que la
+// revise un moderador.
 export const NOTIFICATION_TYPES = [
   'new_post_in_community',
   'report_resolved',
   'content_removed',
+  'content_held',
 ] as const;
 
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
@@ -45,6 +48,8 @@ export const notificationSchema = z.discriminatedUnion('type', [
     type: z.literal('content_removed'),
     target: moderationTargetSchema,
   }),
+  // Para el autor: la IA solo retiene publicaciones (no comentarios).
+  notificationBaseSchema.extend({ type: z.literal('content_held') }),
 ]);
 
 export type NotificationView = z.infer<typeof notificationSchema>;

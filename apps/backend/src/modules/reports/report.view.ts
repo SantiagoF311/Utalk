@@ -9,6 +9,7 @@ export function toReportView(report: ReportEntity): Report {
     postId: report.postId,
     commentId: report.commentId,
     reportedBy: report.reportedBy,
+    source: report.source,
     category: report.category,
     reason: report.reason,
     status: report.status,

@@ -51,6 +51,9 @@ export const postViewSchema = postSchema.omit({ authorId: true }).extend({
   myVote: voteValueSchema.nullable(),
   reportedByMe: z.boolean(),
   imageUrl: z.url().nullable(),
+  // Retenido por la moderación por IA: solo su autor lo ve (con "En
+  // revisión") hasta que un moderador decida.
+  underReview: z.boolean(),
 });
 
 export type PostView = z.infer<typeof postViewSchema>;

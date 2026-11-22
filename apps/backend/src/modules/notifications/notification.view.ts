@@ -32,5 +32,7 @@ export function toNotificationView({
       };
     case 'content_removed':
       return { ...base, type: notification.type, target: notification.target() };
+    case 'content_held':
+      return { ...base, type: notification.type };
   }
 }

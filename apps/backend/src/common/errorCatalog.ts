@@ -53,6 +53,7 @@ export const ERROR_CATALOG = {
 
   POST_NOT_FOUND: { status: HttpStatus.NOT_FOUND, title: 'Post not found' },
   POST_REMOVED: { status: HttpStatus.GONE, title: 'Post was removed by moderation' },
+  POST_UNDER_REVIEW: { status: HttpStatus.FORBIDDEN, title: 'Post is under moderation review' },
   NOT_POST_AUTHOR: { status: HttpStatus.FORBIDDEN, title: 'Not the author of this post' },
   INVALID_CURSOR: { status: HttpStatus.BAD_REQUEST, title: 'Invalid cursor' },
   INVALID_IMAGE: { status: HttpStatus.BAD_REQUEST, title: 'Image must be JPEG, PNG or WebP' },

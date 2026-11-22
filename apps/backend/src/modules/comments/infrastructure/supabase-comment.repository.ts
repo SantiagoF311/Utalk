@@ -134,11 +134,12 @@ export class SupabaseCommentRepository implements CommentRepository {
     let request = this.supabase.client
       .from('comments')
       // Inner join para dejar afuera los de publicaciones eliminadas por
-      // moderación (que ya no se pueden abrir).
-      .select('*, post:posts!inner(title, removed_at)')
+      // moderación o retenidas por la IA (que ya no se pueden abrir).
+      .select('*, post:posts!inner(title, removed_at, held_at)')
       .eq('author_id', query.authorId)
       .is('deleted_at', null)
-      .is('post.removed_at', null);
+      .is('post.removed_at', null)
+      .is('post.held_at', null);
 
     if (query.cursor) {
       const { createdAt, id } = decodeAuthorCursor(query.cursor);

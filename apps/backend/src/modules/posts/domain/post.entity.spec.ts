@@ -18,4 +18,17 @@ describe('PostEntity', () => {
     expect(removed.isEditableBy(IDS.ana)).toBe(false);
     expect(makePost().isRemoved()).toBe(false);
   });
+
+  it('retenido por la IA: lo ve su autor y nadie más', () => {
+    const held = makePost({ heldAt: new Date() });
+
+    expect(held.isHeld()).toBe(true);
+    expect(held.isVisibleTo(IDS.ana)).toBe(true);
+    expect(held.isVisibleTo(IDS.beto)).toBe(false);
+  });
+
+  it('uno normal lo ve cualquiera; uno eliminado, nadie (ni su autor)', () => {
+    expect(makePost().isVisibleTo(IDS.beto)).toBe(true);
+    expect(makePost({ removedAt: new Date() }).isVisibleTo(IDS.ana)).toBe(false);
+  });
 });

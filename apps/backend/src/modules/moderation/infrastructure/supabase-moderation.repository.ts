@@ -23,6 +23,8 @@ interface CaseRow {
   reasons: string[];
   first_reported_at: string;
   last_reported_at: string;
+  ai_flagged: boolean;
+  post_image_path: string | null;
 }
 
 function toTarget(row: CaseRow): ReportTarget {
@@ -46,6 +48,8 @@ function toEntity(row: CaseRow): ModerationCaseEntity {
     row.reasons,
     new Date(row.first_reported_at),
     new Date(row.last_reported_at),
+    row.ai_flagged,
+    row.post_image_path,
   );
 }
 
@@ -76,5 +80,16 @@ export class SupabaseModerationRepository implements ModerationRepository {
 
     if (error) throw new Error(error.message);
     return data as number;
+  }
+
+  async reportPostByAi(postId: string, category: ReportCategory, reason: string): Promise<boolean> {
+    const { data, error } = await this.supabase.client.rpc('report_post_by_ai', {
+      p_post_id: postId,
+      p_category: category,
+      p_reason: reason,
+    });
+
+    if (error) throw new Error(error.message);
+    return data as boolean;
   }
 }

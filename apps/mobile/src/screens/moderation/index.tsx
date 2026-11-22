@@ -8,6 +8,7 @@ import { Button } from '@/components/button';
 import { Callout } from '@/components/callout';
 import { ConfirmSheet } from '@/components/confirmSheet';
 import { Icon } from '@/components/icon';
+import { PostImage } from '@/components/postImage';
 import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
@@ -137,6 +138,14 @@ function CaseCard({ entry }: { entry: ModerationCase }) {
             </ThemedText>
           </View>
         )}
+        {/* Lo marcó la moderación por IA al publicarse (puede equivocarse: decide el moderador). */}
+        {entry.aiFlagged && (
+          <View style={[styles.badge, { backgroundColor: theme.primary }]}>
+            <ThemedText type="smallBold" style={styles.badgeText}>
+              Detectado por IA
+            </ThemedText>
+          </View>
+        )}
         <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.flex}>
           c/{entry.community.slug} · {isComment ? 'Comentario' : 'Publicación'} ·{' '}
           {relativeTime(entry.firstReportedAt)}
@@ -150,6 +159,8 @@ function CaseCard({ entry }: { entry: ModerationCase }) {
       ) : (
         <ThemedText style={styles.title}>{entry.postTitle}</ThemedText>
       )}
+      {/* La IA también revisa imágenes: el moderador tiene que ver lo que marcó. */}
+      {entry.imageUrl && <PostImage uri={entry.imageUrl} full />}
       <ThemedText type="small" numberOfLines={8}>
         {entry.body}
       </ThemedText>

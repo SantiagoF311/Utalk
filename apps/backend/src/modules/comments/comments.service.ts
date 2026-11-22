@@ -63,7 +63,8 @@ export class CommentsService {
   // en `replies`. Se trae la lista plana en una sola consulta y se arma en
   // memoria (un post universitario no tiene miles de comentarios).
   async findTreeByPostId(postId: string, viewerId: string): Promise<CommentView[]> {
-    await this.postsService.findById(postId);
+    // Un post retenido por la IA: su autor ve los comentarios, el resto no.
+    await this.postsService.findVisibleById(postId, viewerId);
 
     const items = await this.commentRepository.findWithAuthorByPostId(postId);
     const commentIds = items.map((item) => item.comment.id);

@@ -18,6 +18,8 @@ function makeCase(categories: ReportCategory[], firstReportedAt = '2026-11-10T12
     [],
     new Date(firstReportedAt),
     new Date(firstReportedAt),
+    false,
+    null,
   );
 }
 

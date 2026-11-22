@@ -11,6 +11,7 @@ import {
   makeProfile,
 } from '../../testing/fixtures.js';
 import type { CommunitiesService } from '../communities/communities.service.js';
+import type { ContentReviewService } from '../contentReview/contentReview.service.js';
 import type { NotificationsService } from '../notifications/notifications.service.js';
 import type { PanelsService } from '../panels/panels.service.js';
 import type { ProfilesService } from '../profiles/profiles.service.js';
@@ -36,6 +37,7 @@ describe('PostsService', () => {
   let panels: { findById: jest.Mock<PanelsService['findById']> };
   let notifications: { enqueueNewPost: jest.Mock<NotificationsService['enqueueNewPost']> };
   let images: jest.Mocked<PostImageStorage>;
+  let contentReview: { enqueuePost: jest.Mock<ContentReviewService['enqueuePost']> };
   let service: PostsService;
 
   beforeEach(() => {
@@ -69,6 +71,9 @@ describe('PostsService', () => {
         .fn<NotificationsService['enqueueNewPost']>()
         .mockResolvedValue(undefined),
     };
+    contentReview = {
+      enqueuePost: jest.fn<ContentReviewService['enqueuePost']>().mockResolvedValue(undefined),
+    };
     images = {
       upload: jest.fn<PostImageStorage['upload']>().mockResolvedValue(undefined),
       delete: jest.fn<PostImageStorage['delete']>().mockResolvedValue(undefined),
@@ -82,6 +87,7 @@ describe('PostsService', () => {
       panels as unknown as PanelsService,
       profiles as unknown as ProfilesService,
       notifications as unknown as NotificationsService,
+      contentReview as unknown as ContentReviewService,
     );
   });
 
@@ -155,6 +161,20 @@ describe('PostsService', () => {
       await service.create(input, IDS.ana);
 
       expect(notifications.enqueueNewPost).toHaveBeenCalledWith(IDS.post);
+    });
+
+    it('encola la revisión por IA (el post ya queda publicado)', async () => {
+      const view = await service.create(input, IDS.ana);
+
+      expect(contentReview.enqueuePost).toHaveBeenCalledWith(IDS.post);
+      expect(view.id).toBe(IDS.post);
+    });
+
+    it('no encola la revisión si no pudo publicar', async () => {
+      profiles.findById.mockResolvedValue(makeProfile({ universityId: IDS.otherUniversity }));
+
+      await expect(service.create(input, IDS.beto)).rejects.toBeDefined();
+      expect(contentReview.enqueuePost).not.toHaveBeenCalled();
     });
 
     it('no encola nada si no puede publicar', async () => {
@@ -276,6 +296,76 @@ describe('PostsService', () => {
     });
   });
 
+  describe('retenido por la IA', () => {
+    const held = () => makePost({ heldAt: new Date() });
+
+    it('nadie más lo puede abrir: POST_UNDER_REVIEW', async () => {
+      repository.findWithAuthorById.mockResolvedValue({ post: held(), author: makeAuthor() });
+
+      await expect(service.findViewById(IDS.post, IDS.beto)).rejects.toMatchObject({
+        code: 'POST_UNDER_REVIEW',
+      });
+    });
+
+    it('su autor lo ve, marcado "en revisión"', async () => {
+      repository.findWithAuthorById.mockResolvedValue({ post: held(), author: makeAuthor() });
+
+      const view = await service.findViewById(IDS.post, IDS.ana);
+
+      expect(view.underReview).toBe(true);
+    });
+
+    it('no se comenta, vota ni reporta (findById), ni siquiera su autor', async () => {
+      repository.findById.mockResolvedValue(held());
+
+      await expect(service.findById(IDS.post)).rejects.toMatchObject({
+        code: 'POST_UNDER_REVIEW',
+      });
+    });
+
+    it('findVisibleById: su autor sí (ej. para ver los comentarios), el resto no', async () => {
+      repository.findById.mockResolvedValue(held());
+
+      await expect(service.findVisibleById(IDS.post, IDS.ana)).resolves.toBeDefined();
+      await expect(service.findVisibleById(IDS.post, IDS.beto)).rejects.toMatchObject({
+        code: 'POST_UNDER_REVIEW',
+      });
+    });
+
+    it('su autor lo puede borrar', async () => {
+      repository.findById.mockResolvedValue(held());
+
+      await service.delete(IDS.post, IDS.ana);
+
+      expect(repository.delete).toHaveBeenCalledWith(IDS.post);
+    });
+
+    it('solo aparece en el feed del perfil de su propio autor', async () => {
+      repository.findPage.mockResolvedValue({ items: [], nextCursor: null });
+
+      await service.findFeed({ authorId: IDS.ana, sort: 'new', limit: 20 }, IDS.ana);
+      expect(repository.findPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ includeHeld: true }),
+      );
+
+      await service.findFeed({ authorId: IDS.ana, sort: 'new', limit: 20 }, IDS.beto);
+      expect(repository.findPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ includeHeld: false }),
+      );
+
+      await service.findFeed({ communityId: IDS.community, sort: 'hot', limit: 20 }, IDS.ana);
+      expect(repository.findPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ includeHeld: false }),
+      );
+    });
+
+    it('un post normal no está en revisión', async () => {
+      const view = await service.findViewById(IDS.post, IDS.beto);
+
+      expect(view.underReview).toBe(false);
+    });
+  });
+
   describe('findFeed por autor', () => {
     it('lista las publicaciones del autor si puede verse su historial', async () => {
       repository.findPage.mockResolvedValue({ items: [], nextCursor: null });
@@ -341,6 +431,25 @@ describe('PostsService', () => {
       repository.findById.mockResolvedValue(removed);
 
       await expect(service.findByIdIncludingRemoved(IDS.post)).resolves.toBe(removed);
+    });
+  });
+
+  describe('update: la IA revisa la versión editada', () => {
+    it('al editar, encola otra revisión por IA', async () => {
+      await service.update(IDS.post, { body: 'texto nuevo' }, IDS.ana);
+
+      expect(repository.update).toHaveBeenCalledWith(IDS.post, {
+        title: undefined,
+        body: 'texto nuevo',
+      });
+      expect(contentReview.enqueuePost).toHaveBeenCalledWith(IDS.post);
+    });
+
+    it('si no puede editar, no encola nada', async () => {
+      await expect(service.update(IDS.post, { body: 'x' }, IDS.beto)).rejects.toMatchObject({
+        code: 'NOT_POST_AUTHOR',
+      });
+      expect(contentReview.enqueuePost).not.toHaveBeenCalled();
     });
   });
 

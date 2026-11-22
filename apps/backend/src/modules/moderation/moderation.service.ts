@@ -9,6 +9,9 @@ import type { PostEntity } from '../posts/domain/post.entity.js';
 import { PostsService } from '../posts/posts.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import type { ReportTarget } from '../reports/domain/report.repository.js';
+import { aiReportFor } from './domain/aiReport.js';
+import { CONTENT_CLASSIFIER } from './domain/contentClassifier.js';
+import type { ContentClassifier } from './domain/contentClassifier.js';
 import { MODERATION_REPOSITORY } from './domain/moderation.repository.js';
 import type { ModerationRepository } from './domain/moderation.repository.js';
 import { ModerationCaseEntity } from './domain/moderationCase.entity.js';
@@ -28,7 +31,39 @@ export class ModerationService {
     private readonly commentsService: CommentsService,
     private readonly profilesService: ProfilesService,
     private readonly notificationsService: NotificationsService,
+    @Inject(CONTENT_CLASSIFIER) private readonly contentClassifier: ContentClassifier,
   ) {}
+
+  // Lo corre el worker de la cola `moderation` con cada post nuevo. Si la IA
+  // lo marca, crea un reporte automático y queda en la cola para un
+  // moderador: la IA no elimina nada. Devuelve si lo reportó.
+  async reviewPost(postId: string): Promise<boolean> {
+    let post: PostEntity;
+    try {
+      post = await this.postsService.findByIdIncludingRemoved(postId);
+    } catch (error) {
+      // Su autor lo borró antes de que llegara la revisión: nada que revisar.
+      if (error instanceof AppException && error.code === 'POST_NOT_FOUND') return false;
+      throw error;
+    }
+    // Ya lo eliminó un moderador, o ya está retenido esperando a uno (la
+    // revisión de una edición mientras tanto no cambiaría nada).
+    if (post.isRemoved() || post.isHeld()) return false;
+
+    const classification = await this.contentClassifier.classify({
+      text: `${post.title}\n\n${post.body}`,
+      imageUrl: this.postsService.imageUrlFor(post.imagePath),
+    });
+    if (!classification.flagged) return false;
+
+    const { category, reason } = aiReportFor(classification.categories);
+    return this.moderationRepository.reportPostByAi(post.id, category, reason);
+  }
+
+  // La imagen del post de un caso, para que el moderador la vea.
+  imageUrlOf(entry: ModerationCaseEntity): string | null {
+    return this.postsService.imageUrlFor(entry.postImagePath);
+  }
 
   async findScope(userId: string): Promise<ModerationScope> {
     const [profile, communities] = await Promise.all([

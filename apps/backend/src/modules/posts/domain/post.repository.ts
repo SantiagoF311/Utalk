@@ -27,6 +27,8 @@ export interface PostPageQuery {
   sort: PostSort;
   cursor?: string;
   limit: number;
+  // Incluir los retenidos por la IA: solo en el perfil del propio autor.
+  includeHeld?: boolean;
 }
 
 export interface PostPage {

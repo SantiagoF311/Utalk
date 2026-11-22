@@ -25,6 +25,7 @@ interface PostRow {
   created_at: string;
   removed_at: string | null;
   image_path: string | null;
+  held_at: string | null;
 }
 
 interface PostWithAuthorRow extends PostRow {
@@ -55,6 +56,7 @@ function toEntity(row: PostRow): PostEntity {
     new Date(row.created_at),
     row.removed_at ? new Date(row.removed_at) : null,
     row.image_path,
+    row.held_at ? new Date(row.held_at) : null,
   );
 }
 
@@ -150,6 +152,12 @@ export class SupabasePostRepository implements PostRepository {
       .select(query.panelId ? `${WITH_AUTHOR}, communities!inner(panel_id)` : WITH_AUTHOR)
       // Lo eliminado por moderación no aparece en ningún feed.
       .is('removed_at', null);
+
+    // Lo retenido por la IA tampoco, salvo en el perfil de su propio autor
+    // (lo ve con "En revisión").
+    if (!query.includeHeld) {
+      request = request.is('held_at', null);
+    }
 
     if (query.panelId) {
       request = request.eq('communities.panel_id', query.panelId);

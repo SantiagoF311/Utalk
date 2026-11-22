@@ -42,9 +42,20 @@ export const moderationCaseSchema = z.object({
   reasons: z.array(z.string()),
   firstReportedAt: z.iso.datetime(),
   lastReportedAt: z.iso.datetime(),
+  // Alguno de sus reportes lo hizo la moderación por IA al publicarse.
+  aiFlagged: z.boolean(),
+  // La imagen del post (si lo reportado es el post y tiene): la IA también
+  // revisa imágenes y el moderador tiene que ver lo que marcó.
+  imageUrl: z.url().nullable(),
 });
 
 export type ModerationCase = z.infer<typeof moderationCaseSchema>;
+
+// Payload del job `moderate-content` (cola de BullMQ `moderation`): un post
+// recién publicado para que lo revise la IA.
+export const moderateContentJobSchema = z.object({ postId: z.uuid() });
+
+export type ModerateContentJob = z.infer<typeof moderateContentJobSchema>;
 
 // remove: elimina el contenido (queda "eliminado por moderación");
 // dismiss: lo deja como está. En los dos casos se cierran todos sus reportes
