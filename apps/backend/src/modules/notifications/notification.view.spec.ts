@@ -57,6 +57,16 @@ describe('toNotificationView', () => {
     expect(notificationSchema.safeParse(view).success).toBe(true);
   });
 
+  it('publicación retenida por la IA: solo el post y su comunidad', () => {
+    const view = toNotificationView(
+      item({ notification: makeNotification({ type: 'content_held' }) }),
+    );
+
+    expect(view).toMatchObject({ type: 'content_held', post: { id: IDS.post } });
+    expect(view).not.toHaveProperty('target');
+    expect(notificationSchema.safeParse(view).success).toBe(true);
+  });
+
   it('un aviso de reporte sin su reporte es un error (la base no lo permite)', () => {
     expect(() =>
       toNotificationView(item({ notification: makeNotification({ type: 'report_resolved' }) })),

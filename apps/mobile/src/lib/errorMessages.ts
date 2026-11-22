@@ -13,6 +13,7 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   COMMUNITY_SLUG_TAKEN: 'Ya hay una comunidad con ese nombre corto en este panel. Prueba otro.',
   POST_NOT_FOUND: 'Esta publicación ya no existe.',
   POST_REMOVED: 'Un moderador eliminó esta publicación.',
+  POST_UNDER_REVIEW: 'Esta publicación está en revisión por moderación.',
   NOT_COMMUNITY_MODERATOR: 'No moderas esta comunidad.',
   NO_PENDING_REPORTS: 'Otro moderador ya resolvió este caso.',
   CONVERSATION_NOT_FOUND: 'Esta conversación ya no está disponible.',

@@ -7,6 +7,7 @@ import type { CommunitiesService } from '../communities/communities.service.js';
 import type { NotificationsService } from '../notifications/notifications.service.js';
 import type { PostsService } from '../posts/posts.service.js';
 import type { ProfilesService } from '../profiles/profiles.service.js';
+import type { ContentClassifier } from './domain/contentClassifier.js';
 import type { ModerationRepository } from './domain/moderation.repository.js';
 import { ModerationCaseEntity } from './domain/moderationCase.entity.js';
 import { ModerationService } from './moderation.service.js';
@@ -29,6 +30,8 @@ function makeCase(category: ReportCategory, firstReportedAt: string) {
     [],
     new Date(firstReportedAt),
     new Date(firstReportedAt),
+    false,
+    null,
   );
 }
 
@@ -41,7 +44,9 @@ describe('ModerationService', () => {
   let posts: {
     findByIdIncludingRemoved: jest.Mock<PostsService['findByIdIncludingRemoved']>;
     discardImage: jest.Mock<PostsService['discardImage']>;
+    imageUrlFor: jest.Mock<PostsService['imageUrlFor']>;
   };
+  let classifier: jest.Mocked<ContentClassifier>;
   let comments: { findById: jest.Mock<CommentsService['findById']> };
   let profiles: { findById: jest.Mock<ProfilesService['findById']> };
   let notifications: {
@@ -53,6 +58,12 @@ describe('ModerationService', () => {
     repository = {
       findPendingCases: jest.fn<ModerationRepository['findPendingCases']>().mockResolvedValue([]),
       resolve: jest.fn<ModerationRepository['resolve']>().mockResolvedValue(2),
+      reportPostByAi: jest.fn<ModerationRepository['reportPostByAi']>().mockResolvedValue(true),
+    };
+    classifier = {
+      classify: jest
+        .fn<ContentClassifier['classify']>()
+        .mockResolvedValue({ flagged: false, categories: [] }),
     };
     // Beto modera la comunidad del post de Ana.
     communities = {
@@ -66,6 +77,9 @@ describe('ModerationService', () => {
         .fn<PostsService['findByIdIncludingRemoved']>()
         .mockResolvedValue(makePost()),
       discardImage: jest.fn<PostsService['discardImage']>().mockResolvedValue(undefined),
+      imageUrlFor: jest.fn<PostsService['imageUrlFor']>((path) =>
+        path ? `https://storage.test/${path}` : null,
+      ),
     };
     comments = {
       findById: jest.fn<CommentsService['findById']>().mockResolvedValue(makeComment()),
@@ -88,7 +102,73 @@ describe('ModerationService', () => {
       comments as unknown as CommentsService,
       profiles as unknown as ProfilesService,
       notifications as unknown as NotificationsService,
+      classifier,
     );
+  });
+
+  describe('reviewPost (moderación por IA)', () => {
+    it('manda el título, el texto y la imagen del post', async () => {
+      posts.findByIdIncludingRemoved.mockResolvedValue(
+        makePost({ imagePath: `${IDS.ana}/foto.jpg` }),
+      );
+
+      await service.reviewPost(IDS.post);
+
+      expect(classifier.classify).toHaveBeenCalledWith({
+        text: 'Hola\n\nCuerpo',
+        imageUrl: `https://storage.test/${IDS.ana}/foto.jpg`,
+      });
+    });
+
+    it('si la IA lo marca, lo reporta (no lo elimina) con el motivo más grave', async () => {
+      classifier.classify.mockResolvedValue({
+        flagged: true,
+        categories: ['harassment', 'violence'],
+      });
+
+      await expect(service.reviewPost(IDS.post)).resolves.toBe(true);
+
+      expect(repository.reportPostByAi).toHaveBeenCalledWith(
+        IDS.post,
+        'threat',
+        'Detectado por IA: acoso, violencia',
+      );
+      expect(repository.resolve).not.toHaveBeenCalled();
+    });
+
+    it('si la IA no lo marca, no hace nada', async () => {
+      await expect(service.reviewPost(IDS.post)).resolves.toBe(false);
+      expect(repository.reportPostByAi).not.toHaveBeenCalled();
+    });
+
+    it('un post ya eliminado por un moderador no se revisa', async () => {
+      posts.findByIdIncludingRemoved.mockResolvedValue(makePost({ removedAt: new Date() }));
+
+      await expect(service.reviewPost(IDS.post)).resolves.toBe(false);
+      expect(classifier.classify).not.toHaveBeenCalled();
+    });
+
+    it('uno ya retenido (ej. lo editaron mientras esperaba) no se vuelve a revisar', async () => {
+      posts.findByIdIncludingRemoved.mockResolvedValue(makePost({ heldAt: new Date() }));
+
+      await expect(service.reviewPost(IDS.post)).resolves.toBe(false);
+      expect(classifier.classify).not.toHaveBeenCalled();
+    });
+
+    it('un post que su autor borró antes de la revisión no es un error', async () => {
+      posts.findByIdIncludingRemoved.mockRejectedValue(
+        new AppException('POST_NOT_FOUND', 'not found'),
+      );
+
+      await expect(service.reviewPost(IDS.post)).resolves.toBe(false);
+      expect(classifier.classify).not.toHaveBeenCalled();
+    });
+
+    it('si falla la IA, el error sube para que BullMQ reintente', async () => {
+      classifier.classify.mockRejectedValue(new Error('OpenAI 429'));
+
+      await expect(service.reviewPost(IDS.post)).rejects.toThrow('OpenAI 429');
+    });
   });
 
   describe('findScope', () => {

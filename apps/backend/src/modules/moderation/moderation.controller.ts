@@ -25,7 +25,11 @@ export class ModerationController {
   ): Promise<List<ModerationCase>> {
     const query = moderationQueueQuerySchema.parse(rawQuery);
     const cases = await this.moderationService.findQueue(query, userId);
-    return { items: cases.map(toModerationCaseView) };
+    return {
+      items: cases.map((entry) =>
+        toModerationCaseView(entry, this.moderationService.imageUrlOf(entry)),
+      ),
+    };
   }
 
   @Post('resolve')

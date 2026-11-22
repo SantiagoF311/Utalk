@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CommunitiesModule } from '../communities/communities.module.js';
+import { ContentReviewModule } from '../contentReview/contentReview.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PanelsModule } from '../panels/panels.module.js';
 import { ProfilesModule } from '../profiles/profiles.module.js';
@@ -11,7 +12,13 @@ import { PostsController } from './posts.controller.js';
 import { PostsService } from './posts.service.js';
 
 @Module({
-  imports: [CommunitiesModule, PanelsModule, ProfilesModule, NotificationsModule],
+  imports: [
+    CommunitiesModule,
+    PanelsModule,
+    ProfilesModule,
+    NotificationsModule,
+    ContentReviewModule,
+  ],
   controllers: [PostsController],
   providers: [
     PostsService,

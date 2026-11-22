@@ -10,6 +10,7 @@ import type {
 } from '@utalk/shared';
 import { AppException } from '../../common/appException.js';
 import { CommunitiesService } from '../communities/communities.service.js';
+import { ContentReviewService } from '../contentReview/contentReview.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PanelsService } from '../panels/panels.service.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
@@ -28,6 +29,10 @@ function assertNotRemoved(post: PostEntity): void {
   }
 }
 
+function underReview(post: PostEntity): AppException {
+  return new AppException('POST_UNDER_REVIEW', `Post ${post.id} is under moderation review`);
+}
+
 @Injectable()
 export class PostsService {
   private readonly logger = new Logger(PostsService.name);
@@ -39,6 +44,7 @@ export class PostsService {
     private readonly panelsService: PanelsService,
     private readonly profilesService: ProfilesService,
     private readonly notificationsService: NotificationsService,
+    private readonly contentReviewService: ContentReviewService,
   ) {}
 
   async create(
@@ -88,8 +94,10 @@ export class PostsService {
       throw error;
     }
 
-    // Solo encola (barato): avisar a los miembros lo hace el worker después.
+    // Solo encola (barato): avisar a los miembros y la revisión por IA las
+    // hacen los workers después. El post ya queda publicado (optimista).
     await this.notificationsService.enqueueNewPost(item.post.id);
+    await this.contentReviewService.enqueuePost(item.post.id);
     // myVote es null por definición: nadie votó un post que acaba de nacer.
     // Si algún día se agrega el voto automático del autor (como Reddit),
     // esto tiene que pasar a 1. Y nadie puede haberlo reportado todavía.
@@ -108,7 +116,11 @@ export class PostsService {
       await this.profilesService.assertHistoryVisible(query.authorId, viewerId);
     }
 
-    const page = await this.postRepository.findPage(query);
+    // Los retenidos por la IA solo aparecen en el perfil de su propio autor.
+    const page = await this.postRepository.findPage({
+      ...query,
+      includeHeld: query.authorId === viewerId,
+    });
     const postIds = page.items.map((item) => item.post.id);
     // Votos y reportes de quien mira no dependen entre sí: en paralelo.
     const [myVotes, reported] = await Promise.all([
@@ -135,15 +147,27 @@ export class PostsService {
       throw new AppException('POST_NOT_FOUND', `Post ${id} not found`);
     }
     assertNotRemoved(item.post);
+    if (!item.post.isVisibleTo(viewerId)) throw underReview(item.post);
     return this.toView(item, myVotes.get(id) ?? null, reported.has(id));
   }
 
   // Para otros módulos (comentarios, votos, reportes) que solo necesitan
   // saber que el post existe o leer sus datos crudos. Uno eliminado por
-  // moderación da POST_REMOVED: no se comenta, vota ni reporta.
+  // moderación da POST_REMOVED y uno retenido por la IA, POST_UNDER_REVIEW:
+  // no se comentan, votan ni reportan (tampoco su autor, mientras se revisa).
   async findById(id: string): Promise<PostEntity> {
     const post = await this.findByIdIncludingRemoved(id);
     assertNotRemoved(post);
+    if (post.isHeld()) throw underReview(post);
+    return post;
+  }
+
+  // Para leer algo del post (ej. sus comentarios) con la misma regla que el
+  // detalle: uno retenido por la IA lo ve solo su autor.
+  async findVisibleById(id: string, viewerId: string): Promise<PostEntity> {
+    const post = await this.findByIdIncludingRemoved(id);
+    assertNotRemoved(post);
+    if (!post.isVisibleTo(viewerId)) throw underReview(post);
     return post;
   }
 
@@ -156,6 +180,12 @@ export class PostsService {
     return post;
   }
 
+  // URL pública de una imagen guardada (para la moderación, que muestra la
+  // imagen del post reportado y se la manda a la IA).
+  imageUrlFor(imagePath: string | null): string | null {
+    return imagePath ? this.imageStorage.publicUrl(imagePath) : null;
+  }
+
   // Para la moderación: al eliminar un post, su imagen deja de existir
   // también (puede ser justo lo que expone a alguien).
   async discardImage(post: PostEntity): Promise<void> {
@@ -165,6 +195,9 @@ export class PostsService {
   async update(id: string, input: UpdatePostInput, userId: string): Promise<PostView> {
     await this.findEditable(id, userId);
     await this.postRepository.update(id, { title: input.title, body: input.body });
+    // La IA revisa la versión editada, igual que al publicar: si no, se
+    // podría publicar algo inocente y después cambiarlo.
+    await this.contentReviewService.enqueuePost(id);
     return this.findViewById(id, userId);
   }
 
@@ -174,8 +207,10 @@ export class PostsService {
     await this.discardImage(post);
   }
 
+  // El autor puede editar o borrar su post aunque esté retenido por la IA.
   private async findEditable(id: string, userId: string): Promise<PostEntity> {
-    const post = await this.findById(id);
+    const post = await this.findByIdIncludingRemoved(id);
+    assertNotRemoved(post);
     if (!post.isEditableBy(userId)) {
       throw new AppException('NOT_POST_AUTHOR', `You cannot modify post ${id}`);
     }
@@ -183,8 +218,7 @@ export class PostsService {
   }
 
   private toView(item: PostWithAuthor, myVote: VoteValue | null, reportedByMe: boolean): PostView {
-    const imageUrl = item.post.imagePath ? this.imageStorage.publicUrl(item.post.imagePath) : null;
-    return toPostView(item, myVote, reportedByMe, imageUrl);
+    return toPostView(item, myVote, reportedByMe, this.imageUrlFor(item.post.imagePath));
   }
 
   // Borrar del bucket nunca hace fallar lo que ya se hizo en la base: si

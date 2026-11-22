@@ -31,6 +31,10 @@ export class ModerationCaseEntity {
     readonly reasons: string[],
     readonly firstReportedAt: Date,
     readonly lastReportedAt: Date,
+    // Alguno de sus reportes lo hizo la moderación por IA.
+    readonly aiFlagged: boolean,
+    // La imagen del post, si lo reportado es el post y tiene.
+    readonly postImagePath: string | null,
   ) {}
 
   // 0 = urgente, 1 = alta, 2 = normal. Manda el motivo más grave de todos

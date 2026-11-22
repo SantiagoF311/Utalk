@@ -20,6 +20,10 @@ describe('CommentsService', () => {
     findById: jest.Mock<ProfilesService['findById']>;
     assertHistoryVisible: jest.Mock<ProfilesService['assertHistoryVisible']>;
   };
+  let posts: {
+    findById: jest.Mock<PostsService['findById']>;
+    findVisibleById: jest.Mock<PostsService['findVisibleById']>;
+  };
   let service: CommentsService;
 
   beforeEach(() => {
@@ -40,7 +44,10 @@ describe('CommentsService', () => {
       update: jest.fn<CommentRepository['update']>(),
       softDelete: jest.fn<CommentRepository['softDelete']>().mockResolvedValue(undefined),
     };
-    const posts = { findById: jest.fn<PostsService['findById']>().mockResolvedValue(makePost()) };
+    posts = {
+      findById: jest.fn<PostsService['findById']>().mockResolvedValue(makePost()),
+      findVisibleById: jest.fn<PostsService['findVisibleById']>().mockResolvedValue(makePost()),
+    };
     profiles = {
       findById: jest.fn<ProfilesService['findById']>().mockResolvedValue(makeProfile()),
       assertHistoryVisible: jest
@@ -82,6 +89,23 @@ describe('CommentsService', () => {
   });
 
   describe('findTreeByPostId', () => {
+    it('usa la misma regla que el detalle del post (un retenido lo ve solo su autor)', async () => {
+      repository.findWithAuthorByPostId.mockResolvedValue([]);
+
+      await service.findTreeByPostId(IDS.post, IDS.beto);
+
+      expect(posts.findVisibleById).toHaveBeenCalledWith(IDS.post, IDS.beto);
+    });
+
+    it('propaga POST_UNDER_REVIEW si quien mira no puede ver el post', async () => {
+      posts.findVisibleById.mockRejectedValue(new AppException('POST_UNDER_REVIEW', 'held'));
+
+      await expect(service.findTreeByPostId(IDS.post, IDS.beto)).rejects.toMatchObject({
+        code: 'POST_UNDER_REVIEW',
+      });
+      expect(repository.findWithAuthorByPostId).not.toHaveBeenCalled();
+    });
+
     it('marca los comentarios que quien mira ya reportó, también entre las respuestas', async () => {
       repository.findWithAuthorByPostId.mockResolvedValue([
         withAuthor(makeComment({ id: id(1), createdAt: at(1) })),

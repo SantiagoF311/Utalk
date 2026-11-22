@@ -2,6 +2,7 @@ import type { PostView } from '@utalk/shared';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Callout } from '@/components/callout';
 import { CommunityAvatar } from '@/components/communityAvatar';
 import { HiddenNotice, ReportedBanner } from '@/components/hiddenNotice';
 import { Icon } from '@/components/icon';
@@ -76,6 +77,13 @@ export function PostCard({
       ]}>
       {post.reportedByMe && (
         <ReportedBanner label="Reportaste esta publicación" onHide={() => setRevealed(false)} />
+      )}
+      {/* Solo le llega a su autor: para el resto, un post retenido no existe. */}
+      {post.underReview && (
+        <Callout variant="warning">
+          En revisión: la moderación automática la marcó y un moderador la va a revisar. Mientras
+          tanto, solo tú la ves.
+        </Callout>
       )}
       {full ? (
         <DetailMeta post={post} />

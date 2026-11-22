@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ReportCategory, ReportStatus } from '@utalk/shared';
+import type { ReportCategory, ReportSource, ReportStatus } from '@utalk/shared';
 import { AppException } from '../../../common/appException.js';
 import { isUniqueViolation } from '../../../common/databaseError.js';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
@@ -16,7 +16,8 @@ interface ReportRow {
   case_number: number;
   post_id: string | null;
   comment_id: string | null;
-  reported_by: string;
+  reported_by: string | null;
+  source: ReportSource;
   category: ReportCategory;
   reason: string | null;
   status: ReportStatus;
@@ -44,6 +45,7 @@ function toEntity(row: ReportRow): ReportEntity {
     row.post_id,
     row.comment_id,
     row.reported_by,
+    row.source,
     row.category,
     row.reason,
     row.status,

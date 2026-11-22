@@ -132,6 +132,7 @@ export function ComposeScreen({
           reportedByMe: false,
           // La foto local: todavía no está subida.
           imageUrl: image?.uri ?? null,
+          underReview: false,
           author: {
             id: me.data.id,
             username: me.data.username,

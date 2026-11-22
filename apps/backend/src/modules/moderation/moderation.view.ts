@@ -9,7 +9,11 @@ export function toModerationScopeView(scope: ModerationScope): ModerationScopeVi
   };
 }
 
-export function toModerationCaseView(entry: ModerationCaseEntity): ModerationCase {
+// `imageUrl` la arma el almacenamiento de imágenes a partir de la ruta.
+export function toModerationCaseView(
+  entry: ModerationCaseEntity,
+  imageUrl: string | null,
+): ModerationCase {
   return {
     postId: entry.postId,
     postTitle: entry.postTitle,
@@ -23,5 +27,7 @@ export function toModerationCaseView(entry: ModerationCaseEntity): ModerationCas
     reasons: entry.reasons,
     firstReportedAt: entry.firstReportedAt.toISOString(),
     lastReportedAt: entry.lastReportedAt.toISOString(),
+    aiFlagged: entry.aiFlagged,
+    imageUrl,
   };
 }

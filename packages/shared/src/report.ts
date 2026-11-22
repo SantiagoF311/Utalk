@@ -25,6 +25,13 @@ export const reportStatusSchema = z.enum(REPORT_STATUSES);
 
 export type ReportStatus = z.infer<typeof reportStatusSchema>;
 
+// user: lo reportó una persona; ai: la moderación por IA, al publicarse.
+export const REPORT_SOURCES = ['user', 'ai'] as const;
+
+export const reportSourceSchema = z.enum(REPORT_SOURCES);
+
+export type ReportSource = z.infer<typeof reportSourceSchema>;
+
 export const reportSchema = z
   .object({
     id: z.uuid(),
@@ -32,7 +39,9 @@ export const reportSchema = z
     caseNumber: z.number().int().positive(),
     postId: z.uuid().nullable(),
     commentId: z.uuid().nullable(),
-    reportedBy: z.uuid(),
+    // null = lo reportó la IA (source 'ai').
+    reportedBy: z.uuid().nullable(),
+    source: reportSourceSchema,
     category: reportCategorySchema,
     // Detalle opcional que escribe quien reporta.
     reason: z.string().max(REPORT_DETAIL_MAX_LENGTH).nullable(),

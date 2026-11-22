@@ -1,4 +1,4 @@
-import type { ReportCategory, ReportStatus } from '@utalk/shared';
+import type { ReportCategory, ReportSource, ReportStatus } from '@utalk/shared';
 
 export class ReportEntity {
   constructor(
@@ -7,7 +7,9 @@ export class ReportEntity {
     readonly caseNumber: number,
     readonly postId: string | null,
     readonly commentId: string | null,
-    readonly reportedBy: string,
+    // null = lo reportó la IA.
+    readonly reportedBy: string | null,
+    readonly source: ReportSource,
     readonly category: ReportCategory,
     // Detalle opcional que escribió quien reporta.
     readonly reason: string | null,

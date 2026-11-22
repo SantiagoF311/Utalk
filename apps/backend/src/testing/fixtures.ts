@@ -118,6 +118,7 @@ export function makePost(
     score: number;
     removedAt: Date | null;
     imagePath: string | null;
+    heldAt: Date | null;
   }> = {},
 ): PostEntity {
   const p = {
@@ -127,6 +128,7 @@ export function makePost(
     score: 0,
     removedAt: null as Date | null,
     imagePath: null as string | null,
+    heldAt: null as Date | null,
     ...overrides,
   };
   return new PostEntity(
@@ -140,6 +142,7 @@ export function makePost(
     CREATED_AT,
     p.removedAt,
     p.imagePath,
+    p.heldAt,
   );
 }
 

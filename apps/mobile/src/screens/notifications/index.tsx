@@ -102,6 +102,13 @@ function rowContent(notification: NotificationView): RowContent {
       // En "Mis reportes" está el caso completo.
       return { kicker: `Tu reporte · caso #${caseNumber}`, text, open: () => router.push('/my-reports') };
     }
+    case 'content_held':
+      // Su autor la sigue viendo (con "En revisión"): se puede abrir.
+      return {
+        kicker: 'Moderación',
+        text: `Tu publicación ${title} está en revisión: la moderación automática la marcó y un moderador la va a revisar. Mientras tanto, solo tú la ves.`,
+        open: () => openPost(notification.post.id),
+      };
     case 'content_removed':
       return notification.target === 'comment'
         ? {

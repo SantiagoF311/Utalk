@@ -1,4 +1,4 @@
-import type { ModerationAction } from '@utalk/shared';
+import type { ModerationAction, ReportCategory } from '@utalk/shared';
 import type { ReportTarget } from '../../reports/domain/report.repository.js';
 import { ModerationCaseEntity } from './moderationCase.entity.js';
 
@@ -10,6 +10,10 @@ export interface ModerationRepository {
   // (y, si es `remove`, lo elimina), en una sola transacción. Devuelve
   // cuántos reportes cerró: 0 si no quedaba ninguno pendiente.
   resolve(target: ReportTarget, action: ModerationAction, resolvedBy: string): Promise<number>;
+  // Reporte automático de la moderación por IA (sin persona detrás): además
+  // retiene el post y le avisa al autor. Idempotente: un reporte pendiente de
+  // la IA por post a la vez. Devuelve si lo creó.
+  reportPostByAi(postId: string, category: ReportCategory, reason: string): Promise<boolean>;
 }
 
 export const MODERATION_REPOSITORY = Symbol('MODERATION_REPOSITORY');

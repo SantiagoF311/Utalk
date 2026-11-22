@@ -21,5 +21,6 @@ export function toPostView(
     myVote,
     reportedByMe,
     imageUrl,
+    underReview: post.isHeld(),
   };
 }

@@ -43,6 +43,8 @@ export const ERROR_CODES = [
   // Posts
   'POST_NOT_FOUND',
   'POST_REMOVED',
+  // Retenido por la moderación por IA hasta que lo revise un moderador.
+  'POST_UNDER_REVIEW',
   'NOT_POST_AUTHOR',
   'INVALID_CURSOR',
   'INVALID_IMAGE',
