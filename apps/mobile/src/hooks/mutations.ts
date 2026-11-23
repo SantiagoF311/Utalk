@@ -439,6 +439,41 @@ export function markNotificationRead(notification: NotificationView) {
   void api.markNotificationRead(notification.id).catch(refreshNotifications);
 }
 
+// Eliminar una notificación (desde su menú ⋯): desaparece de la lista al
+// instante, y si no estaba leída, la campana baja. Si la API falla, se
+// vuelven a pedir las dos.
+export function deleteNotification(notification: NotificationView) {
+  queryClient.setQueryData<List<NotificationView>>(queryKeys.notifications, (list) =>
+    list ? { ...list, items: list.items.filter((n) => n.id !== notification.id) } : list,
+  );
+  if (notification.readAt === null) {
+    queryClient.setQueryData<UnreadNotificationCount>(queryKeys.unreadNotifications, (result) =>
+      result ? { count: Math.max(0, result.count - 1) } : result,
+    );
+  }
+  void api.deleteNotification(notification.id).catch(refreshNotifications);
+}
+
+// "Eliminar todas": devuelve la promesa para que la confirmación muestre
+// el error si falla.
+export async function deleteAllNotifications(): Promise<void> {
+  await api.deleteAllNotifications();
+  queryClient.setQueryData<List<NotificationView>>(queryKeys.notifications, (list) =>
+    list ? { ...list, items: [] } : list,
+  );
+  queryClient.setQueryData<UnreadNotificationCount>(queryKeys.unreadNotifications, (result) =>
+    result ? { count: 0 } : result,
+  );
+}
+
+// Al tocar el aviso (push o del navegador) de una notificación: puede no
+// estar en la lista cargada, así que después se vuelven a pedir lista y
+// campana. Marcar una ya leída no hace nada (la API es idempotente).
+export function markNotificationReadById(notificationId: string) {
+  markNotificationsReadInCache((n) => n.id === notificationId);
+  void api.markNotificationRead(notificationId).then(refreshNotifications, refreshNotifications);
+}
+
 export function markAllNotificationsRead() {
   markNotificationsReadInCache(() => true);
   // La campana también cuenta las que no entraron en la lista (más viejas).

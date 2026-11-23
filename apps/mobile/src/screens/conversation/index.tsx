@@ -1,7 +1,7 @@
 import type { ConversationView } from '@utalk/shared';
-import { Stack } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -22,6 +22,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import type { ChatMessage } from '@/lib/chatCache';
 import { errorMessage } from '@/lib/errorMessages';
+import { setOpenConversation } from '@/lib/openConversation';
 
 // Una conversación: los mensajes (los nuevos llegan por Realtime), "Visto",
 // "escribiendo…" y la barra para escribir, que depende de si es una
@@ -38,6 +39,14 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
   const [blockAfterClose, setBlockAfterClose] = useState(false);
   const toggleBlock = useToggleBlock();
   const openProfile = useOpenProfile();
+
+  // Mientras está en pantalla, sus mensajes nuevos no se avisan (ya se ven).
+  useFocusEffect(
+    useCallback(() => {
+      setOpenConversation(conversationId);
+      return () => setOpenConversation(null);
+    }, [conversationId]),
+  );
 
   // Al abrirla, y cada vez que llega algo nuevo mientras está abierta.
   useEffect(() => {

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { ModerationAction, ReportCategory } from '@utalk/shared';
 import { SupabaseService } from '../../../supabase/supabase.service.js';
 import type { ReportTarget } from '../../reports/domain/report.repository.js';
-import type { ModerationRepository } from '../domain/moderation.repository.js';
+import type { AiReportResult, ModerationRepository } from '../domain/moderation.repository.js';
 import { ModerationCaseEntity } from '../domain/moderationCase.entity.js';
 
 // Fila de la función SQL moderation_queue (ver la migración `moderation`).
@@ -82,7 +82,11 @@ export class SupabaseModerationRepository implements ModerationRepository {
     return data as number;
   }
 
-  async reportPostByAi(postId: string, category: ReportCategory, reason: string): Promise<boolean> {
+  async reportPostByAi(
+    postId: string,
+    category: ReportCategory,
+    reason: string,
+  ): Promise<AiReportResult> {
     const { data, error } = await this.supabase.client.rpc('report_post_by_ai', {
       p_post_id: postId,
       p_category: category,
@@ -90,6 +94,8 @@ export class SupabaseModerationRepository implements ModerationRepository {
     });
 
     if (error) throw new Error(error.message);
-    return data as boolean;
+    // Devuelve una sola fila (es `returns table`).
+    const [row] = data as { reported: boolean; notification_id: string | null }[];
+    return { reported: row.reported, notificationId: row.notification_id };
   }
 }

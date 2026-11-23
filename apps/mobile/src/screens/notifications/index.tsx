@@ -1,28 +1,64 @@
+import { describeNotification } from '@utalk/shared';
 import type { NotificationView } from '@utalk/shared';
-import { router } from 'expo-router';
+import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BottomSheet, SheetOption } from '@/components/bottomSheet';
+import { ConfirmSheet } from '@/components/confirmSheet';
+import { Icon } from '@/components/icon';
 import { StateMessage } from '@/components/stateMessage';
 import { ThemedText } from '@/components/themedText';
 import { ThemedView } from '@/components/themedView';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { markAllNotificationsRead, markNotificationRead } from '@/hooks/mutations';
+import {
+  deleteAllNotifications,
+  deleteNotification,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '@/hooks/mutations';
 import { useNotifications } from '@/hooks/queries';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { errorMessage } from '@/lib/errorMessages';
+import { openNotificationLink } from '@/lib/notificationLinks';
 import { relativeTime } from '@/lib/relativeTime';
 
 // Notificaciones (desde la campana de Inicio): publicaciones nuevas en
 // comunidades a las que te uniste y avisos de moderación (en qué quedó lo
-// que reportaste, o que se eliminó algo tuyo). Tocar una la marca como leída
-// y abre lo que corresponda.
+// que reportaste, o qué pasó con algo tuyo). Tocar una la marca como leída
+// y abre lo que corresponda. El texto es el mismo del push
+// (describeNotification, en @utalk/shared). Se pueden eliminar de a una
+// (menú ⋯, o manteniendo presionada) o todas juntas.
 export function NotificationsScreen() {
   const theme = useTheme();
   const notifications = useNotifications();
   const pullToRefresh = usePullToRefresh(() => notifications.refetch());
-  const hasUnread = (notifications.data ?? []).some((notification) => notification.readAt === null);
+  const list = notifications.data ?? [];
+  const hasUnread = list.some((notification) => notification.readAt === null);
+  // La notificación con el menú abierto.
+  const [menuFor, setMenuFor] = useState<NotificationView | null>(null);
+  const [confirmingDeleteAll, setConfirmingDeleteAll] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [deleteAllError, setDeleteAllError] = useState<string | null>(null);
+
+  const closeDeleteAll = () => {
+    setConfirmingDeleteAll(false);
+    setDeleteAllError(null);
+  };
+
+  const confirmDeleteAll = async () => {
+    setDeletingAll(true);
+    setDeleteAllError(null);
+    try {
+      await deleteAllNotifications();
+      setConfirmingDeleteAll(false);
+    } catch (error) {
+      setDeleteAllError(errorMessage(error));
+    } finally {
+      setDeletingAll(false);
+    }
+  };
 
   const empty = notifications.isPending ? (
     <StateMessage kind="loading" />
@@ -44,20 +80,31 @@ export function NotificationsScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <FlatList<NotificationView>
-          data={notifications.data ?? []}
+          data={list}
           keyExtractor={(notification) => notification.id}
-          renderItem={({ item }) => <NotificationRow notification={item} />}
+          renderItem={({ item }) => (
+            <NotificationRow notification={item} onOpenMenu={() => setMenuFor(item)} />
+          )}
           ListHeaderComponent={
-            hasUnread ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={markAllNotificationsRead}
-                hitSlop={8}
-                style={styles.markAll}>
-                <ThemedText type="smallBold" themeColor="primary">
-                  Marcar todas como leídas
-                </ThemedText>
-              </Pressable>
+            list.length > 0 ? (
+              <View style={styles.header}>
+                {hasUnread && (
+                  <Pressable accessibilityRole="button" onPress={markAllNotificationsRead} hitSlop={8}>
+                    <ThemedText type="smallBold" themeColor="primary">
+                      Marcar todas como leídas
+                    </ThemedText>
+                  </Pressable>
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setConfirmingDeleteAll(true)}
+                  hitSlop={8}
+                  style={styles.deleteAll}>
+                  <ThemedText type="smallBold" themeColor="warning">
+                    Eliminar todas
+                  </ThemedText>
+                </Pressable>
+              </View>
             ) : undefined
           }
           ListEmptyComponent={empty}
@@ -65,78 +112,65 @@ export function NotificationsScreen() {
           refreshControl={<RefreshControl {...pullToRefresh} tintColor={theme.textSecondary} />}
           contentContainerStyle={styles.content}
         />
+
+        <BottomSheet visible={menuFor !== null} onClose={() => setMenuFor(null)}>
+          {menuFor?.readAt === null && (
+            <SheetOption
+              icon="check"
+              label="Marcar como leída"
+              onPress={() => {
+                markNotificationRead(menuFor);
+                setMenuFor(null);
+              }}
+            />
+          )}
+          <SheetOption
+            icon="trash"
+            label="Eliminar notificación"
+            destructive
+            onPress={() => {
+              if (menuFor) deleteNotification(menuFor);
+              setMenuFor(null);
+            }}
+          />
+        </BottomSheet>
+
+        <ConfirmSheet
+          visible={confirmingDeleteAll}
+          onClose={closeDeleteAll}
+          title="¿Eliminar todas las notificaciones?"
+          description="Se borran de la lista, leídas o no. Tus publicaciones y reportes no cambian."
+          confirmLabel="Sí, eliminar todas"
+          cancelLabel="Volver"
+          onConfirm={() => void confirmDeleteAll()}
+          loading={deletingAll}
+          errorMessage={deleteAllError}
+        />
       </SafeAreaView>
     </ThemedView>
   );
 }
 
-// Qué dice cada aviso y adónde lleva tocarlo (null = a ningún lado: una
-// publicación tuya eliminada ya no se puede abrir).
-type RowContent = { kicker: string; text: string; open: (() => void) | null };
+type NotificationRowProps = {
+  notification: NotificationView;
+  onOpenMenu: () => void;
+};
 
-function openPost(postId: string) {
-  router.push({ pathname: '/post/[postId]', params: { postId } });
-}
-
-function rowContent(notification: NotificationView): RowContent {
-  const title = `«${notification.post.title}»`;
-
-  switch (notification.type) {
-    case 'new_post_in_community':
-      return {
-        kicker: `Nueva publicación en c/${notification.community.slug}`,
-        text: notification.post.title,
-        open: () => openPost(notification.post.id),
-      };
-    case 'report_resolved': {
-      const { caseNumber, outcome } = notification.report;
-      const onComment = notification.target === 'comment';
-      const text =
-        outcome === 'removed'
-          ? onComment
-            ? `Eliminamos el comentario que reportaste en ${title}.`
-            : `Eliminamos la publicación ${title}.`
-          : onComment
-            ? `Revisamos el comentario que reportaste en ${title} y lo dejamos: no incumple las normas.`
-            : `Revisamos ${title} y la dejamos: no incumple las normas.`;
-      // En "Mis reportes" está el caso completo.
-      return { kicker: `Tu reporte · caso #${caseNumber}`, text, open: () => router.push('/my-reports') };
-    }
-    case 'content_held':
-      // Su autor la sigue viendo (con "En revisión"): se puede abrir.
-      return {
-        kicker: 'Moderación',
-        text: `Tu publicación ${title} está en revisión: la moderación automática la marcó y un moderador la va a revisar. Mientras tanto, solo tú la ves.`,
-        open: () => openPost(notification.post.id),
-      };
-    case 'content_removed':
-      return notification.target === 'comment'
-        ? {
-            kicker: 'Moderación',
-            text: `Un moderador eliminó tu comentario en ${title} por no cumplir las normas.`,
-            open: () => openPost(notification.post.id),
-          }
-        : {
-            kicker: 'Moderación',
-            text: `Un moderador eliminó tu publicación ${title} por no cumplir las normas.`,
-            open: null,
-          };
-  }
-}
-
-function NotificationRow({ notification }: { notification: NotificationView }) {
+function NotificationRow({ notification, onOpenMenu }: NotificationRowProps) {
   const theme = useTheme();
   const unread = notification.readAt === null;
-  const { kicker, text, open } = rowContent(notification);
+  const { kicker, text, link } = describeNotification(notification);
+  const opens = link !== 'none';
 
   return (
     <Pressable
-      accessibilityRole={open ? 'link' : 'button'}
+      accessibilityRole={opens ? 'link' : 'button'}
       accessibilityLabel={`${unread ? 'Sin leer. ' : ''}${kicker}: ${text}`}
       onPress={() => {
         markNotificationRead(notification);
-        open?.();
+        openNotificationLink(link, notification.post.id, 'list');
       }}
+      onLongPress={onOpenMenu}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.backgroundElement }]}>
       <View style={[styles.dot, unread && { backgroundColor: theme.primary }]} />
       <View style={styles.rowBody}>
@@ -147,6 +181,14 @@ function NotificationRow({ notification }: { notification: NotificationView }) {
           {text}
         </ThemedText>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Opciones de la notificación"
+        onPress={onOpenMenu}
+        hitSlop={8}
+        style={styles.more}>
+        <Icon name="more" size={18} color="textSecondary" />
+      </Pressable>
     </Pressable>
   );
 }
@@ -161,9 +203,17 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
   },
-  markAll: {
-    alignSelf: 'flex-end',
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
     marginBottom: Spacing.two,
+  },
+  deleteAll: {
+    marginLeft: 'auto',
+  },
+  more: {
+    padding: Spacing.one,
   },
   row: {
     flexDirection: 'row',

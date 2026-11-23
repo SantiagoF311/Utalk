@@ -12,8 +12,15 @@ export interface ModerationRepository {
   resolve(target: ReportTarget, action: ModerationAction, resolvedBy: string): Promise<number>;
   // Reporte automático de la moderación por IA (sin persona detrás): además
   // retiene el post y le avisa al autor. Idempotente: un reporte pendiente de
-  // la IA por post a la vez. Devuelve si lo creó.
-  reportPostByAi(postId: string, category: ReportCategory, reason: string): Promise<boolean>;
+  // la IA por post a la vez.
+  reportPostByAi(postId: string, category: ReportCategory, reason: string): Promise<AiReportResult>;
+}
+
+export interface AiReportResult {
+  // false = ya había uno pendiente (un reintento).
+  reported: boolean;
+  // El aviso al autor, para mandarlo por push (null si no se creó).
+  notificationId: string | null;
 }
 
 export const MODERATION_REPOSITORY = Symbol('MODERATION_REPOSITORY');

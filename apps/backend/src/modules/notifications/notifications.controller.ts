@@ -1,10 +1,10 @@
-import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import type { List, NotificationView, UnreadNotificationCount } from '@utalk/shared';
 import { CurrentUserId } from '../auth/auth.guard.js';
 import { toNotificationView } from './notification.view.js';
 import { NotificationsService } from './notifications.service.js';
 
-// Solo se leen y se marcan como leídas: las crea el worker de la cola.
+// Se leen, se marcan como leídas y se eliminan: las crea el worker de la cola.
 @Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
@@ -34,5 +34,21 @@ export class NotificationsController {
     @CurrentUserId() userId: string,
   ): Promise<void> {
     await this.notificationsService.markRead(id, userId);
+  }
+
+  // Todas las de quien pregunta.
+  @Delete()
+  @HttpCode(204)
+  async removeAll(@CurrentUserId() userId: string): Promise<void> {
+    await this.notificationsService.removeAll(userId);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUserId() userId: string,
+  ): Promise<void> {
+    await this.notificationsService.remove(id, userId);
   }
 }

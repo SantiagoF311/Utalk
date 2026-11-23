@@ -1,13 +1,19 @@
-import type { ConversationView, List, MessageView } from '@utalk/shared';
+import { describeNotification } from '@utalk/shared';
+import type { ConversationView, List, MessageView, NotificationView } from '@utalk/shared';
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
+import { markNotificationReadById } from '@/hooks/mutations';
+import { openNotificationLink } from '@/lib/notificationLinks';
+import { isConversationOpen } from '@/lib/openConversation';
 import { queryClient } from '@/lib/queryClient';
 import { queryKeys } from '@/lib/queryKeys';
 
 // En la web no hay push con la pestaña cerrada (ver docs/chat-realtime.md),
-// pero sí un aviso del navegador cuando llega un mensaje y la pestaña no está
-// a la vista. El mensaje llega por Realtime (hooks/useChatRealtime.ts).
+// pero sí un aviso del navegador mientras está abierta, igual que el push en
+// el celular: por cada mensaje nuevo (salvo el de la conversación que estás
+// mirando) y por cada notificación nueva. Los dos llegan por Realtime
+// (hooks/useChatRealtime.ts y hooks/useNotificationsRealtime.ts).
 
 const PREVIEW_MAX_LENGTH = 120;
 
@@ -23,7 +29,8 @@ export function requestBrowserNotificationPermission(): void {
 
 export function notifyNewMessageInBrowser(message: MessageView, myUserId: string): void {
   if (!isSupported() || Notification.permission !== 'granted') return;
-  if (message.senderId === myUserId || !document.hidden) return;
+  if (message.senderId === myUserId) return;
+  if (isConversationOpen(message.conversationId) && !document.hidden) return;
 
   const conversation = queryClient
     .getQueryData<List<ConversationView>>(queryKeys.conversations)
@@ -47,5 +54,19 @@ export function notifyNewMessageInBrowser(message: MessageView, myUserId: string
     window.focus();
     router.push({ pathname: '/chat/[conversationId]', params: { conversationId: message.conversationId } });
     notification.close();
+  };
+}
+
+export function notifyNotificationInBrowser(notification: NotificationView): void {
+  if (!isSupported() || Notification.permission !== 'granted') return;
+
+  // El mismo texto que la lista y el push del celular.
+  const { kicker, text, link } = describeNotification(notification);
+  const alert = new Notification(kicker, { body: text, tag: notification.id });
+  alert.onclick = () => {
+    window.focus();
+    markNotificationReadById(notification.id);
+    openNotificationLink(link, notification.post.id, 'alert');
+    alert.close();
   };
 }

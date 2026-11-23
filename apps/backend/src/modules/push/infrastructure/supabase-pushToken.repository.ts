@@ -50,6 +50,18 @@ export class SupabasePushTokenRepository implements PushTokenRepository {
     return (data as PushTokenRow[]).map(toEntity);
   }
 
+  async findByUsers(userIds: string[]): Promise<PushTokenEntity[]> {
+    if (userIds.length === 0) return [];
+
+    const { data, error } = await this.supabase.client
+      .from('push_tokens')
+      .select('token, user_id, platform, updated_at')
+      .in('user_id', userIds);
+
+    if (error) throw new Error(error.message);
+    return (data as PushTokenRow[]).map(toEntity);
+  }
+
   async deleteMany(tokens: string[]): Promise<void> {
     if (tokens.length === 0) return;
 

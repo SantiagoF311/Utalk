@@ -371,6 +371,14 @@ export const api = {
     return authSend<void>('POST', '/notifications/read-all');
   },
 
+  deleteNotification(notificationId: string) {
+    return authSend<void>('DELETE', `/notifications/${encodeURIComponent(notificationId)}`);
+  },
+
+  deleteAllNotifications() {
+    return authSend<void>('DELETE', '/notifications');
+  },
+
   // El celular donde avisar de los mensajes nuevos (ver lib/pushNotifications.ts).
   registerPushToken(input: RegisterPushTokenInput) {
     return authSend<void>('PUT', '/push-tokens', input);

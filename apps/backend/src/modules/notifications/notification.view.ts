@@ -1,4 +1,6 @@
+import { describeNotification } from '@utalk/shared';
 import type { NotificationView } from '@utalk/shared';
+import type { UserPush } from '../push/push.service.js';
 import type { NotificationWithTarget } from './domain/notification.repository.js';
 
 export function toNotificationView({
@@ -34,5 +36,20 @@ export function toNotificationView({
       return { ...base, type: notification.type, target: notification.target() };
     case 'content_held':
       return { ...base, type: notification.type };
+    case 'content_kept':
+      return { ...base, type: notification.type, target: notification.target() };
   }
+}
+
+// El push de una notificación: dice lo mismo que la lista de la app (ver
+// describeNotification) y, al tocarlo, lleva al mismo lugar.
+export function toNotificationPush(target: NotificationWithTarget): UserPush {
+  const view = toNotificationView(target);
+  const { kicker, text, link } = describeNotification(view);
+  return {
+    recipientId: target.notification.userId,
+    title: kicker,
+    body: text,
+    data: { notificationId: view.id, postId: view.post.id, link },
+  };
 }
