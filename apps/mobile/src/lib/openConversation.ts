@@ -1,5 +1,5 @@
-// La conversación que está en pantalla: sus mensajes nuevos no se avisan
-// (ni push con la app abierta ni aviso del navegador), porque ya se ven.
+// La conversación que está en pantalla: sus mensajes nuevos no muestran el
+// aviso interno (ver lib/incomingAlerts.ts), porque ya se ven.
 // La marca la pantalla de la conversación mientras tiene el foco.
 let openConversationId: string | null = null;
 
