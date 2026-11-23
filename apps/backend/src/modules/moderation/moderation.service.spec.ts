@@ -51,6 +51,7 @@ describe('ModerationService', () => {
   let profiles: { findById: jest.Mock<ProfilesService['findById']> };
   let notifications: {
     enqueueModerationResult: jest.Mock<NotificationsService['enqueueModerationResult']>;
+    push: jest.Mock<NotificationsService['push']>;
   };
   let service: ModerationService;
 
@@ -58,7 +59,9 @@ describe('ModerationService', () => {
     repository = {
       findPendingCases: jest.fn<ModerationRepository['findPendingCases']>().mockResolvedValue([]),
       resolve: jest.fn<ModerationRepository['resolve']>().mockResolvedValue(2),
-      reportPostByAi: jest.fn<ModerationRepository['reportPostByAi']>().mockResolvedValue(true),
+      reportPostByAi: jest
+        .fn<ModerationRepository['reportPostByAi']>()
+        .mockResolvedValue({ reported: true, notificationId: IDS.notification }),
     };
     classifier = {
       classify: jest
@@ -93,6 +96,7 @@ describe('ModerationService', () => {
       enqueueModerationResult: jest
         .fn<NotificationsService['enqueueModerationResult']>()
         .mockResolvedValue(undefined),
+      push: jest.fn<NotificationsService['push']>().mockResolvedValue(undefined),
     };
 
     service = new ModerationService(
@@ -136,9 +140,26 @@ describe('ModerationService', () => {
       expect(repository.resolve).not.toHaveBeenCalled();
     });
 
+    it('al retenerlo, el aviso al autor también va por push', async () => {
+      classifier.classify.mockResolvedValue({ flagged: true, categories: ['harassment'] });
+
+      await service.reviewPost(IDS.post);
+
+      expect(notifications.push).toHaveBeenCalledWith([IDS.notification]);
+    });
+
+    it('en un reintento (el reporte ya existía) no hay aviso nuevo ni push', async () => {
+      classifier.classify.mockResolvedValue({ flagged: true, categories: ['harassment'] });
+      repository.reportPostByAi.mockResolvedValue({ reported: false, notificationId: null });
+
+      await expect(service.reviewPost(IDS.post)).resolves.toBe(false);
+      expect(notifications.push).not.toHaveBeenCalled();
+    });
+
     it('si la IA no lo marca, no hace nada', async () => {
       await expect(service.reviewPost(IDS.post)).resolves.toBe(false);
       expect(repository.reportPostByAi).not.toHaveBeenCalled();
+      expect(notifications.push).not.toHaveBeenCalled();
     });
 
     it('un post ya eliminado por un moderador no se revisa', async () => {

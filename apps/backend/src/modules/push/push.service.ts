@@ -1,9 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { NotifyNewMessageJob, RegisterPushTokenInput } from '@utalk/shared';
+import { PUSH_JOB_MAX_MESSAGES } from '@utalk/shared';
+import type { NotifyNewMessageJob, NotifyUsersJob, RegisterPushTokenInput } from '@utalk/shared';
 import { PUSH_QUEUE } from './domain/push.queue.js';
 import type { PushQueue } from './domain/push.queue.js';
 import { PUSH_SENDER } from './domain/push.sender.js';
-import type { PushSender } from './domain/push.sender.js';
+import type { PushMessage, PushSender } from './domain/push.sender.js';
 import { messagePreview, newMessagePushContent } from './domain/pushContent.js';
 import { PUSH_TOKEN_REPOSITORY } from './domain/pushToken.repository.js';
 import type { PushTokenRepository } from './domain/pushToken.repository.js';
@@ -17,6 +18,9 @@ export interface NewMessage {
   // Primer mensaje a alguien con quien no había conversación.
   isRequest: boolean;
 }
+
+// Un aviso ya armado para alguien (le llega a todos sus celulares).
+export type UserPush = NotifyUsersJob['messages'][number];
 
 @Injectable()
 export class PushService {
@@ -54,6 +58,38 @@ export class PushService {
     } catch (error) {
       this.logger.error(`Could not enqueue push for conversation ${job.conversationId}`, error);
     }
+  }
+
+  // Lo llaman las notificaciones con los avisos ya armados (uno por
+  // destinatario). Nunca falla, igual que con los mensajes: la notificación
+  // ya está guardada (y se ve en la campana); si la cola no responde, solo
+  // se pierde el push. Van en tandas para que un job no sea enorme.
+  async enqueueToUsers(messages: UserPush[]): Promise<void> {
+    for (let i = 0; i < messages.length; i += PUSH_JOB_MAX_MESSAGES) {
+      const batch = messages.slice(i, i + PUSH_JOB_MAX_MESSAGES);
+      try {
+        await this.pushQueue.enqueueUsers({ messages: batch });
+      } catch (error) {
+        this.logger.error(`Could not enqueue push for ${batch.length} users`, error);
+      }
+    }
+  }
+
+  // Lo corre el worker: cada aviso a todos los celulares de su destinatario
+  // (quien no tiene ninguno, no recibe nada). Devuelve a cuántos se entregó.
+  async deliverToUsers(job: NotifyUsersJob): Promise<number> {
+    const recipientIds = [...new Set(job.messages.map((message) => message.recipientId))];
+    const tokens = await this.pushTokenRepository.findByUsers(recipientIds);
+    if (tokens.length === 0) return 0;
+
+    const pushes: PushMessage[] = job.messages.flatMap(({ recipientId, title, body, data }) =>
+      tokens
+        .filter((token) => token.belongsTo(recipientId))
+        .map(({ token }) => ({ token, title, body, data })),
+    );
+    const { invalidTokens } = await this.pushSender.send(pushes);
+    await this.pushTokenRepository.deleteMany(invalidTokens);
+    return pushes.length - invalidTokens.length;
   }
 
   // Lo corre el worker: manda el aviso a cada celular del destinatario y

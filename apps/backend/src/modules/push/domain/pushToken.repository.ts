@@ -8,6 +8,8 @@ export interface PushTokenRepository {
   // Solo si es de ese usuario: nadie borra el token de otro.
   deleteOwned(token: string, userId: string): Promise<void>;
   findByUser(userId: string): Promise<PushTokenEntity[]>;
+  // Los de todos esos usuarios (para un aviso a muchos, ej. un post nuevo).
+  findByUsers(userIds: string[]): Promise<PushTokenEntity[]>;
   // Los que Expo dice que ya no existen (desinstalaron la app).
   deleteMany(tokens: string[]): Promise<void>;
 }

@@ -1,10 +1,10 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import * as Sentry from '@sentry/nestjs';
-import { notifyNewMessageJobSchema } from '@utalk/shared';
-import type { NotifyNewMessageJob } from '@utalk/shared';
+import { notifyNewMessageJobSchema, notifyUsersJobSchema } from '@utalk/shared';
+import type { NotifyNewMessageJob, NotifyUsersJob } from '@utalk/shared';
 import type { Job } from 'bullmq';
 import { isFinalAttempt } from '../../common/jobs.js';
-import { NOTIFY_NEW_MESSAGE_JOB, PUSH_QUEUE_NAME } from './push.jobs.js';
+import { NOTIFY_NEW_MESSAGE_JOB, NOTIFY_USERS_JOB, PUSH_QUEUE_NAME } from './push.jobs.js';
 import { PushService } from './push.service.js';
 
 // Worker de la cola `push`: corre en el mismo proceso que la API.
@@ -18,20 +18,31 @@ export class PushProcessor extends WorkerHost {
     switch (job.name) {
       case NOTIFY_NEW_MESSAGE_JOB:
         return this.pushService.deliverNewMessage(notifyNewMessageJobSchema.parse(job.data));
+      case NOTIFY_USERS_JOB:
+        return this.pushService.deliverToUsers(notifyUsersJobSchema.parse(job.data));
       default:
         throw new Error(`Unknown job "${job.name}" in queue ${PUSH_QUEUE_NAME}`);
     }
   }
 
-  // El payload lleva el comienzo del mensaje: a Sentry van solo los ids. Se
-  // leen sin validar: el job pudo fallar justamente por datos inválidos.
+  // El payload lleva texto (el comienzo del mensaje, el título del post): a
+  // Sentry van solo los ids. Se leen sin validar: el job pudo fallar
+  // justamente por datos inválidos.
   @OnWorkerEvent('failed')
   onFailed(job: Job | undefined, error: Error): void {
     if (!job || !isFinalAttempt(job)) return;
-    const { conversationId, recipientId } = job.data as Partial<NotifyNewMessageJob>;
     Sentry.captureException(error, {
       tags: { queue: PUSH_QUEUE_NAME, job: job.name },
-      extra: { jobId: job.id, conversationId, recipientId },
+      extra: { jobId: job.id, ...safeIds(job) },
     });
   }
+}
+
+function safeIds(job: Job): Record<string, unknown> {
+  if (job.name === NOTIFY_USERS_JOB) {
+    const { messages } = job.data as Partial<NotifyUsersJob>;
+    return { recipientIds: messages?.map((message) => message.recipientId) };
+  }
+  const { conversationId, recipientId } = job.data as Partial<NotifyNewMessageJob>;
+  return { conversationId, recipientId };
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { notificationLinkSchema } from './notification.ts';
 
 // Push del celular (ver docs/chat-realtime.md): el mobile registra su token
 // de Expo al entrar y lo borra al cerrar sesión; el backend manda los avisos
@@ -37,7 +38,33 @@ export const notifyNewMessageJobSchema = z.object({
 
 export type NotifyNewMessageJob = z.infer<typeof notifyNewMessageJobSchema>;
 
-// Lo que viaja en `data` de la notificación: a qué conversación lleva tocarla.
-export const pushMessageDataSchema = z.object({ conversationId: z.uuid() });
+// Lo que viaja en `data` del push: un mensaje del chat (lleva a la
+// conversación) o una notificación de la campana (lleva a lo que diga
+// `link`, y tocarla la marca como leída).
+export const pushMessageDataSchema = z.union([
+  z.object({ conversationId: z.uuid() }),
+  z.object({ notificationId: z.uuid(), postId: z.uuid(), link: notificationLinkSchema }),
+]);
 
 export type PushMessageData = z.infer<typeof pushMessageDataSchema>;
+
+// Payload del job `notify-users` (cola `push`): avisos ya armados, uno por
+// destinatario (cada uno llega a todos sus celulares). Los arma quien crea
+// las notificaciones; el worker solo los entrega.
+export const PUSH_JOB_MAX_MESSAGES = 100;
+
+export const notifyUsersJobSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        recipientId: z.uuid(),
+        title: z.string().min(1),
+        body: z.string().min(1),
+        data: pushMessageDataSchema,
+      }),
+    )
+    .min(1)
+    .max(PUSH_JOB_MAX_MESSAGES),
+});
+
+export type NotifyUsersJob = z.infer<typeof notifyUsersJobSchema>;

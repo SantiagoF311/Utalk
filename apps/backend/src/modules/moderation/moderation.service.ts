@@ -57,7 +57,16 @@ export class ModerationService {
     if (!classification.flagged) return false;
 
     const { category, reason } = aiReportFor(classification.categories);
-    return this.moderationRepository.reportPostByAi(post.id, category, reason);
+    const { reported, notificationId } = await this.moderationRepository.reportPostByAi(
+      post.id,
+      category,
+      reason,
+    );
+    // El aviso al autor de que quedó retenido también le llega por push.
+    if (notificationId !== null) {
+      await this.notificationsService.push([notificationId]);
+    }
+    return reported;
   }
 
   // La imagen del post de un caso, para que el moderador la vea.

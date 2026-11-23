@@ -55,23 +55,34 @@ function toNotificationWithTarget(row: NotificationListRow): NotificationWithTar
 export class SupabaseNotificationRepository implements NotificationRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async createForNewPost(postId: string): Promise<number> {
+  async createForNewPost(postId: string): Promise<string[]> {
     const { data, error } = await this.supabase.client.rpc('notify_new_post', {
       p_post_id: postId,
     });
 
     if (error) throw new Error(error.message);
-    return data as number;
+    return (data as { id: string }[]).map((row) => row.id);
   }
 
-  async createForModerationResult(content: NotifyModerationResultJob): Promise<number> {
+  async createForModerationResult(content: NotifyModerationResultJob): Promise<string[]> {
     const { data, error } = await this.supabase.client.rpc('notify_moderation_result', {
       p_post_id: content.postId,
       p_comment_id: content.commentId,
     });
 
     if (error) throw new Error(error.message);
-    return data as number;
+    return (data as { id: string }[]).map((row) => row.id);
+  }
+
+  async findManyWithTarget(ids: string[]): Promise<NotificationWithTarget[]> {
+    if (ids.length === 0) return [];
+
+    const { data, error } = await this.supabase.client.rpc('notifications_by_ids', {
+      p_ids: ids,
+    });
+
+    if (error) throw new Error(error.message);
+    return (data as NotificationListRow[]).map(toNotificationWithTarget);
   }
 
   async findById(id: string): Promise<NotificationEntity | null> {
@@ -110,6 +121,21 @@ export class SupabaseNotificationRepository implements NotificationRepository {
       .update({ read_at: new Date().toISOString() })
       .eq('id', id)
       .is('read_at', null);
+
+    if (error) throw new Error(error.message);
+  }
+
+  async delete(id: string): Promise<void> {
+    const { error } = await this.supabase.client.from('notifications').delete().eq('id', id);
+
+    if (error) throw new Error(error.message);
+  }
+
+  async deleteAllByUser(userId: string): Promise<void> {
+    const { error } = await this.supabase.client
+      .from('notifications')
+      .delete()
+      .eq('user_id', userId);
 
     if (error) throw new Error(error.message);
   }
