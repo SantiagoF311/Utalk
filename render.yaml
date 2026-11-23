@@ -21,6 +21,9 @@ services:
     envVars:
       - key: SENTRY_ENVIRONMENT
         value: production
+      # La versión web (utalk-web, abajo) llama a la API desde el navegador.
+      - key: CORS_ORIGINS
+        value: https://utalk-web.onrender.com
       # Secretos: Render los pide al crear el servicio (`sync: false` = no
       # están en el repo). Copiarlos de apps/backend/.env.
       - key: SUPABASE_URL
@@ -35,4 +38,30 @@ services:
         sync: false
       # Moderación por IA. Opcional: sin ella queda apagada.
       - key: OPENAI_API_KEY
+        sync: false
+
+  # Versión web de la app: Expo exportado como sitio estático (HTML + JS, sin
+  # servidor). Gratis y no se duerme. Se recompila con cada push a la rama
+  # del Blueprint.
+  - type: web
+    name: utalk-web
+    runtime: static
+    buildCommand: npm ci && npm run export:web -w apps/mobile
+    staticPublishPath: ./apps/mobile/dist
+    # Es una SPA: cualquier ruta (/post/123, /community/abc…) carga
+    # index.html y expo-router resuelve la pantalla en el navegador.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Las EXPO_PUBLIC_ quedan dentro del JS al compilar: son públicas (las
+      # ve cualquiera que abra la web), nunca una clave secreta.
+      - key: EXPO_PUBLIC_API_URL
+        value: https://utalk-api.onrender.com
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
         sync: false
