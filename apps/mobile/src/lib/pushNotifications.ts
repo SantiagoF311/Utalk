@@ -1,35 +1,27 @@
-import { pushMessageDataSchema } from '@utalk/shared';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { api } from '@/lib/api';
-import { isConversationOpen } from '@/lib/openConversation';
 
 // Push (ver docs/chat-realtime.md): el backend avisa de cada mensaje nuevo
 // del chat y de cada notificación de la campana, por el servicio de push de
 // Expo. En iOS funciona en Expo Go; en Android, Expo Go ya no recibe push
 // (hace falta un build).
 
-// Como en Reddit, el aviso se muestra también con la app abierta (arriba,
-// como un banner), salvo un mensaje de la conversación que está en
-// pantalla: ese ya se ve.
+// Con la app abierta no se muestra la notificación del sistema: lo mismo
+// llega por Realtime y se muestra el aviso interno de la app (ver
+// lib/incomingAlerts.ts), como hacen WhatsApp o Instagram.
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
-    handleNotification: (notification) => {
-      const data = pushMessageDataSchema.safeParse(notification.request.content.data);
-      const alreadyOnScreen =
-        data.success &&
-        'conversationId' in data.data &&
-        isConversationOpen(data.data.conversationId);
-      return Promise.resolve({
-        shouldShowBanner: !alreadyOnScreen,
-        shouldShowList: !alreadyOnScreen,
-        shouldPlaySound: !alreadyOnScreen,
+    handleNotification: () =>
+      Promise.resolve({
+        shouldShowBanner: false,
+        shouldShowList: false,
+        shouldPlaySound: false,
         shouldSetBadge: false,
-      });
-    },
+      }),
   });
 }
 

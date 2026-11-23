@@ -2,8 +2,8 @@ import type { MessageView } from '@utalk/shared';
 import { useEffect } from 'react';
 
 import { useSession } from '@/hooks/useSession';
-import { notifyNewMessageInBrowser } from '@/lib/browserNotifications';
 import { addMessageToCache, refreshConversation, updateMessageInCache } from '@/lib/chatCache';
+import { alertNewMessage } from '@/lib/incomingAlerts';
 import { supabase } from '@/lib/supabase';
 
 // Fila de `messages` tal como la manda Realtime (snake_case).
@@ -44,8 +44,8 @@ export function useChatRealtime() {
         const message = toMessageView(payload.new as MessageRow);
         addMessageToCache(message);
         refreshConversation(message.conversationId);
-        // Solo en la web y con la pestaña oculta.
-        notifyNewMessageInBrowser(message, userId);
+        // Aviso interno con la app abierta (o del navegador con la pestaña oculta).
+        alertNewMessage(message, userId);
       })
       // El "Visto": read_at cambia cuando el otro abre la conversación.
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {

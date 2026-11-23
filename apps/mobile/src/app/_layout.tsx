@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ReactNode } from 'react';
 
 import { AnimatedSplashOverlay } from '@/components/animatedIcon';
+import { InAppAlertHost } from '@/components/inAppAlert';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useRequireProfile } from '@/hooks/useRequireProfile';
@@ -141,6 +142,10 @@ function RootNavigator() {
             elegir el apodo), y protegerlo lo cerraría a la mitad. */}
         <Stack.Screen name="register" />
       </Stack>
+
+      {/* Avisos internos (mensajes y notificaciones con la app abierta),
+          encima de cualquier pantalla. */}
+      <InAppAlertHost />
     </>
   );
 }
